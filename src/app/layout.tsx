@@ -1,0 +1,27 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "SF Vision",
+  description: "A React prototyping environment for a new Salesforce vision.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        {/*
+         * SLDS 2 — Salesforce Cosmos theme. Served as a static stylesheet from
+         * public/vendor/slds (synced by scripts/copy-slds.mjs on predev/prebuild).
+         * Apply slds-* blueprint classes in your JSX to inherit the look.
+         */}
+        <link rel="stylesheet" href="/vendor/slds/slds2.cosmos.css" />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}

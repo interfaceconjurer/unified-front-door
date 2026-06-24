@@ -1,0 +1,9 @@
+-- Salesforce-style CRM schema for the prototype.
+-- Empty for now — we'll model objects (Account, Contact, Opportunity, etc.)
+-- here when we start building the data layer.
+--
+-- Modeling cheatsheet:
+--   lookup relationship   ≈ nullable FK (ON DELETE SET NULL)
+--   master-detail         ≈ NOT NULL FK (ON DELETE CASCADE)
+--   junction object       ≈ join table + composite UNIQUE
+--   custom (__c) fields   ≈ typed columns, or a `custom_fields JSONB` column

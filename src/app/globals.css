@@ -1,0 +1,23 @@
+/*
+ * Minimal base. SLDS 2 (Cosmos) owns the design language — keep this file lean
+ * and avoid hardcoded colors/spacing so we don't fight the design system.
+ *
+ * Font note: Salesforce Sans is license-restricted to Salesforce-hosted apps,
+ * so we use Arial (the SLDS-supported fallback) off-platform.
+ */
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
