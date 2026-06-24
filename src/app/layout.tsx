@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SF Vision",
+  title: "Platform Studio",
   description: "A React prototyping environment for a new Salesforce vision.",
 };
 
