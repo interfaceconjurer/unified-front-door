@@ -3,11 +3,17 @@
 # Fires on every push to `main` — which is what a merged pull request produces —
 # and can also be run on demand from the Actions tab (workflow_dispatch).
 #
-# The deploy uses Heroku's source-blob build API (`heroku builds:create`): it
-# uploads the checked-out source and runs the same buildpack build as a manual
-# `git push heroku` (prebuild copies SLDS, then `next build`). Going through the
-# build API means we never force-push the Heroku git remote, so it stays correct
-# whether PRs are merged, squashed, or rebased.
+# The deploy talks to Heroku's source-blob build API directly over HTTPS (curl +
+# jq, no Heroku CLI and no plugins): it creates a source slot, uploads the
+# checked-out source as a tarball, then starts a build that runs the same
+# buildpack build as a manual `git push heroku` (prebuild copies SLDS, then
+# `next build`). Going through the build API means we never force-push the Heroku
+# git remote, so it stays correct whether PRs are merged, squashed, or rebased.
+#
+# This previously shelled out to `heroku builds:create`, but that lives in the
+# `heroku-builds` CLI plugin, which is unmaintained and no longer installs
+# against the current Heroku CLI (`plugins:install` fails with "plugin is
+# invalid"). The raw API is the same operation without the dead dependency.
 #
 # Requires repo secret HEROKU_API_KEY — a write-scoped Heroku authorization token.
 
@@ -34,12 +40,56 @@ jobs:
       - name: Check out the merged commit
         uses: actions/checkout@v4
 
-      - name: Install Heroku CLI + builds plugin
-        run: |
-          curl https://cli-assets.heroku.com/install.sh | sh
-          heroku plugins:install heroku-builds
-
-      - name: Deploy to Heroku
+      # HEROKU_API_KEY comes in via env (never interpolated into the script), and
+      # the only other input is $GITHUB_SHA — a runner-provided commit hash. No
+      # untrusted event data is used here.
+      - name: Deploy to Heroku via source-blob build API
+        shell: bash
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-        run: heroku builds:create --app platform-studio-prototype
+          APP: platform-studio-prototype
+        run: |
+          set -euo pipefail
+
+          # Small helper for the JSON Platform API (auth + versioned Accept header).
+          api() {
+            curl -sf -H "Authorization: Bearer $HEROKU_API_KEY" \
+                     -H "Accept: application/vnd.heroku+json; version=3" "$@"
+          }
+
+          echo "Creating source slot…"
+          source=$(api -X POST https://api.heroku.com/sources)
+          put_url=$(jq -r '.source_blob.put_url' <<<"$source")
+          get_url=$(jq -r '.source_blob.get_url' <<<"$source")
+
+          echo "Packing tracked files at ${GITHUB_SHA}…"
+          git archive --format=tar.gz -o /tmp/source.tgz HEAD
+
+          # Signed upload URL — send the tarball raw, with no forced content-type.
+          echo "Uploading source blob…"
+          curl -sf -X PUT "$put_url" -H "Content-Type:" --data-binary @/tmp/source.tgz
+
+          echo "Starting build…"
+          payload=$(jq -n --arg url "$get_url" --arg version "$GITHUB_SHA" \
+            '{source_blob: {url: $url, version: $version}}')
+          build=$(api -X POST "https://api.heroku.com/apps/${APP}/builds" \
+            -H "Content-Type: application/json" -d "$payload")
+          build_id=$(jq -r '.id' <<<"$build")
+          stream=$(jq -r '.output_stream_url' <<<"$build")
+
+          # Stream the buildpack output live into the Actions log (best-effort).
+          echo "Build ${build_id} started; streaming output…"
+          curl -s "$stream" || true
+
+          # The stream closing isn't authoritative, so confirm the terminal state.
+          echo "Confirming final status…"
+          for _ in $(seq 1 60); do
+            status=$(api "https://api.heroku.com/apps/${APP}/builds/${build_id}" | jq -r '.status')
+            case "$status" in
+              succeeded) echo "Build succeeded."; exit 0 ;;
+              failed)    echo "Build failed."; exit 1 ;;
+              *)         sleep 5 ;;
+            esac
+          done
+          echo "Timed out waiting for build ${build_id} (last status: ${status:-unknown})."
+          exit 1
