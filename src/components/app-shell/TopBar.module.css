@@ -1,0 +1,129 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  padding-inline: var(--slds-g-spacing-4, 1rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  flex: 0 0 auto;
+}
+
+/* Project scope indicator — only present inside a project canvas. A divider
+   separates it from the product identity; the accent dot echoes the chat panel's
+   "scoped into a project" cue. */
+.scope {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  min-width: 0;
+  margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
+  padding-inline-start: var(--slds-g-spacing-3, 0.75rem);
+  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.scopeDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: 0 0 auto;
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  background: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.scopeName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.logo {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  font-weight: 700;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+}
+
+.brandName {
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* ALM-mode control — a labelled switch that reads as a real toggle. */
+.almToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  cursor: pointer;
+}
+
+.almToggle:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.almToggle[data-on] {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.almLabel {
+  white-space: nowrap;
+}
+
+.switch {
+  position: relative;
+  width: 2rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-border-1, #c9c9c9);
+  transition: background 0.15s ease;
+}
+
+.almToggle[data-on] .switch {
+  background: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  background: var(--slds-g-color-surface-1, #fff);
+  transform: translateY(-50%);
+  transition: transform 0.15s ease;
+}
+
+.almToggle[data-on] .thumb {
+  transform: translate(0.9rem, -50%);
+}

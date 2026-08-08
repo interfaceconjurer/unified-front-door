@@ -1,0 +1,274 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 40%;
+  min-width: 20rem;
+  background: var(--slds-g-color-surface-1, #fff);
+  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  flex: 0 0 auto;
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  background: var(--slds-g-color-accent-container-1, #eef4ff);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.headerText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.subtitle {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.badge {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* Scope strip — reflects the active canvas the agent is reasoning about. A muted
+   dot for the whole workspace, accent when scoped into one project. Two lines:
+   the scope name, and a descriptor of what that session is about. */
+.scope {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.scopeHead {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+/* Descriptor line, tucked under the label past the dot. */
+.scopeBlurb {
+  padding-inline-start: calc(0.5rem + var(--slds-g-spacing-2, 0.5rem));
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.scopeDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-border-2, #939393);
+  transition: background 0.2s ease;
+}
+
+.scopeLabel {
+  font-size: var(--slds-g-font-scale-neg-2, 0.625rem);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.scopeValue {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  transition: color 0.2s ease;
+}
+
+.scope[data-scoped] .scopeDot {
+  background: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.scope[data-scoped] .scopeValue {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+/* Scroll container for the active scope's session. */
+.transcript {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--slds-g-spacing-4, 1rem);
+  display: flex;
+  flex-direction: column;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+/* The messages, stacked. Keyed by scope in the markup, so remounting on a scope
+   change replays this fade-in — the session visibly reloads into its new scope. */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+  animation: threadIn 0.28s ease both;
+}
+
+/* Reload beat shown while the agent "reconnects" to a new scope. */
+.reloading {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  animation: threadIn 0.2s ease both;
+}
+
+.reloadSpinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  border: 2px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 22%, transparent);
+  border-top-color: var(--slds-g-color-accent-1, #0176d3);
+  animation: chatSpin 0.7s linear infinite;
+}
+
+.reloadText {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.msg {
+  display: flex;
+}
+
+.msg.user {
+  justify-content: flex-end;
+}
+
+.bubble {
+  max-width: 100%;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  line-height: var(--slds-g-font-lineheight-3, 1.5);
+}
+
+.agent .bubble {
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  border-start-start-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+.user .bubble {
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  border-start-end-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+/* Tool-call block — signals the agentic step between prompt and answer. */
+.tool {
+  align-self: flex-start;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px dashed var(--slds-g-color-border-2, #5c5c5c);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+}
+
+.toolLabel {
+  font-size: var(--slds-g-font-scale-neg-2, 0.625rem);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.toolCode {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  flex: 0 0 auto;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 8rem;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  line-height: var(--slds-g-font-lineheight-3, 1.5);
+  resize: none;
+}
+
+.send {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@keyframes chatSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes threadIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

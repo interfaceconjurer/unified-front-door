@@ -1,0 +1,224 @@
+/* Workspace provisioning screen. Wireframe fidelity, SLDS token house style —
+   a single considered card centered on the canvas's dot-grid artboard while the
+   project's execution substrate "spins up." Tone colors mirror canvas-kit:
+   accent for in-flight, a success green for done. */
+.screen {
+  --prov-success: #2e844a;
+
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  padding-block: var(--slds-g-spacing-6, 2rem);
+}
+
+.card {
+  width: 100%;
+  max-width: 30rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-5, 1.5rem);
+  padding: var(--slds-g-spacing-6, 2rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-4, 1rem);
+  box-shadow: 0 12px 32px color-mix(in srgb, #03234d 12%, transparent);
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.headIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 10%, var(--slds-g-color-surface-1, #fff));
+  border: 1px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 30%, transparent);
+  color: var(--slds-g-color-accent-1, #0176d3);
+  transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+/* Flip to green the moment every step is checked off. */
+.headIcon[data-done] {
+  background: color-mix(in srgb, var(--prov-success) 12%, var(--slds-g-color-surface-1, #fff));
+  border-color: color-mix(in srgb, var(--prov-success) 34%, transparent);
+  color: var(--prov-success);
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* ── Progress meter ─────────────────────────────────────────────────────── */
+.meter {
+  height: 0.375rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-3, #e5e5e5);
+  overflow: hidden;
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--slds-g-color-accent-1, #0176d3);
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+}
+
+.meter[data-done] .meterFill {
+  background: var(--prov-success);
+}
+
+/* ── Step list ──────────────────────────────────────────────────────────── */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  transition: background 0.2s ease, opacity 0.2s ease;
+}
+
+/* The active step is lifted with a faint accent wash so the eye tracks the
+   current work; pending steps recede. */
+.step[data-state="active"] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 7%, transparent);
+}
+
+.step[data-state="pending"] {
+  opacity: 0.55;
+}
+
+.indicator {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* Pending — a hollow ring, echoing the "todo" pipeline stage dot. */
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1.5px var(--slds-g-color-border-2, #939393);
+}
+
+/* Active — a spinning arc in the accent color. Under prefers-reduced-motion the
+   global reset stops the spin; the accented arc still reads as "in progress." */
+.spinner {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 22%, transparent);
+  border-top-color: var(--slds-g-color-accent-1, #0176d3);
+  animation: spin 0.7s linear infinite;
+}
+
+/* Done — a green check. */
+.check {
+  color: var(--prov-success);
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 500;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  transition: color 0.2s ease;
+}
+
+.step[data-state="active"] .stepLabel {
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.step[data-state="done"] .stepLabel {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.stepDetail {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* ── Footnote ───────────────────────────────────────────────────────────── */
+.footnote {
+  margin: 0;
+  text-align: center;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* Workspace fades in once provisioning completes. */
+.reveal {
+  animation: fadeIn 0.28s ease both;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

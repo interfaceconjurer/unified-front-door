@@ -1,0 +1,136 @@
+.nav {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 15rem;
+  background: var(--slds-g-color-surface-1, #fff);
+  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  overflow: hidden;
+  transition: width 0.18s ease;
+}
+
+.nav.collapsed {
+  width: 3.5rem;
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: var(--slds-g-spacing-2, 0.5rem);
+  display: flex;
+  flex-direction: column;
+  /* Row spacing lives on each link's margin (below), not flex `gap`, so the
+     collapsing ALM rows leave no phantom gaps behind when ALM mode is off. */
+  gap: 0;
+}
+
+.link,
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  width: 100%;
+  height: 2.5rem;
+  padding-inline: 0.6rem;
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  text-align: start;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.link:hover,
+.collapseBtn:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.link {
+  margin-block-end: 2px;
+}
+
+.link[data-active] {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-weight: 600;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Top-level ALM rows. Each animates between zero and its natural height via the
+   grid 0fr -> 1fr row trick (no magic number); .almRowInner clips its row while
+   it collapses. Being flat rows, they sit at the same indent as every other
+   item — no nesting, no connector rail. */
+.almRow {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s ease;
+}
+
+.almRow[data-open] {
+  grid-template-rows: 1fr;
+}
+
+/* The clip also carries the fade/slide: rows cascade in staggered by position
+   on open; the exit (base rule) has no delay, so they collapse together. */
+.almRowInner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.24s ease;
+}
+
+.almRow[data-open] .almRowInner {
+  opacity: 1;
+  transform: none;
+  transition-delay: calc(var(--alm-index, 0) * 40ms);
+}
+
+/* Collapsed: center the glyph and drop the labels (accessible name is kept
+   on the control via aria-label). */
+.nav.collapsed .link,
+.nav.collapsed .collapseBtn {
+  justify-content: center;
+  padding-inline: 0;
+  gap: 0;
+}
+
+.nav.collapsed .label {
+  display: none;
+}
+
+.footer {
+  flex: 0 0 auto;
+  padding: var(--slds-g-spacing-2, 0.5rem);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.chevron {
+  transition: transform 0.18s ease;
+}
+
+.nav.collapsed .chevron {
+  transform: rotate(180deg);
+}

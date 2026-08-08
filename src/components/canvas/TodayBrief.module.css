@@ -1,0 +1,194 @@
+/* Today brief — the dedicated body for the Today canvas: a personal daily
+   digest rendered on the canvas stage. Wireframe fidelity, but structured as a
+   real brief (header + data sections + an agent note) so the "your today"
+   concept reads clearly. Matches the SLDS token house style used elsewhere. */
+.brief {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-5, 1.5rem);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  padding-block: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.greeting {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-5, 1.75rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-5, 1.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding-inline: 0.4rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding-block: var(--slds-g-spacing-2, 0.5rem);
+}
+
+/* Hairline dividers between rows, never above the first. */
+.row + .row {
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 500;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.rowMeta {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* Agent card — a restrained accent tint so the agent's voice reads as distinct
+   from the data sections without shouting. */
+.agent {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 5%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 22%,
+    var(--slds-g-color-border-1, #c9c9c9)
+  );
+}
+
+.agentBody {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.agentIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.agentText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  min-width: 0;
+}
+
+.agentNote {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  line-height: 1.5;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.agentAction {
+  align-self: flex-start;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid
+    color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 40%, transparent);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-accent-1, #0176d3);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agentAction:hover {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 8%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+}

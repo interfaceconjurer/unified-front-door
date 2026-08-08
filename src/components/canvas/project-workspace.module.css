@@ -1,0 +1,208 @@
+/* Project workspace — a project opened as its own canvas tab. A free-floating
+   metadata-explorer rail (see metadata-explorer.module.css) beside a main
+   column: the path-aware breadcrumb + title header, then a framed content box.
+   The box holds either the Project-home dashboard — with an underline-style ALM
+   sub-nav as drill-downs — or an opened leaf's pane. SLDS token house style,
+   consistent with the canvas kit. */
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+/* ── Breadcrumb ────────────────────────────────────────────────────────── */
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.crumbLink {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--slds-g-color-accent-1, #0176d3);
+  cursor: pointer;
+}
+
+.crumbLink:hover {
+  text-decoration: underline;
+}
+
+.crumbLink:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+.crumbSep {
+  color: var(--slds-g-color-border-2, #939393);
+}
+
+.crumbCurrent {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-weight: 500;
+}
+
+/* ── Two-column workspace ──────────────────────────────────────────────── */
+/* A free-floating metadata-explorer rail beside the main column. The rail is
+   unframed — only the content is boxed (.contentBox). Top-aligned so the rail
+   lines up with the breadcrumb/title header. */
+.workspace {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+/* The main column: the breadcrumb + title header, left-aligned to the content,
+   then the framed content box below it. */
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+/* The box — just the content. It sizes to its content and never scrolls inside:
+   the whole canvas stage is the one scroll surface, so the box grows to full
+   height and the scrollbar lives on the gray canvas, not on this white
+   container. overflow stays hidden only to clip child corners to the rounded
+   border (height is auto, so it clips nothing vertically). */
+.contentBox {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  overflow: hidden;
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+/* The Overview home's padded body: the dashboard (and, with ALM on, the sub-nav
+   above it). No inner scroll — it grows to full height and the canvas scrolls. */
+.overviewPad {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-5, 1.5rem);
+  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-5, 1.5rem);
+}
+
+/* ── Inner nav ─────────────────────────────────────────────────────────── */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+  /* Sit the active underline on top of the nav's bottom border. */
+  border-block-end: 2px solid transparent;
+  margin-block-end: -1px;
+}
+
+.subtab:hover {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.subtab[data-active] {
+  color: var(--slds-g-color-accent-1, #0176d3);
+  border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.subtab:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+/* ── Tab body ──────────────────────────────────────────────────────────── */
+.tabBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-5, 1.5rem);
+}
+
+.summary {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* ── Agent hint ────────────────────────────────────────────────────────── */
+/* An accent-tinted note where the agent offers to open a file — the "agent
+   opened it and the tree came along" route, made tangible. Echoes the Today
+   brief's "From your agent" card. */
+.agentNote {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
+  border: 1px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 30%, transparent);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 8%, var(--slds-g-color-surface-1, #fff));
+}
+
+.agentIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.agentText {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.agentText strong {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.agentBtn {
+  flex: 0 0 auto;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agentBtn:hover {
+  background: color-mix(in srgb, #000 12%, var(--slds-g-color-accent-1, #0176d3));
+}
+
+.agentBtn:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}

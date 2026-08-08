@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# Pi subagent runtime artifacts
+/.pi-subagents/
+
 # next.js
 /.next/
 /out/

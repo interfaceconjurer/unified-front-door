@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AppShell } from "@/components/app-shell/AppShell";
 
 export const metadata: Metadata = {
   title: "Platform Studio",
@@ -21,7 +22,9 @@ export default function RootLayout({
          */}
         <link rel="stylesheet" href="/vendor/slds/slds2.cosmos.css" />
       </head>
-      <body>{children}</body>
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

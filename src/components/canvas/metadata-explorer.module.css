@@ -1,0 +1,411 @@
+/* Project metadata explorer — the persistent left rail of a project canvas, and
+   the panes that take over the content area when a leaf is opened. SLDS token
+   house style, consistent with the canvas kit. The rail is free-floating (no
+   box or divider); the framed content box it sits beside is styled in
+   project-workspace.module.css. */
+
+/* ── The rail ──────────────────────────────────────────────────────────────── */
+/* Free-floating: no surface fill, no border — the rail sits directly on the
+   canvas beside the framed content, top-aligned with the header. Natural height
+   (no inner scroll) since the folders start collapsed and it stays short. */
+.explorer {
+  flex: 0 0 15rem;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-block-start: var(--slds-g-spacing-1, 0.25rem);
+}
+
+/* Project home — pinned home, a touch more prominent than the rows below it. */
+.home {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  width: 100%;
+  padding: var(--slds-g-spacing-2, 0.5rem);
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  cursor: pointer;
+  text-align: start;
+}
+
+.home:hover {
+  background: color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 10%, transparent);
+}
+
+.home[data-active] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 16%, transparent);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.home[data-active] .rowIcon {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.home:focus-visible,
+.row:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: -2px;
+}
+
+/* ── Sections (Files / Plans / Resources) ────────────────────────────────────── */
+.section {
+  margin-block-start: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.sectionHead {
+  margin: 0;
+  padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Nested tree list under an open folder. */
+.group {
+  list-style: none;
+  margin: 0;
+  padding-inline-start: 0.85rem;
+}
+
+/* ── Rail rows (files, folders, plans, resources) ───────────────────────────── */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  cursor: pointer;
+  text-align: start;
+}
+
+.row:hover {
+  background: color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 10%, transparent);
+}
+
+.row[data-active] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 16%, transparent);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-weight: 600;
+}
+
+.row[data-active] .rowIcon {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+/* Folder expand chevron (rotates when open) — also a fixed-width spacer on files
+   so their icons line up under a folder's icon. */
+.toggle {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  transition: transform 0.15s ease;
+}
+
+.toggle[data-open] {
+  transform: rotate(90deg);
+}
+
+.rowIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.rowLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A small status cue on plan/resource rows, keyed to the app's tone system
+   (the --tone-* vars are defined on .view, which wraps this rail). */
+.statusDot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--tone-neutral-fg);
+}
+
+.statusDot[data-tone="info"] { background: var(--tone-info-fg); }
+.statusDot[data-tone="success"] { background: var(--tone-success-fg); }
+.statusDot[data-tone="warning"] { background: var(--tone-warning-fg); }
+.statusDot[data-tone="danger"] { background: var(--tone-danger-fg); }
+
+/* ── Panes (the opened leaf takes over the content column) ──────────────────── */
+.pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.paneBar {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.paneIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.paneTitle {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.paneDir {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.paneName {
+  flex: 0 0 auto;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.paneType {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+}
+
+.paneMeta {
+  flex: 0 0 auto;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  cursor: pointer;
+}
+
+.closeBtn:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* File pane — line-numbered faux source. Grows to full height; the canvas scrolls. */
+.code {
+  padding-block: var(--slds-g-spacing-2, 0.5rem);
+  font-family: var(--slds-g-font-family-mono, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+
+.codeLine {
+  display: flex;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding-inline: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.codeLine:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.lineNo {
+  flex: 0 0 auto;
+  width: 2.5rem;
+  text-align: end;
+  color: var(--slds-g-color-border-2, #939393);
+  user-select: none;
+}
+
+.lineText {
+  white-space: pre;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* Plan pane — prose blocks. Grows to full height; the canvas scrolls. */
+.doc {
+  padding: var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-6, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.docH1 {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-4, 1.5rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.docH2 {
+  margin-block-start: var(--slds-g-spacing-3, 0.75rem);
+  margin-block-end: 0;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.docNote {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+}
+
+.docP {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.docLi {
+  position: relative;
+  max-width: 62ch;
+  padding-inline-start: 1.1rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.docLi::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0.15rem;
+  inset-block-start: 0.62em;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-accent-1, #0176d3);
+}
+
+/* Resource pane — a small detail card. Grows to full height; the canvas scrolls. */
+.resource {
+  padding: var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-6, 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+.resourceMeta {
+  margin: 0;
+  max-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.resourceField {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+.resourceField dt {
+  flex: 0 0 6rem;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.resourceField dd {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.resourceHint {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  line-height: 1.5;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.resourceOpen {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.resourceOpen:hover {
+  background: color-mix(in srgb, #000 12%, var(--slds-g-color-accent-1, #0176d3));
+}
+
+.resourceOpen:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}

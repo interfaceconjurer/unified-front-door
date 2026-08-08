@@ -1,0 +1,45 @@
+# Continuous deployment to Heroku.
+#
+# Fires on every push to `main` — which is what a merged pull request produces —
+# and can also be run on demand from the Actions tab (workflow_dispatch).
+#
+# The deploy uses Heroku's source-blob build API (`heroku builds:create`): it
+# uploads the checked-out source and runs the same buildpack build as a manual
+# `git push heroku` (prebuild copies SLDS, then `next build`). Going through the
+# build API means we never force-push the Heroku git remote, so it stays correct
+# whether PRs are merged, squashed, or rebased.
+#
+# Requires repo secret HEROKU_API_KEY — a write-scoped Heroku authorization token.
+
+name: Deploy to Heroku
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Never run two deploys at once; queue a later merge behind an in-flight release
+# rather than cancelling it.
+concurrency:
+  group: heroku-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: heroku
+      url: https://platform-studio-prototype-3ce661d053e2.herokuapp.com/
+    steps:
+      - name: Check out the merged commit
+        uses: actions/checkout@v4
+
+      - name: Install Heroku CLI + builds plugin
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+          heroku plugins:install heroku-builds
+
+      - name: Deploy to Heroku
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: heroku builds:create --app platform-studio-prototype
