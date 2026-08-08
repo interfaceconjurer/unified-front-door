@@ -51,28 +51,44 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Small helper for the JSON Platform API (auth + versioned Accept header).
-          api() {
-            curl -sf -H "Authorization: Bearer $HEROKU_API_KEY" \
-                     -H "Accept: application/vnd.heroku+json; version=3" "$@"
+          # Call the JSON Platform API, capturing the body and HTTP status. On a
+          # >=400 we print Heroku's error payload (so failures are diagnosable)
+          # and return non-zero; otherwise we echo just the body for the caller.
+          hapi() {
+            local out http
+            out=$(curl -sS -w $'\n%{http_code}' \
+              -H "Authorization: Bearer $HEROKU_API_KEY" \
+              -H "Accept: application/vnd.heroku+json; version=3" "$@")
+            http=${out##*$'\n'}
+            out=${out%$'\n'*}
+            if [ "${http:-000}" -ge 400 ]; then
+              echo "Heroku API error: HTTP $http" >&2
+              echo "$out" >&2
+              return 1
+            fi
+            printf '%s' "$out"
           }
 
           echo "Creating source slot…"
-          source=$(api -X POST https://api.heroku.com/sources)
+          source=$(hapi -X POST https://api.heroku.com/sources)
           put_url=$(jq -r '.source_blob.put_url' <<<"$source")
           get_url=$(jq -r '.source_blob.get_url' <<<"$source")
 
           echo "Packing tracked files at ${GITHUB_SHA}…"
           git archive --format=tar.gz -o /tmp/source.tgz HEAD
+          ls -l /tmp/source.tgz
 
           # Signed upload URL — send the tarball raw, with no forced content-type.
           echo "Uploading source blob…"
-          curl -sf -X PUT "$put_url" -H "Content-Type:" --data-binary @/tmp/source.tgz
+          up=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT "$put_url" \
+            -H "Content-Type:" --data-binary @/tmp/source.tgz)
+          echo "Upload returned HTTP $up"
+          [ "$up" -lt 400 ] || { echo "Source upload failed."; exit 1; }
 
           echo "Starting build…"
           payload=$(jq -n --arg url "$get_url" --arg version "$GITHUB_SHA" \
             '{source_blob: {url: $url, version: $version}}')
-          build=$(api -X POST "https://api.heroku.com/apps/${APP}/builds" \
+          build=$(hapi -X POST "https://api.heroku.com/apps/${APP}/builds" \
             -H "Content-Type: application/json" -d "$payload")
           build_id=$(jq -r '.id' <<<"$build")
           stream=$(jq -r '.output_stream_url' <<<"$build")
@@ -83,8 +99,8 @@ jobs:
 
           # The stream closing isn't authoritative, so confirm the terminal state.
           echo "Confirming final status…"
-          for _ in $(seq 1 60); do
-            status=$(api "https://api.heroku.com/apps/${APP}/builds/${build_id}" | jq -r '.status')
+          for _ in $(seq 1 90); do
+            status=$(hapi "https://api.heroku.com/apps/${APP}/builds/${build_id}" | jq -r '.status')
             case "$status" in
               succeeded) echo "Build succeeded."; exit 0 ;;
               failed)    echo "Build failed."; exit 1 ;;
