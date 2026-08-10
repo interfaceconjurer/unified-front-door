@@ -3,12 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { SparklesIcon, SendIcon } from "@/components/icons";
 import { useCanvas } from "@/components/canvas/canvas-context";
-import {
-  scopeKeyFor,
-  scopeMetaFor,
-  seedMessagesFor,
-  type ChatMessage,
-} from "./chat-scopes";
+import { GLOBAL_SCOPE } from "@/components/canvas/canvas-ids";
+import { scopeMetaFor, seedMessagesFor, type ChatMessage } from "./chat-scopes";
 import styles from "./ChatPanel.module.css";
 
 // New messages sent in-session get ids from here — well above the seed ids
@@ -69,30 +65,32 @@ function ChatComposer({ label, reloading, onSend }: ChatComposerProps) {
  *
  * The panel is mounted once for the whole shell, so it persists across tab
  * switches. It reads the active canvas from the canvas context and derives a
- * scope key (`"global"` for any non-project canvas, `"project:<id>"` for a
- * project); each scope has its own conversation. Crossing a scope boundary
- * (global↔project, or project↔project) reloads the panel into that scope's
- * session; switching back restores its history. Interaction is stubbed — sending
- * appends the message and a canned, scope-aware reply — the panel is deliberately
- * not wired to a model yet.
+ * scope key from the canvas metadata: project canvases and builders carry the
+ * same `"project:<id>"` key, while canvases without a scope use the global one.
+ * Each scope has its own conversation.
+ * Crossing a scope boundary (global↔project, or project↔project) reloads the
+ * panel into that scope's session; switching back restores its history.
+ * Interaction is stubbed — sending appends the message and a canned, scope-aware
+ * reply — the panel is deliberately not wired to a model yet.
  */
 export function ChatPanel() {
   const { canvases, activeId, liveAgentScopes } = useCanvas();
   const active = canvases.find((c) => c.id === activeId) ?? null;
-  const scopeKey = scopeKeyFor(activeId);
-  const isProjectScope = scopeKey !== "global";
-  const meta = scopeMetaFor(scopeKey, active?.title, active?.blurb);
+  const scopeKey = active?.scopeKey ?? GLOBAL_SCOPE;
+  const isProjectScope = scopeKey !== GLOBAL_SCOPE;
+  const meta = scopeMetaFor(scopeKey);
 
   // Is this scope's agent session live yet? The global session is always up; a
-  // project's goes live when its workspace finishes provisioning the "Launching
-  // agent session" step. This is what syncs the reveal to that checkmark.
-  const sessionLive = scopeKey === "global" || liveAgentScopes.has(scopeKey);
+  // project's goes live when its workspace finishes the "Launching agent
+  // session" provisioning step, and a builder's project scope is already live
+  // when it opens. This is what syncs the reveal to that checkmark.
+  const sessionLive = scopeKey === GLOBAL_SCOPE || liveAgentScopes.has(scopeKey);
 
   // Live transcript per scope, seeded lazily from the scope's session. Keeping
   // every scope's history here (rather than one array) is what lets a revisit
   // pick up where it left off.
   const [historyByScope, setHistoryByScope] = useState<Record<string, ChatMessage[]>>({});
-  const seedMessages = seedMessagesFor(scopeKey, active?.title);
+  const seedMessages = seedMessagesFor(scopeKey);
   const messages = historyByScope[scopeKey] ?? seedMessages;
 
   const nextId = useRef(SENT_ID_BASE);
@@ -131,24 +129,19 @@ export function ChatPanel() {
 
   return (
     <aside className={styles.panel} aria-label="Agent chat">
-      <div className={styles.header}>
+      {/* One header: the agent's identity over the scope it's reasoning about —
+          a project when scoped in, the whole workspace otherwise. */}
+      <div className={styles.header} data-scoped={isProjectScope || undefined}>
         <span className={styles.avatar} aria-hidden="true">
           <SparklesIcon width={18} height={18} />
         </span>
         <div className={styles.headerText}>
           <div className={styles.title}>Agent</div>
-          <div className={styles.subtitle}>Prototype · not wired to a model</div>
+          <div className={styles.scopeLine}>
+            <span className={styles.scopeDot} aria-hidden="true" />
+            <span className={styles.scopeValue}>{meta.label}</span>
+          </div>
         </div>
-        <span className={styles.badge}>Wireframe</span>
-      </div>
-
-      <div className={styles.scope} data-scoped={isProjectScope || undefined}>
-        <div className={styles.scopeHead}>
-          <span className={styles.scopeDot} aria-hidden="true" />
-          <span className={styles.scopeLabel}>Scoped to</span>
-          <span className={styles.scopeValue}>{meta.label}</span>
-        </div>
-        <span className={styles.scopeBlurb}>{meta.blurb}</span>
       </div>
 
       <div className={styles.transcript} aria-busy={reloading || undefined}>

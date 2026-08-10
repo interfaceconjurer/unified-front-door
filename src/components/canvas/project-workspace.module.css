@@ -11,6 +11,14 @@
   gap: var(--slds-g-spacing-2, 0.5rem);
 }
 
+/* The title header's trailing slot: the "Add resource" action beside the status
+   pill. Center-aligned so the button and pill line up despite differing heights. */
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
 /* ── Breadcrumb ────────────────────────────────────────────────────────── */
 .crumbs {
   display: flex;

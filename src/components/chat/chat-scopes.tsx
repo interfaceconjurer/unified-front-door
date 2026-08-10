@@ -10,29 +10,27 @@
  * so the chat reads as zooming into the same system the canvas shows — not a
  * separate app. It's a wireframe: nothing is actually queried.
  *
- * Sessions are keyed by a scope string — `"global"` for any non-project canvas,
- * `"project:<id>"` for a project tab. The chat panel keeps live history per
- * key, seeding a fresh scope from the constants here.
+ * Sessions are keyed by canvas scope metadata — the global scope when no project
+ * scope is declared, and `"project:<id>"` for project canvases and builders. The
+ * chat panel keeps live history per key, seeding a fresh scope from the constants
+ * here.
  */
 
-import { isProjectCanvasId, projectIdFromCanvasId } from "@/components/canvas/canvas-ids";
+import { GLOBAL_SCOPE, projectIdFromCanvasId, type ScopeKey } from "@/components/canvas/canvas-ids";
+import { projectsById } from "@/components/canvas/projects-data";
 
 export type ChatRole = "agent" | "user" | "tool";
 export type ChatMessage = { id: number; role: ChatRole; text: string };
 
-/** What the scope strip announces: the scope's name and a one-line descriptor. */
-export type ScopeMeta = { label: string; blurb: string };
+/** The label shown by chat and shell chrome for the active scope. */
+export type ScopeMeta = { label: string };
 
-/** `"global"` for any non-project canvas; the project canvas id itself (which is
- *  namespaced — see canvas-ids) for a project tab. */
-export function scopeKeyFor(activeId: string): string {
-  return isProjectCanvasId(activeId) ? activeId : "global";
+const GLOBAL_META: ScopeMeta = { label: "All projects" };
+
+function projectForScopeKey(scopeKey: ScopeKey) {
+  if (scopeKey === GLOBAL_SCOPE) return undefined;
+  return projectsById[projectIdFromCanvasId(scopeKey)];
 }
-
-const GLOBAL_META: ScopeMeta = {
-  label: "All projects",
-  blurb: "Org-wide policy, governance & pipelines",
-};
 
 // The workspace-wide session. Opens on governance — the policies in force across
 // every project — then pivots to pipeline posture, both drawn from the same mock
@@ -165,32 +163,25 @@ const PROJECT_SESSIONS: Record<string, ChatMessage[]> = {
   ],
 };
 
-/** The scope strip's name + descriptor. Projects carry their own name/subtitle;
- *  everything global shares the workspace descriptor. */
-export function scopeMetaFor(
-  scopeKey: string,
-  projectName?: string,
-  projectSubtitle?: string,
-): ScopeMeta {
-  if (scopeKey === "global") return GLOBAL_META;
-  return {
-    label: projectName ?? "Project",
-    blurb: projectSubtitle ?? "Project workspace",
-  };
+/** The scope label, resolved from the scope key alone. A builder pointed at a
+ *  project reads the same as that project's own canvas. */
+export function scopeMetaFor(scopeKey: ScopeKey): ScopeMeta {
+  if (scopeKey === GLOBAL_SCOPE) return GLOBAL_META;
+  return { label: projectForScopeKey(scopeKey)?.name ?? "Project" };
 }
 
 /** The seed transcript for a scope. Known projects get a bespoke session; any
  *  other project falls back to a plain scoped greeting so the model still holds
  *  as projects are added. */
-export function seedMessagesFor(scopeKey: string, projectName?: string): ChatMessage[] {
-  if (scopeKey === "global") return GLOBAL_SESSION;
+export function seedMessagesFor(scopeKey: ScopeKey): ChatMessage[] {
+  if (scopeKey === GLOBAL_SCOPE) return GLOBAL_SESSION;
   const projectId = projectIdFromCanvasId(scopeKey);
   return (
     PROJECT_SESSIONS[projectId] ?? [
       {
         id: 1,
         role: "agent",
-        text: `Scoped to ${projectName ?? "this project"}. Ask me to build, query, or navigate within this project.`,
+        text: `Scoped to ${projectForScopeKey(scopeKey)?.name ?? "this project"}. Ask me to build, query, or navigate within this project.`,
       },
     ]
   );

@@ -28,9 +28,13 @@
   color: var(--slds-g-color-accent-1, #0176d3);
 }
 
+/* Identity over scope, stacked: "Agent" and the canvas it's reasoning about. */
 .headerText {
   flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
 }
 
 .title {
@@ -39,44 +43,14 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-.subtitle {
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-}
-
-.badge {
-  flex: 0 0 auto;
-  padding: 0.15rem 0.55rem;
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-pill, 999px);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-}
-
-/* Scope strip — reflects the active canvas the agent is reasoning about. A muted
-   dot for the whole workspace, accent when scoped into one project. Two lines:
-   the scope name, and a descriptor of what that session is about. */
-.scope {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex: 0 0 auto;
-  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
-  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  background: var(--slds-g-color-surface-1, #fff);
-}
-
-.scopeHead {
+/* Scope line under the title — the active canvas the agent is bound to. A muted
+   dot for the whole workspace, accent when scoped into one project; the name
+   itself stays a quiet subtitle either way. */
+.scopeLine {
   display: flex;
   align-items: center;
   gap: var(--slds-g-spacing-2, 0.5rem);
-}
-
-/* Descriptor line, tucked under the label past the dot. */
-.scopeBlurb {
-  padding-inline-start: calc(0.5rem + var(--slds-g-spacing-2, 0.5rem));
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  min-width: 0;
 }
 
 .scopeDot {
@@ -88,27 +62,18 @@
   transition: background 0.2s ease;
 }
 
-.scopeLabel {
-  font-size: var(--slds-g-font-scale-neg-2, 0.625rem);
+.scopeValue {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
-.scopeValue {
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  font-weight: 600;
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  transition: color 0.2s ease;
-}
-
-.scope[data-scoped] .scopeDot {
+.header[data-scoped] .scopeDot {
   background: var(--slds-g-color-accent-1, #0176d3);
-}
-
-.scope[data-scoped] .scopeValue {
-  color: var(--slds-g-color-accent-1, #0176d3);
 }
 
 /* Scroll container for the active scope's session. */

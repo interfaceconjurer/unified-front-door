@@ -27,6 +27,16 @@
   max-width: 90rem;
 }
 
+/* Full-bleed variant: fills the artboard edge-to-edge — negating its padding —
+   and flush to the top, for builder surfaces that supply their own chrome (a
+   top toolbar over a working area). Still inherits the tone vars from .view. */
+.viewFull {
+  max-width: none;
+  gap: 0;
+  margin: calc(var(--slds-g-spacing-8, 3rem) * -1);
+  min-height: calc(100% + var(--slds-g-spacing-8, 3rem) * 2);
+}
+
 /* ── Header ─────────────────────────────────────────────────────────────── */
 .header {
   display: flex;

@@ -1,0 +1,781 @@
+/* Resource builder — the surface a created resource opens into. A prominent
+   project-scope header band over one of six mock builder stages (diagram /
+   layout / code / dashboard / agent / schema). SLDS token house style,
+   consistent with the canvas kit; the code editor's dark theme and syntax hues
+   are the one deliberate reach past the neutral tokens (a code surface reads as
+   code). */
+
+.builder {
+  /* Fill the artboard (CanvasView `full` makes it edge-to-edge + flush top) so
+     the working area — and its left rail — can be full height. The toolbar's
+     bottom border is the only divider, so no gap here. */
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scope header — a full-width toolbar pinned to the top of the canvas ─────
+   Flush to the top and edge-to-edge; two stacked rows (scope, then identity +
+   actions), divided from the working area by a single bottom border. */
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+/* Row 1 — the scope leads the header. A quiet strip (not the loud chip it was),
+   since being first already gives it weight. */
+.scopeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.scopeIcon {
+  display: grid;
+  place-items: center;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.scopeLabel {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.scopeValue {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+/* Row 2 — resource identity + actions. */
+.mainRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.barIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.barText {
+  /* Grow to fill row 1 so the chip/actions group is pushed to the right (wide)
+     or wrapped to its own row (narrow); the 14rem basis keeps the title legible
+     before it starts sharing space. */
+  flex: 1 1 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.barTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  min-width: 0;
+}
+
+.barTitle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.barKind {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* A quiet status marker for the resource — a dot + label, so it reads as a
+   *state* (Draft) rather than a category tag. */
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  padding: 2px var(--slds-g-spacing-2, 0.5rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-1, #fff);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.statusChip::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-border-2, #939393);
+}
+
+.barActions {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  flex: 0 0 auto;
+  /* Pin to the right of the identity row (barText grows to fill the middle). */
+  margin-inline-start: auto;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────
+   Mock (non-functional), matching the canvas kit's action button family. */
+.ghostBtn,
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghostBtn {
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.ghostBtn:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.primaryBtn {
+  border: 1px solid var(--slds-g-color-accent-1, #0176d3);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+}
+
+.primaryBtn:hover {
+  background: color-mix(in srgb, #000 12%, var(--slds-g-color-accent-1, #0176d3));
+}
+
+.ghostBtnSm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ghostBtnSm:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+/* ── Stage (the working surface) ───────────────────────────────────────────
+   No outer paper box and no padding — the working area is transparent (the
+   artboard's dot grid shows through) and each surface fills it edge to edge,
+   flush under the toolbar, so full-height surfaces (the split, the editor) take
+   the whole space. */
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Two-pane layouts (a palette rail beside a canvas). Fills the working area so
+   the rail is full height. */
+.split {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-height: 30rem;
+}
+
+/* ── Palette rail ──────────────────────────────────────────────────────────
+   Shared by the diagram and layout stages. A flush full-height rail (the split's
+   `align-items: stretch` gives it 100% height) — no border or radius, just its
+   own surface fill beside the working area. */
+.palette {
+  flex: 0 0 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.paletteHead {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  padding-block-end: var(--slds-g-spacing-1, 0.25rem);
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 500;
+  cursor: grab;
+}
+
+.paletteItem:hover {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.paletteItem svg {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  flex: 0 0 auto;
+}
+
+.paletteItem:hover svg {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+/* ── diagram — flow canvas ─────────────────────────────────────────────────
+   A dotted work surface with a centered top-to-bottom chain of nodes. */
+.flowCanvas {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--slds-g-spacing-5, 1.5rem);
+  background-color: var(--slds-g-color-surface-2, #f3f3f3);
+  background-image: radial-gradient(var(--slds-g-color-border-1, #c9c9c9) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.flowStep {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.flowConnector {
+  width: 2px;
+  height: var(--slds-g-spacing-5, 1.5rem);
+  background: var(--slds-g-color-border-2, #939393);
+}
+
+.flowNode {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  width: 15rem;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  box-shadow: 0 1px 3px color-mix(in srgb, #000 8%, transparent);
+}
+
+.flowNode[data-tone="info"] {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.flowNodeIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.flowNode[data-tone="info"] .flowNodeIcon {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 12%, var(--slds-g-color-surface-1, #fff));
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.flowNodeText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.flowNodeTitle {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.flowNodeSub {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* ── layout — browser frame ────────────────────────────────────────────────
+   A window chrome over a header / sidebar / content skeleton. */
+.frame {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.frameChrome {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.frameDot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-border-2, #939393);
+  flex: 0 0 auto;
+}
+
+.frameUrl {
+  margin-inline-start: var(--slds-g-spacing-2, 0.5rem);
+  padding: 2px var(--slds-g-spacing-3, 0.75rem);
+  border-radius: 999px;
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.frameBody {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+}
+
+.lyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.lyRow {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+  flex: 1 1 auto;
+}
+
+.lySidebar {
+  flex: 0 0 9rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.lyContent {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+.lyCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+/* Skeleton primitives — light gray stand-ins for real content. */
+.skelBadge,
+.skelLine,
+.skelLineShort,
+.skelBlock,
+.skelCard {
+  display: block;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 55%, var(--slds-g-color-surface-1, #fff));
+}
+
+.skelBadge {
+  width: 6rem;
+  height: 1rem;
+}
+
+.skelLine {
+  width: 100%;
+  height: 0.75rem;
+}
+
+.skelLineShort {
+  width: 60%;
+  height: 0.75rem;
+}
+
+.skelBlock {
+  width: 100%;
+  height: 8rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+}
+
+.skelCard {
+  height: 4rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+}
+
+/* ── code — faux editor ────────────────────────────────────────────────────
+   Deep-navy editor theme; syntax hues are intentionally off-token. */
+.editor {
+  --editor-bg: #04193f;
+  --editor-fg: #e6ecf5;
+  --editor-gutter: #6b83ad;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 26rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  overflow: hidden;
+  background: var(--editor-bg);
+}
+
+.editorTabs {
+  display: flex;
+  align-items: stretch;
+  background: color-mix(in srgb, #fff 6%, #04193f);
+  border-block-end: 1px solid color-mix(in srgb, #fff 12%, transparent);
+}
+
+.editorTab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-4, 1rem);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  color: var(--editor-fg);
+}
+
+.editorTab[data-active="true"] {
+  background: var(--editor-bg);
+  border-block-end: 2px solid var(--slds-g-color-accent-1, #0176d3);
+}
+
+.editorMain {
+  display: flex;
+  flex: 1 1 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.gutter {
+  list-style: none;
+  margin: 0;
+  padding: var(--slds-g-spacing-3, 0.75rem) 0;
+  text-align: right;
+  color: var(--editor-gutter);
+  background: color-mix(in srgb, #000 18%, #04193f);
+  user-select: none;
+}
+
+.gutter li {
+  padding-inline: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.code {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
+  overflow-x: auto;
+  color: var(--editor-fg);
+}
+
+.codeLine {
+  white-space: pre;
+  min-height: 1.6em;
+}
+
+.tokKw {
+  color: #d3a2ff;
+}
+
+.tokStr {
+  color: #8bd49c;
+}
+
+.tokCom {
+  color: #7c93b8;
+  font-style: italic;
+}
+
+.tokTyp {
+  color: #6fd0e0;
+}
+
+.tokFn {
+  color: #4fb0ff;
+}
+
+/* ── dashboard ─────────────────────────────────────────────────────────────
+   Composed from the canvas kit; just needs its own vertical rhythm. */
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+}
+
+/* ── agent — config + test thread ──────────────────────────────────────────*/
+.agent {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--slds-g-spacing-4, 1rem);
+  align-items: start;
+}
+
+.agentConfig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+  min-width: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.fieldLabel {
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.fieldInput,
+.fieldTextarea {
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.fieldTextarea {
+  min-height: 5.5rem;
+  line-height: 1.5;
+}
+
+.testChat {
+  display: flex;
+  flex-direction: column;
+  min-height: 22rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  overflow: hidden;
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.testHead {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.testAvatar {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 12%, var(--slds-g-color-surface-1, #fff));
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.testTitle {
+  flex: 1 1 auto;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.testBody {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+}
+
+.testMsg {
+  max-width: 85%;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  line-height: 1.45;
+}
+
+.testAgent {
+  align-self: flex-start;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  border-end-start-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+.testUser {
+  align-self: flex-end;
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  border-end-end-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+.testComposer {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.testInput {
+  flex: 1 1 auto;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: 999px;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.testSend {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+}
+
+/* ── schema — fields table ─────────────────────────────────────────────────
+   Its own paper container (the table has no box of its own). */
+.schema {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.schemaBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.schemaObject {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.schemaObject svg {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+}
+
+.table th {
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  text-align: left;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.table td {
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.table tbody tr:last-child td {
+  border-block-end: none;
+}
+
+.cellLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.cellLabel svg {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  flex: 0 0 auto;
+}
+
+.cellApi {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.cellMuted {
+  color: var(--slds-g-color-border-2, #939393);
+}

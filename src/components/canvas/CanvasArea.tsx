@@ -7,11 +7,12 @@ import styles from "./CanvasArea.module.css";
 /**
  * Center work area: a tab bar of open canvases over a canvas stage. Open/focus,
  * close, and add are all driven by the shared canvas context, so the left nav
- * (and, later, the agent) can open canvases into these same tabs. Bodies come
- * from the canvas registry; canvases without one show a wireframe placeholder.
+ * (and, later, the agent) can open canvases into these same tabs. Every canvas
+ * carries a body; the wireframe placeholder is a defensive fallback for the
+ * (currently unreachable) case of one without.
  */
 export function CanvasArea() {
-  const { canvases, activeId, almMode, openProject, focusCanvas, closeCanvas, addBlankCanvas } = useCanvas();
+  const { canvases, activeId, almMode, openProject, focusCanvas, closeCanvas, openResourceCanvas } = useCanvas();
   const active = canvases.find((c) => c.id === activeId) ?? null;
 
   return (
@@ -47,9 +48,9 @@ export function CanvasArea() {
         <button
           type="button"
           className={styles.add}
-          aria-label="New canvas"
-          title="New canvas"
-          onClick={addBlankCanvas}
+          aria-label="Create a resource"
+          title="Create a resource"
+          onClick={() => openResourceCanvas()}
         >
           <PlusIcon width={18} height={18} />
         </button>
@@ -75,11 +76,11 @@ export function CanvasArea() {
           <div className={styles.empty}>
             <p className={styles.emptyTitle}>No canvases open</p>
             <p className={styles.emptyHint}>
-              Ask the agent to pull one in — or start a blank canvas.
+              Ask the agent to pull one in — or create a resource to get started.
             </p>
-            <button type="button" className={styles.emptyAdd} onClick={addBlankCanvas}>
+            <button type="button" className={styles.emptyAdd} onClick={() => openResourceCanvas()}>
               <PlusIcon width={16} height={16} />
-              New canvas
+              Create a resource
             </button>
           </div>
         )}

@@ -2,8 +2,8 @@ import { LayersIcon } from "@/components/icons";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
-  /** Current project scope — the active project's name when a project canvas is
-   *  open, else null. Shown next to the brand; absent in any global space. */
+  /** Current project scope — the active project's name for any project-scoped
+   *  work surface, else null. Shown next to the brand in non-global spaces. */
   scope: string | null;
   almMode: boolean;
   onToggleAlm: () => void;
@@ -11,9 +11,9 @@ type TopBarProps = {
 
 /**
  * Global top bar: product identity on the left, ALM-mode toggle on the far
- * right. When you're inside a project canvas, the project's name appears next to
- * the brand as a scope indicator — your persistent "you are here"; it disappears
- * in global spaces (Today, the ALM surfaces, …). ALM mode is the global switch
+ * right. On any project-scoped work surface, the project's name appears next to
+ * the brand as a persistent "you are here" indicator; it disappears in global
+ * spaces (Today, the ALM surfaces, …). ALM mode is the global switch
  * for the ALM surfaces — it reveals the rail's top-level ALM items and a
  * project's inner nav (Trust / Work Items / Pipelines / Testing). The flag itself
  * lives in the canvas context.

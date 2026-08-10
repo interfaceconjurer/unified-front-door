@@ -1,0 +1,167 @@
+/* Create-a-Resource wizard — the launch hero, the kind-picker grouping, and the
+   two-beat stepper. SLDS token house style, consistent with the canvas kit. */
+
+/* ── Launch hero ───────────────────────────────────────────────────────────
+   The single action a fresh canvas opens on. Centered so a new tab reads as an
+   invitation, not an empty placeholder. */
+.launch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding-block: 5rem;
+  margin-inline: auto;
+  max-width: 32rem;
+}
+
+.launchIcon {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--slds-g-radius-border-4, 1rem);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 12%, var(--slds-g-color-surface-1, #fff));
+  border: 1px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 25%, transparent);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.launchTitle {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-5, 1.75rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.launchBlurb {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  line-height: 1.5;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.launchAction {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-block-start: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem);
+  border: 1px solid var(--slds-g-color-accent-1, #0176d3);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.launchAction:hover {
+  background: color-mix(in srgb, #000 12%, var(--slds-g-color-accent-1, #0176d3));
+}
+
+.launchAction:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
+/* ── Kind groups ───────────────────────────────────────────────────────────*/
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.groupHead {
+  margin: 0;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* ── Stepper (Kind → Project) ──────────────────────────────────────────────*/
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stepperItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.stepperNum {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--slds-g-color-border-2, #939393);
+  background: var(--slds-g-color-surface-1, #fff);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.stepperLabel {
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 600;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.stepperItem[data-state="current"] .stepperNum {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+}
+
+.stepperItem[data-state="current"] .stepperLabel {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.stepperItem[data-state="done"] .stepperNum {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 12%, var(--slds-g-color-surface-1, #fff));
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.stepperItem[data-state="done"] .stepperLabel {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.stepperSep {
+  color: var(--slds-g-color-border-2, #939393);
+}
+
+/* ── Scope note (project-launched flow) ────────────────────────────────────
+   Stands in for the skipped project-picker step. */
+.scopeNote {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  align-self: flex-start;
+  margin: 0;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 30%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 8%, var(--slds-g-color-surface-1, #fff));
+  font-size: var(--slds-g-font-scale-1, 0.875rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.scopeNote strong {
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.scopeNoteIcon {
+  display: grid;
+  place-items: center;
+  color: var(--slds-g-color-accent-1, #0176d3);
+}

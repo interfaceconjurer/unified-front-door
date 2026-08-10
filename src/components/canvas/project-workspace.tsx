@@ -23,9 +23,9 @@
  * import graph and lets canvas-context own it without a cycle.
  */
 import { useState, type ReactElement } from "react";
-import { HomeIcon, FileIcon, SparklesIcon, type IconComponent } from "@/components/icons";
+import { HomeIcon, FileIcon, PlusIcon, SparklesIcon, type IconComponent } from "@/components/icons";
 import { almSurfaces, type AlmSurfaceId } from "./alm-surfaces";
-import { CanvasHeader, CanvasView, DataList, Pill, StatTiles, type Row } from "./canvas-kit";
+import { ActionButton, CanvasHeader, CanvasView, DataList, Pill, StatTiles, type Row } from "./canvas-kit";
 import { ExplorerContent, MetadataExplorer, type Selection } from "./metadata-explorer";
 import {
   agentHintForProject,
@@ -50,10 +50,13 @@ export function ProjectWorkspace({
   project,
   almMode,
   onOpenProjects,
+  onAddResource,
 }: {
   project: Project;
   almMode: boolean;
   onOpenProjects: () => void;
+  /** Open a "Create a Resource" canvas preset to this project. */
+  onAddResource: () => void;
 }) {
   // The ALM sub-nav's tab within the Overview home (only meaningful when the
   // explorer selection is "overview").
@@ -132,7 +135,14 @@ export function ProjectWorkspace({
               Icon={project.Icon}
               title={project.name}
               subtitle={project.subtitle}
-              action={<Pill tone={project.status.tone}>{project.status.label}</Pill>}
+              action={
+                <div className={styles.headActions}>
+                  <ActionButton Icon={PlusIcon} onClick={onAddResource}>
+                    Add resource
+                  </ActionButton>
+                  <Pill tone={project.status.tone}>{project.status.label}</Pill>
+                </div>
+              }
             />
           </div>
 

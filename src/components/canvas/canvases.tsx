@@ -4,8 +4,9 @@
  * Each canvas is a work surface that can be pulled into the center region as a
  * tab. The registry is keyed by id, and those ids match the left-nav item ids
  * (see app-shell/nav-items.tsx) — that's the link that lets clicking a nav item
- * open (or focus) its canvas. A canvas either carries a dedicated `Body` or, for
- * blank/ad-hoc canvases, falls back to a wireframe placeholder.
+ * open (or focus) its canvas. Every canvas carries a dedicated `Body`; the type
+ * keeps it optional only so the canvas area can fall back to a wireframe
+ * placeholder if one is ever missing.
  *
  * The workspace opens with only Today; every other canvas is opened on demand.
  */
@@ -22,6 +23,7 @@ import {
   BeakerIcon,
   type IconComponent,
 } from "@/components/icons";
+import type { ScopeKey } from "./canvas-ids";
 import { TodayBrief } from "./TodayBrief";
 import {
   ProjectsCanvas,
@@ -58,6 +60,12 @@ export type Canvas = {
   /** Dedicated body. When set, the canvas renders this instead of the generic
    *  wireframe placeholder. */
   Body?: (props: CanvasBodyProps) => ReactElement;
+  /** Whether this work surface should take over the screen by collapsing the
+   *  left rail. Project canvases and resource builders both opt in. */
+  focusView?: boolean;
+  /** The agent and top-bar scope for this work surface. Project canvases and
+   *  builders both carry their `project:<id>` key; absent means global scope. */
+  scopeKey?: ScopeKey;
 };
 
 // The one canvas the workspace opens with. Named out here so `initialCanvases`

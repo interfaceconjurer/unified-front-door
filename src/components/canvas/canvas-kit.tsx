@@ -16,9 +16,23 @@ export type Tone = "neutral" | "info" | "success" | "warning" | "danger";
 
 /** Outer wrapper for a canvas body: centers content and defines the tone vars.
  *  `wide` bumps the max width for surfaces that carry their own side rail (the
- *  project workspace), which also auto-collapses the global rail for the room. */
-export function CanvasView({ children, wide }: { children: ReactNode; wide?: boolean }) {
-  return <div className={`${styles.view} ${wide ? styles.viewWide : ""}`}>{children}</div>;
+ *  project workspace), which also auto-collapses the global rail for the room.
+ *  `full` bleeds edge-to-edge and flush to the artboard top, for builder
+ *  surfaces that bring their own chrome (a top toolbar over a working area). */
+export function CanvasView({
+  children,
+  wide,
+  full,
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  full?: boolean;
+}) {
+  return (
+    <div className={`${styles.view} ${wide ? styles.viewWide : ""} ${full ? styles.viewFull : ""}`}>
+      {children}
+    </div>
+  );
 }
 
 /** Canvas title block, with an optional accent icon and a trailing action. */
@@ -51,16 +65,19 @@ export function CanvasHeader({
   );
 }
 
-/** Ghost/outline button used for canvas header actions. Non-functional (mock). */
+/** Ghost/outline button used for canvas header actions. Wire `onClick` to make it
+ *  do something (opening the resource wizard, say); left off, it's an inert mock. */
 export function ActionButton({
   Icon,
   children,
+  onClick,
 }: {
   Icon?: IconComponent;
   children: ReactNode;
+  onClick?: () => void;
 }) {
   return (
-    <button type="button" className={styles.action}>
+    <button type="button" className={styles.action} onClick={onClick}>
       {Icon && <Icon width={16} height={16} />}
       <span>{children}</span>
     </button>
