@@ -1,0 +1,105 @@
+.launcher {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  flex-direction: column;
+  padding: var(--slds-g-spacing-5, 1.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  overflow-y: auto;
+}
+
+.launcherHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  margin-block-end: var(--slds-g-spacing-4, 1rem);
+}
+
+.launcherHeading h2 {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
+}
+
+.launcherHeading p {
+  margin: 0.35rem 0 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  line-height: 1.45;
+}
+
+.appCount {
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  white-space: nowrap;
+}
+
+.appGrid {
+  display: grid;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.appLink {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  min-height: 5.35rem;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  text-decoration: none;
+}
+
+.appLink:hover {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+}
+
+.appIcon {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: rgb(1 118 211 / 14%);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+.appCopy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.appCopy strong {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+}
+
+.appCopy span {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  line-height: 1.4;
+}
+
+.chevron {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.launcherNote {
+  display: grid;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-block-start: auto;
+  padding-block-start: var(--slds-g-spacing-5, 1.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  line-height: 1.45;
+}

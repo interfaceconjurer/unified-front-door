@@ -1,32 +1,21 @@
 "use client";
 
-import type { RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SparklesIcon } from "@/components/icons";
 import { surfaceApps, type SurfaceApp } from "@/components/front-door/app-catalog";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   currentApp: SurfaceApp | undefined;
-  isFrontDoor: boolean;
-  agentOpen: boolean;
-  agentButtonRef: RefObject<HTMLButtonElement | null>;
-  onToggleAgent: () => void;
 };
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It always provides a direct path home, an app switcher, current location,
- * and access to the agent without imposing a global workspace on each app.
+ * It always provides a direct path home, an app switcher, and current location.
+ * The agent no longer lives here — it stands as a persistent panel inside each
+ * surface — so the bar stays focused on navigation.
  */
-export function TopBar({
-  currentApp,
-  isFrontDoor,
-  agentOpen,
-  agentButtonRef,
-  onToggleAgent,
-}: TopBarProps) {
+export function TopBar({ currentApp }: TopBarProps) {
   const router = useRouter();
 
   return (
@@ -80,18 +69,6 @@ export function TopBar({
       </div>
 
       <div className={styles.actions}>
-        <button
-          ref={agentButtonRef}
-          type="button"
-          className={styles.agentButton}
-          onClick={onToggleAgent}
-          aria-expanded={isFrontDoor ? undefined : agentOpen}
-          aria-controls={isFrontDoor ? "front-door-agent" : "global-agent-panel"}
-        >
-          <SparklesIcon width={17} height={17} />
-          <span>Ask Agent</span>
-        </button>
-
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>
@@ -99,7 +76,6 @@ export function TopBar({
           JW
         </button>
       </div>
-
     </header>
   );
 }

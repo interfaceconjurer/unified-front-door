@@ -1,5 +1,5 @@
-import { FrontDoor } from "@/components/front-door/FrontDoor";
+import { AppLauncher } from "@/components/front-door/AppLauncher";
 
 export default function Home() {
-  return <FrontDoor />;
+  return <AppLauncher />;
 }

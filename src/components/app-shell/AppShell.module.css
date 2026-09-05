@@ -7,8 +7,15 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
+/* The agent and the active surface split the shell evenly — the agent stays
+   forward everywhere, and only the right half swaps as you move around. */
 .body {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Bound the row to the shell's height so each half scrolls its own content
+     internally, rather than the whole column growing and pushing its header off
+     the top as the agent thread fills up. */
+  grid-template-rows: minmax(0, 1fr);
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
@@ -16,14 +23,15 @@
 
 .main {
   display: flex;
-  flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   overflow: auto;
 }
 
-@media (max-width: 700px) {
-  .body[data-agent-open] .main {
-    display: none;
+@media (max-width: 900px) {
+  .body {
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(0, 1fr);
+    overflow-y: auto;
   }
 }
