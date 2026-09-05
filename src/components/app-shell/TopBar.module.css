@@ -1,129 +1,193 @@
 .bar {
+  position: relative;
+  z-index: 30;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 3.25rem;
+  min-height: 3.5rem;
   flex: 0 0 auto;
   padding-inline: var(--slds-g-spacing-4, 1rem);
   background: var(--slds-g-color-surface-1, #fff);
   border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+}
+
+.left,
+.actions,
+.homeLink,
+.location {
+  display: flex;
+  align-items: center;
 }
 
 .left {
-  display: flex;
-  align-items: center;
   min-width: 0;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--slds-g-spacing-3, 0.75rem);
-  flex: 0 0 auto;
-}
-
-/* Project scope indicator — only present inside a project canvas. A divider
-   separates it from the product identity; the accent dot echoes the chat panel's
-   "scoped into a project" cue. */
-.scope {
-  display: flex;
-  align-items: center;
+.homeLink {
   gap: var(--slds-g-spacing-2, 0.5rem);
-  min-width: 0;
-  margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
-  padding-inline-start: var(--slds-g-spacing-3, 0.75rem);
-  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-}
-
-.scopeDot {
-  width: 0.4rem;
-  height: 0.4rem;
   flex: 0 0 auto;
-  border-radius: var(--slds-g-radius-border-circle, 50%);
-  background: var(--slds-g-color-accent-1, #0176d3);
-}
-
-.scopeName {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--slds-g-font-scale-1, 0.875rem);
-  font-weight: 600;
-  color: var(--slds-g-color-on-surface-3, #03234d);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
 }
 
 .logo {
   display: grid;
   place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: 1.8rem;
+  height: 1.8rem;
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-accent-1, #0176d3);
   color: var(--slds-g-color-on-accent-1, #fff);
-  font-weight: 700;
   font-size: var(--slds-g-font-scale-1, 0.875rem);
+  font-weight: 700;
 }
 
 .brandName {
-  font-size: var(--slds-g-font-scale-2, 1rem);
-  font-weight: 600;
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
-}
-
-/* ALM-mode control — a labelled switch that reads as a real toggle. */
-.almToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-pill, 999px);
-  background: transparent;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font: inherit;
-  font-size: var(--slds-g-font-scale-1, 0.875rem);
-  cursor: pointer;
-}
-
-.almToggle:hover {
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-}
-
-.almToggle[data-on] {
-  color: var(--slds-g-color-on-surface-3, #03234d);
-  border-color: var(--slds-g-color-accent-1, #0176d3);
-}
-
-.almLabel {
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 700;
   white-space: nowrap;
 }
 
-.switch {
-  position: relative;
-  width: 2rem;
-  height: 1.1rem;
-  flex: 0 0 auto;
-  border-radius: var(--slds-g-radius-border-pill, 999px);
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  margin-inline: var(--slds-g-spacing-3, 0.75rem);
   background: var(--slds-g-color-border-1, #c9c9c9);
-  transition: background 0.15s ease;
 }
 
-.almToggle[data-on] .switch {
-  background: var(--slds-g-color-accent-1, #0176d3);
+.appPickerLabel {
+  position: relative;
+  display: inline-flex;
 }
 
-.thumb {
-  position: absolute;
-  top: 50%;
-  left: 2px;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: var(--slds-g-radius-border-circle, 50%);
+.appPicker {
+  max-width: 12rem;
+  min-height: 2rem;
+  padding: 0.25rem 1.9rem 0.25rem 0.65rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-surface-1, #fff);
-  transform: translateY(-50%);
-  transition: transform 0.15s ease;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-.almToggle[data-on] .thumb {
-  transform: translate(0.9rem, -50%);
+.location {
+  min-width: 0;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-inline-start: var(--slds-g-spacing-2, 0.5rem);
+  white-space: nowrap;
+}
+
+.locationSeparator {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.appName,
+.pageName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.appName {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-weight: 600;
+}
+
+.pageName {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.actions {
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  flex: 0 0 auto;
+}
+
+.agentButton,
+.helpButton,
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  cursor: pointer;
+}
+
+.agentButton {
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  min-height: 2.1rem;
+  padding-inline: var(--slds-g-spacing-3, 0.75rem);
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  color: var(--slds-g-color-accent-1, #0176d3);
+  font-weight: 700;
+}
+
+.agentButton:hover,
+.agentButton[aria-expanded="true"] {
+  background: var(--slds-g-color-accent-container-1, #eef4ff);
+}
+
+.helpButton,
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  font-weight: 700;
+}
+
+.avatar {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  font-size: 0.7rem;
+}
+
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 760px) {
+  .bar {
+    padding-inline: var(--slds-g-spacing-3, 0.75rem);
+  }
+
+  .brandName,
+  .location,
+  .helpButton {
+    display: none;
+  }
+
+  .divider {
+    margin-inline: var(--slds-g-spacing-2, 0.5rem);
+  }
+
+  .appPicker {
+    max-width: 9.5rem;
+  }
+
+  .agentButton span {
+    display: none;
+  }
+
+  .agentButton {
+    width: 2.2rem;
+    padding: 0;
+  }
 }

@@ -3,8 +3,9 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell/AppShell";
 
 export const metadata: Metadata = {
-  title: "Unified Front Door",
-  description: "A unified entry point for a new Salesforce experience.",
+  title: "Salesforce Front Door",
+  description:
+    "An agent-first entry point to purpose-built Salesforce applications.",
 };
 
 /**

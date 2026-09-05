@@ -9,9 +9,12 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-*,
-*::before,
-*::after {
+/* The external SLDS stylesheet is loaded after this bundle. Scope the reset to
+   the body class so it keeps precedence over broad design-system selectors. */
+.slds-color-scheme_system,
+.slds-color-scheme_system *,
+.slds-color-scheme_system *::before,
+.slds-color-scheme_system *::after {
   box-sizing: border-box;
 }
 
