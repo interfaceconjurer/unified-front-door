@@ -26,6 +26,36 @@
   animation: palette-in 140ms ease;
 }
 
+.tabs {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) 0;
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.tab {
+  padding: 0 0.05rem var(--slds-g-spacing-2, 0.5rem);
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 600;
+  cursor: pointer;
+  /* Overlap the container's border so the active underline reads as one line. */
+  margin-block-end: -1px;
+}
+
+.tab:hover {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.tabActive {
+  border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
 .searchRow {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { HomeIcon, SearchIcon, type IconComponent } from "@/components/icons";
+import { HomeIcon, LayersIcon, SearchIcon, type IconComponent } from "@/components/icons";
 import { surfaceApps } from "@/components/front-door/app-catalog";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 import styles from "./CommandPalette.module.css";
 
 type Destination = {
@@ -33,53 +34,113 @@ const DESTINATIONS: readonly Destination[] = [
   })),
 ];
 
+type Tab = "surfaces" | "projects";
+
+const TAB_ORDER: readonly Tab[] = ["surfaces", "projects"];
+const TAB_LABEL: Record<Tab, string> = { surfaces: "Surfaces", projects: "Projects" };
+
+// A row in the results list, normalized across tabs so keyboard nav and
+// rendering don't need to branch on what kind of thing is selected. Surfaces
+// navigate; projects re-project the current surface in place.
+type PaletteItem = {
+  id: string;
+  label: string;
+  description: string;
+  Icon: IconComponent;
+  isCurrent: boolean;
+  select: () => void;
+};
+
 /**
- * A Spotlight/Raycast-style command palette for surface navigation. Opened with
- * ⌘⇧P (the shell owns the shortcut and only mounts this while open, so its state
- * starts fresh each time), it overlays a search box over the whole app: type to
- * filter destinations, ↑/↓ to move, ↵ to go, esc to dismiss. It replaces the
- * top-bar app switcher as the primary way to move between the front door and the
- * surfaces without returning home first.
+ * A Spotlight/Raycast-style command palette for switching what you're looking
+ * at. Opened with ⌘⇧P (the shell owns the shortcut and only mounts this while
+ * open, so its state starts fresh each time), it overlays a search box over
+ * the whole app. Two tabs: Surfaces (the purpose-built destinations — picking
+ * one navigates) and Projects (the shell-level workspace noun — picking one
+ * calls `setActiveProject` and re-projects the current surface instead of
+ * navigating). Type to filter within the active tab, ↑/↓ to move, ←/→ to
+ * switch tabs, ↵ to select, esc to dismiss.
  */
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { projects, activeProject, setActiveProject } = useWorkspace();
+  const [tab, setTab] = useState<Tab>("surfaces");
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
 
-  const results = useMemo(() => {
+  const items = useMemo<PaletteItem[]>(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return DESTINATIONS;
-    return DESTINATIONS.filter(
-      (d) => d.label.toLowerCase().includes(q) || d.description.toLowerCase().includes(q),
-    );
-  }, [query]);
+    const matchesQuery = (label: string, description: string) =>
+      !q || label.toLowerCase().includes(q) || description.toLowerCase().includes(q);
 
-  // Derived, not stored: `active` can point past the end after filtering, so we
-  // clamp it here rather than correcting state in an effect.
-  const safeActive = results.length ? Math.min(active, results.length - 1) : 0;
+    if (tab === "surfaces") {
+      return DESTINATIONS.filter((d) => matchesQuery(d.label, d.description)).map((d) => ({
+        id: d.id,
+        label: d.label,
+        description: d.description,
+        Icon: d.Icon,
+        isCurrent: d.href === pathname,
+        select: () => {
+          onClose();
+          if (d.href !== pathname) router.push(d.href);
+        },
+      }));
+    }
 
-  function go(destination: Destination | undefined) {
-    if (!destination) return;
-    onClose();
-    if (destination.href !== pathname) router.push(destination.href);
+    return projects
+      .filter((p) => matchesQuery(p.name, p.description))
+      .map((p) => ({
+        id: p.id,
+        label: p.name,
+        description: p.description,
+        Icon: LayersIcon,
+        isCurrent: p.id === activeProject.id,
+        // Project is shell-level, not a route — switch it in place and stay put.
+        select: () => {
+          setActiveProject(p.id);
+          onClose();
+        },
+      }));
+  }, [tab, query, pathname, projects, activeProject.id, router, onClose, setActiveProject]);
+
+  // Derived, not stored: `active` can point past the end after filtering or a
+  // tab switch, so we clamp it here rather than correcting state in an effect.
+  const safeActive = items.length ? Math.min(active, items.length - 1) : 0;
+
+  function switchTab(next: Tab) {
+    setTab(next);
+    setActive(0);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setActive(results.length ? (safeActive + 1) % results.length : 0);
+      setActive(items.length ? (safeActive + 1) % items.length : 0);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setActive(results.length ? (safeActive - 1 + results.length) % results.length : 0);
+      setActive(items.length ? (safeActive - 1 + items.length) % items.length : 0);
+    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      // Horizontal caret movement isn't meaningful in a single-line filter, so
+      // ←/→ switch tabs instead — but only when there's actually a tab to move
+      // to, so a stray ArrowLeft/Right at the edge doesn't eat the keystroke.
+      const currentIndex = TAB_ORDER.indexOf(tab);
+      const nextIndex = event.key === "ArrowLeft" ? currentIndex - 1 : currentIndex + 1;
+      const nextTab = TAB_ORDER[nextIndex];
+      if (nextTab) {
+        event.preventDefault();
+        switchTab(nextTab);
+      }
     } else if (event.key === "Enter") {
       event.preventDefault();
-      go(results[safeActive]);
+      items[safeActive]?.select();
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
     }
   }
+
+  const placeholder = tab === "surfaces" ? "Search surfaces…" : "Search projects…";
 
   return (
     <div
@@ -94,8 +155,28 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         className={styles.palette}
         role="dialog"
         aria-modal="true"
-        aria-label="Go to a surface"
+        aria-label="Switch surfaces or projects"
       >
+        <div className={styles.tabs} role="tablist" aria-label="Palette section">
+          {TAB_ORDER.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={t === tab}
+              className={`${styles.tab} ${t === tab ? styles.tabActive : ""}`}
+              // Prevent the mousedown from moving DOM focus onto this button —
+              // the ↑/↓/↵/←/→ handler lives on the search input, so a mouse
+              // click on a tab would otherwise strand focus here and kill
+              // keyboard nav until the user clicks back into the input.
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => switchTab(t)}
+            >
+              {TAB_LABEL[t]}
+            </button>
+          ))}
+        </div>
+
         <div className={styles.searchRow}>
           <SearchIcon className={styles.searchIcon} width={18} height={18} />
           <input
@@ -103,12 +184,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             autoFocus
             className={styles.input}
             type="text"
-            placeholder="Go to a surface…"
+            placeholder={placeholder}
             value={query}
             role="combobox"
             aria-expanded="true"
             aria-controls="command-palette-results"
-            aria-activedescendant={results[safeActive] ? `cmd-${results[safeActive].id}` : undefined}
+            aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
           />
@@ -116,26 +197,29 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         </div>
 
         <ul className={styles.results} id="command-palette-results" role="listbox">
-          {results.length === 0 && <li className={styles.empty}>No surfaces match “{query}”.</li>}
-          {results.map((destination, index) => {
+          {items.length === 0 && (
+            <li className={styles.empty}>
+              No {tab} match “{query}”.
+            </li>
+          )}
+          {items.map((item, index) => {
             const isActive = index === safeActive;
-            const isCurrent = destination.href === pathname;
             return (
-              <li key={destination.id} role="option" id={`cmd-${destination.id}`} aria-selected={isActive}>
+              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}>
                 <button
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""}`}
                   onMouseMove={() => setActive(index)}
-                  onClick={() => go(destination)}
+                  onClick={() => item.select()}
                 >
                   <span className={styles.resultIcon} aria-hidden="true">
-                    <destination.Icon width={18} height={18} />
+                    <item.Icon width={18} height={18} />
                   </span>
                   <span className={styles.resultCopy}>
-                    <span className={styles.resultLabel}>{destination.label}</span>
-                    <span className={styles.resultDescription}>{destination.description}</span>
+                    <span className={styles.resultLabel}>{item.label}</span>
+                    <span className={styles.resultDescription}>{item.description}</span>
                   </span>
-                  {isCurrent ? (
+                  {item.isCurrent ? (
                     <span className={styles.currentTag}>Current</span>
                   ) : (
                     isActive && <span className={styles.enterHint} aria-hidden="true">↵</span>
@@ -152,7 +236,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             <kbd>↓</kbd> navigate
           </span>
           <span>
-            <kbd>↵</kbd> open
+            <kbd>←</kbd>
+            <kbd>→</kbd> switch tabs
+          </span>
+          <span>
+            <kbd>↵</kbd> {tab === "surfaces" ? "open" : "switch"}
           </span>
           <span>
             <kbd>esc</kbd> dismiss

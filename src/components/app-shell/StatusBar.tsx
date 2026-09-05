@@ -19,27 +19,18 @@ function orgStatusText(org: Org): string | null {
   return null;
 }
 
-type OpenPopover = null | "project" | "org";
+type OpenPopover = null | "org";
 
 /**
  * Persistent bottom status bar — the home for ambient global state that must stay
  * visible across every surface. Today it carries the workspace context (project ·
  * worktree · target org); the org especially lives here because "which org am I
- * pointed at" is risk-bearing and should never be hidden behind a palette. It's
- * also the container for future global concerns (session count, connection,
- * notifications). Chips open popovers to switch; worktree is display-only here
- * (switching lives in the Code surface).
+ * pointed at" is risk-bearing and should never be hidden behind a popover. Project
+ * switching now lives in the command palette (⌘⇧P), so the project chip here is a
+ * pure readout, same as the worktree chip; only the org chip still opens a popover.
  */
 export function StatusBar() {
-  const {
-    projects,
-    orgs,
-    activeProject,
-    activeWorktree,
-    activeOrg,
-    setActiveProject,
-    setActiveOrg,
-  } = useWorkspace();
+  const { orgs, activeProject, activeWorktree, activeOrg, setActiveOrg } = useWorkspace();
   const [open, setOpen] = useState<OpenPopover>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const showWorktree = activeProject.worktrees.length > 1;
@@ -65,45 +56,13 @@ export function StatusBar() {
   return (
     <footer className={styles.bar} ref={rootRef}>
       <div className={styles.cluster}>
-        <div className={styles.chipWrap}>
-          <button
-            type="button"
-            className={styles.chip}
-            aria-haspopup="menu"
-            aria-expanded={open === "project"}
-            onClick={() => setOpen((current) => (current === "project" ? null : "project"))}
-          >
-            <LayersIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
-            <span className={styles.chipLabel}>{activeProject.name}</span>
-          </button>
-
-          {open === "project" && (
-            <div className={styles.popover} role="menu">
-              <p className={styles.popoverTitle}>Projects</p>
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={project.id === activeProject.id}
-                  className={styles.option}
-                  onClick={() => {
-                    setActiveProject(project.id);
-                    setOpen(null);
-                  }}
-                >
-                  <span className={styles.optionCheck} aria-hidden="true">
-                    {project.id === activeProject.id && <CheckIcon width={15} height={15} />}
-                  </span>
-                  <span className={styles.optionCopy}>
-                    <span className={styles.optionLabel}>{project.name}</span>
-                    <span className={styles.optionSub}>{project.description}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <span
+          className={`${styles.chip} ${styles.static}`}
+          title={`${activeProject.name} (switch in ⌘⇧P)`}
+        >
+          <LayersIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
+          <span className={styles.chipLabel}>{activeProject.name}</span>
+        </span>
 
         {showWorktree && (
           <span className={`${styles.chip} ${styles.static}`} title="Worktree (switch in Code)">
