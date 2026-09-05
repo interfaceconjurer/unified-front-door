@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AgentPanel } from "@/components/chat/AgentPanel";
 import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
+import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import styles from "./AppShell.module.css";
 
@@ -37,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <AgentPanel />
           <main className={styles.main}>{children}</main>
         </div>
+        <StatusBar />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       </div>
     </WorkspaceProvider>

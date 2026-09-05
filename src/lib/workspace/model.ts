@@ -3,20 +3,25 @@
  * surfaces, orthogonal to the "how you're viewing it" (the surface/lens).
  *
  * Shaped to mirror what real Salesforce sources would return (an sfdx-project.json
- * parse for the project + worktrees, an org list for environments) so the surfaces
- * that read this never have to change when the fixture data source is swapped for
- * the real one. Keep this file free of React and fixtures — it's just the shape.
+ * parse for the project + worktrees, `sf org list` for the org registry) so the
+ * surfaces that read this never have to change when the fixture data source is
+ * swapped for the real one. Keep this file free of React and fixtures.
  */
 
-/** A target org the project can be pointed at. Independently switchable — like
- *  flipping the target org in the pro-code experience — so it re-scopes the
- *  env-aware surfaces (Govern, ALM) without changing your worktree or thread. */
-export type EnvironmentKind = "scratch" | "sandbox" | "production";
+/**
+ * An authenticated org. Orgs are GLOBAL, not owned by a project — you auth them
+ * once (like `sf org list`) and any project can target any of them. A project
+ * only carries a default target; the active target is a free, per-project switch.
+ */
+export type OrgKind = "devhub" | "scratch" | "sandbox" | "production";
 
-export type Environment = {
+export type Org = {
   id: string;
   label: string;
-  kind: EnvironmentKind;
+  kind: OrgKind;
+  connection: "connected" | "expired";
+  /** Scratch orgs only: days until expiry (0 = expired today). */
+  expiresInDays?: number;
 };
 
 /** A git worktree: an isolated checkout of the project. The unit of isolation
@@ -48,7 +53,9 @@ export type Project = {
   name: string;
   description: string;
   worktrees: readonly Worktree[];
-  environments: readonly Environment[];
+  /** The org this project targets by default; the active target can be switched
+   *  to any org in the global registry. */
+  defaultOrgId: string;
   facets: ProjectFacets;
 };
 

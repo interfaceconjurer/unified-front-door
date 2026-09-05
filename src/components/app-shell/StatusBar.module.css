@@ -1,0 +1,240 @@
+/* Persistent bottom status bar. Sits below the split body as a peer of the top
+   bar; never scrolls, always visible. Thin and quiet so it reads as ambient
+   state, not chrome that competes with the surface. */
+.bar {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  min-height: 2rem;
+  padding-inline: var(--slds-g-spacing-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+}
+
+.cluster {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  min-width: 0;
+}
+
+/* A chip is the interactive (or static) unit of the bar. Buttons and the static
+   worktree span share the shape so the bar reads as one row of pills. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  max-width: 16rem;
+  min-height: 1.5rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+button.chip:hover,
+button.chip[aria-expanded="true"] {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  border-color: var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.static {
+  cursor: default;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.chipIcon {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.chipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* Org chip carries risk tint: the dot and a faint border/background keyed to
+   the org kind, so "which org am I pointed at" is legible at a glance. */
+.orgChip {
+  border-color: var(--org-line, var(--slds-g-color-border-1, #c9c9c9));
+}
+
+button.orgChip:hover,
+button.orgChip[aria-expanded="true"] {
+  border-color: var(--org-color);
+  background: var(--org-wash);
+}
+
+.orgDot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--org-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+}
+
+/* Kind → risk color. Production reads as caution; scratch as transient; sandbox
+   as safe/working; dev hub as neutral-distinct. Applied to both the chip (via
+   --org-*) and to option rows (via --org-color on the dot). */
+.devhub {
+  --org-color: #9050e9;
+  --org-wash: color-mix(in srgb, #9050e9 10%, transparent);
+  --org-line: color-mix(in srgb, #9050e9 45%, transparent);
+}
+.scratch {
+  --org-color: #dd7a01;
+  --org-wash: color-mix(in srgb, #dd7a01 10%, transparent);
+  --org-line: color-mix(in srgb, #dd7a01 45%, transparent);
+}
+.sandbox {
+  --org-color: #0176d3;
+  --org-wash: color-mix(in srgb, #0176d3 10%, transparent);
+  --org-line: color-mix(in srgb, #0176d3 45%, transparent);
+}
+.production {
+  --org-color: #ba0517;
+  --org-wash: color-mix(in srgb, #ba0517 12%, transparent);
+  --org-line: color-mix(in srgb, #ba0517 50%, transparent);
+}
+
+/* Popovers open upward from their chip — the bar is at the bottom of the shell. */
+.chipWrap {
+  position: relative;
+}
+
+.popover {
+  position: absolute;
+  bottom: calc(100% + 0.4rem);
+  inset-inline-start: 0;
+  z-index: 40;
+  width: max-content;
+  min-width: 15rem;
+  max-width: 22rem;
+  padding: var(--slds-g-spacing-1, 0.25rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
+  animation: popIn 120ms ease-out;
+}
+
+.popoverRight {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.popoverTitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin: 0;
+  padding: 0.4rem 0.5rem 0.35rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.popoverHint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.option:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.option[aria-checked="true"] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 8%, transparent);
+}
+
+.optionCheck {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1rem;
+  height: 1rem;
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.optionCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.optionLabel {
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.optionSub {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.orgStatus {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.orgStatusBad {
+  background: color-mix(in srgb, #ba0517 12%, transparent);
+  color: #ba0517;
+}
+
+@media (max-width: 760px) {
+  .optionSub {
+    display: none;
+  }
+}

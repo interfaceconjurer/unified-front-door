@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronRightIcon,
-  DatabaseIcon,
   GitBranchIcon,
   LayersIcon,
   SendIcon,
@@ -99,9 +98,8 @@ export function AgentPanel() {
   const scope = scopeForPath(pathname);
   const isHome = scope.key === HOME_SCOPE.key;
 
-  const { activeProject, activeWorktree, activeEnvironment, sessionKey } = useWorkspace();
+  const { activeProject, activeWorktree, activeOrg, sessionKey } = useWorkspace();
   const showWorktree = activeProject.worktrees.length > 1;
-  const showEnvironment = activeProject.environments.length > 1;
 
   const [draft, setDraft] = useState("");
   // One thread per {project, worktree} session, seeded from the mount scope.
@@ -164,7 +162,7 @@ export function AgentPanel() {
       ? `I’d start this in ${recommendApp(value).label}. I’ll carry your goal and the context we establish here into that workspace.`
       : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
           showWorktree ? ` · ${activeWorktree.label}` : ""
-        } against ${activeEnvironment.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
+        } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
 
     setSessions((current) => {
       const existing = current[sessionKey] ?? seedThread(scope);
@@ -194,8 +192,10 @@ export function AgentPanel() {
         </div>
 
         {/* Context bar: what the agent is pointed at. The surface chip is keyed by
-            scope so it remounts and replays its pulse on every hand-off; project,
-            worktree, and org appear only when they carry meaning. */}
+            scope so it remounts and replays its pulse on every hand-off; project
+            and worktree appear only when they carry meaning. The target org is
+            deliberately absent — it's ambient global state, owned by the status
+            bar, not something the agent header should duplicate. */}
         <div className={styles.contextBar} aria-live="polite">
           <span key={scope.key} className={styles.scopeChip}>
             <span className={styles.scopeDot} aria-hidden="true" />
@@ -209,12 +209,6 @@ export function AgentPanel() {
             <span className={styles.contextChip}>
               <GitBranchIcon width={13} height={13} aria-hidden="true" />
               {activeWorktree.label}
-            </span>
-          )}
-          {showEnvironment && (
-            <span className={styles.contextChip}>
-              <DatabaseIcon width={13} height={13} aria-hidden="true" />
-              {activeEnvironment.label}
             </span>
           )}
         </div>

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
-import { WorkspaceControls } from "./WorkspaceControls";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -11,11 +10,10 @@ type TopBarProps = {
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It carries the workspace context (project + target org), a direct path home,
- * and the command palette that switches surfaces (⌘⇧P). The agent no longer
- * lives here — it stands as a persistent panel — and the current surface reads
- * off the agent header, so the bar stays focused on "what you're working on"
- * and "where to go."
+ * It's deliberately spare: a path home and the command palette that switches
+ * surfaces (⌘⇧P). Workspace context (project · worktree · target org) now lives
+ * in the persistent bottom status bar, and the agent stands as its own panel, so
+ * the top bar is left to answer just one question — "where do you want to go?"
  */
 export function TopBar({ onOpenPalette }: TopBarProps) {
   return (
@@ -27,10 +25,6 @@ export function TopBar({ onOpenPalette }: TopBarProps) {
           </span>
           <span className={styles.brandName}>Front Door</span>
         </Link>
-
-        <span className={styles.divider} aria-hidden="true" />
-
-        <WorkspaceControls />
 
         <span className={styles.divider} aria-hidden="true" />
 
