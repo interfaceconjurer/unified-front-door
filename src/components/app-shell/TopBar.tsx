@@ -2,21 +2,22 @@
 
 import Link from "next/link";
 import { SearchIcon } from "@/components/icons";
-import { type SurfaceApp } from "@/components/front-door/app-catalog";
+import { WorkspaceControls } from "./WorkspaceControls";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
-  currentApp: SurfaceApp | undefined;
   onOpenPalette: () => void;
 };
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It always provides a direct path home, the command palette that switches
- * surfaces (⌘⇧P), and the current location. The agent no longer lives here — it
- * stands as a persistent panel — so the bar stays focused on navigation.
+ * It carries the workspace context (project + target org), a direct path home,
+ * and the command palette that switches surfaces (⌘⇧P). The agent no longer
+ * lives here — it stands as a persistent panel — and the current surface reads
+ * off the agent header, so the bar stays focused on "what you're working on"
+ * and "where to go."
  */
-export function TopBar({ currentApp, onOpenPalette }: TopBarProps) {
+export function TopBar({ onOpenPalette }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -26,6 +27,10 @@ export function TopBar({ currentApp, onOpenPalette }: TopBarProps) {
           </span>
           <span className={styles.brandName}>Front Door</span>
         </Link>
+
+        <span className={styles.divider} aria-hidden="true" />
+
+        <WorkspaceControls />
 
         <span className={styles.divider} aria-hidden="true" />
 
@@ -40,23 +45,6 @@ export function TopBar({ currentApp, onOpenPalette }: TopBarProps) {
           <span className={styles.commandLabel}>Go to…</span>
           <kbd className={styles.commandKbd}>⌘⇧P</kbd>
         </button>
-
-        <div className={styles.location} aria-label="Current location">
-          <span className={styles.locationSeparator} aria-hidden="true">
-            /
-          </span>
-          {currentApp ? (
-            <>
-              <span className={styles.appName}>{currentApp.label}</span>
-              <span className={styles.locationSeparator} aria-hidden="true">
-                /
-              </span>
-              <span className={styles.pageName}>Overview</span>
-            </>
-          ) : (
-            <span className={styles.pageName}>Home</span>
-          )}
-        </div>
       </div>
 
       <div className={styles.actions}>

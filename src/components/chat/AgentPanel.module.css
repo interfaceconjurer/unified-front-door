@@ -59,6 +59,18 @@
   line-height: 1.45;
 }
 
+/* The context bar: everything the agent is pointed at. Spans the header's full
+   width and wraps. The surface chip pulses on hand-off; the project / worktree /
+   org chips are quieter and appear only when they carry meaning. */
+.contextBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  grid-column: 1 / -1;
+  margin-block-start: 0.15rem;
+}
+
 /* The context indicator: which surface the agent is pointed at right now. It
    remounts on every hand-off (keyed by scope) so this pulse replays, making the
    context change legible. */
@@ -66,8 +78,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  grid-column: 1 / -1;
-  justify-self: start;
   padding: 0.25rem 0.6rem;
   border: 1px solid var(--slds-g-color-accent-1, #0176d3);
   border-radius: var(--slds-g-radius-border-pill, 999px);
@@ -77,6 +87,25 @@
   font-weight: 700;
   white-space: nowrap;
   animation: scope-pulse 520ms ease;
+}
+
+.contextChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.contextChip svg {
+  flex: 0 0 auto;
+  opacity: 0.85;
 }
 
 .scopeDot {

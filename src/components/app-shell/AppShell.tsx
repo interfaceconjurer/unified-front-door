@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { surfaceAppForPath } from "@/components/front-door/app-catalog";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
 import { TopBar } from "./TopBar";
 import styles from "./AppShell.module.css";
@@ -16,8 +15,6 @@ import styles from "./AppShell.module.css";
  * a ⌘⇧P command palette the shell owns.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const currentApp = surfaceAppForPath(pathname);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ⌘⇧P (⌃⇧P on non-Mac) toggles the palette from anywhere in the app.
@@ -33,13 +30,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className={styles.shell}>
-      <TopBar currentApp={currentApp} onOpenPalette={() => setPaletteOpen(true)} />
-      <div className={styles.body}>
-        <AgentPanel />
-        <main className={styles.main}>{children}</main>
+    <WorkspaceProvider>
+      <div className={styles.shell}>
+        <TopBar onOpenPalette={() => setPaletteOpen(true)} />
+        <div className={styles.body}>
+          <AgentPanel />
+          <main className={styles.main}>{children}</main>
+        </div>
+        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       </div>
-      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
-    </div>
+    </WorkspaceProvider>
   );
 }

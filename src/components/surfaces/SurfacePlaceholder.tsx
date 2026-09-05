@@ -4,6 +4,10 @@ import styles from "./SurfacePlaceholder.module.css";
 
 type SurfacePlaceholderProps = {
   surface: SurfaceApp;
+  /** Surface-specific header control (e.g. the Code surface's worktree switcher).
+   *  Surfaces that expose more of the project than others put their lens control
+   *  here; when omitted the header just shows the prototype badge. */
+  toolbar?: React.ReactNode;
 };
 
 /**
@@ -11,7 +15,7 @@ type SurfacePlaceholderProps = {
  * information architecture beneath the one shared top bar, alongside the
  * persistent agent panel on the left.
  */
-export function SurfacePlaceholder({ surface }: SurfacePlaceholderProps) {
+export function SurfacePlaceholder({ surface, toolbar }: SurfacePlaceholderProps) {
   return (
     <div className={styles.surface}>
       <section className={styles.workspace} aria-labelledby="surface-heading">
@@ -21,7 +25,7 @@ export function SurfacePlaceholder({ surface }: SurfacePlaceholderProps) {
             <h1 id="surface-heading">{surface.label}</h1>
             <p>{surface.workspaceDescription}</p>
           </div>
-          <span className={styles.prototypeBadge}>Placeholder</span>
+          {toolbar ?? <span className={styles.prototypeBadge}>Placeholder</span>}
         </header>
 
         <div className={styles.canvas}>
