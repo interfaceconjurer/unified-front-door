@@ -1,6 +1,5 @@
-import { surfaceAppById } from "@/components/front-door/app-catalog";
-import { SurfacePlaceholder } from "@/components/surfaces/SurfacePlaceholder";
+import { SurfaceProjection } from "@/components/surfaces/SurfaceProjection";
 
 export default function AlmPage() {
-  return <SurfacePlaceholder surface={surfaceAppById("alm")} />;
+  return <SurfaceProjection surfaceId="alm" />;
 }

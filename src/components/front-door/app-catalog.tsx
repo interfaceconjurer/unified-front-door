@@ -5,9 +5,10 @@ import {
   GitBranchIcon,
   type IconComponent,
 } from "@/components/icons";
+import type { SurfaceId } from "@/lib/workspace/model";
 
 export type SurfaceApp = {
-  id: "build" | "code" | "govern" | "alm";
+  id: SurfaceId;
   href: string;
   label: string;
   description: string;

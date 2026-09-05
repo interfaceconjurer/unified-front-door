@@ -8,6 +8,10 @@
  * swapped for the real one. Keep this file free of React and fixtures.
  */
 
+/** The purpose-built destinations. A surface is a lens on the project, not a
+ *  container for it — the same project projects differently into each. */
+export type SurfaceId = "build" | "code" | "govern" | "alm";
+
 /**
  * An authenticated org. Orgs are GLOBAL, not owned by a project — you auth them
  * once (like `sf org list`) and any project can target any of them. A project
