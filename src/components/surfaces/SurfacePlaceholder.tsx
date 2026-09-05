@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ChevronRightIcon, SparklesIcon } from "@/components/icons";
+import { ChevronRightIcon } from "@/components/icons";
 import type { SurfaceApp } from "@/components/front-door/app-catalog";
 import styles from "./SurfacePlaceholder.module.css";
 
@@ -9,42 +8,12 @@ type SurfacePlaceholderProps = {
 
 /**
  * A deliberately light placeholder showing that each destination can own its
- * information architecture beneath the one shared top bar.
+ * information architecture beneath the one shared top bar, alongside the
+ * persistent agent panel on the left.
  */
 export function SurfacePlaceholder({ surface }: SurfacePlaceholderProps) {
   return (
     <div className={styles.surface}>
-      <aside className={styles.localRail}>
-        <div className={styles.appIdentity}>
-          <span className={styles.appIcon} aria-hidden="true">
-            <surface.Icon width={22} height={22} />
-          </span>
-          <span>{surface.label}</span>
-        </div>
-
-        <nav aria-label={`${surface.label} navigation`}>
-          <ul className={styles.localNav}>
-            {surface.navigation.map((item, index) => (
-              <li key={item}>
-                <span
-                  className={styles.localNavItem}
-                  aria-current={index === 0 ? "page" : undefined}
-                  data-current={index === 0 || undefined}
-                  data-disabled={index !== 0 || undefined}
-                >
-                  <span>{item}</span>
-                  {index !== 0 && <span className={styles.soon}>Soon</span>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <Link href="/" className={styles.backLink}>
-          Back to Front Door
-        </Link>
-      </aside>
-
       <section className={styles.workspace} aria-labelledby="surface-heading">
         <header className={styles.workspaceHeader}>
           <div>
@@ -76,14 +45,6 @@ export function SurfacePlaceholder({ surface }: SurfacePlaceholderProps) {
               </li>
             ))}
           </ul>
-
-          <div className={styles.agentCallout}>
-            <SparklesIcon width={19} height={19} />
-            <span>
-              Use <strong>Ask Agent</strong> in the top bar to open the shared
-              agent on the left without leaving this app.
-            </span>
-          </div>
         </div>
       </section>
     </div>
