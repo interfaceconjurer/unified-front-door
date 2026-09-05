@@ -1,23 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { surfaceApps, type SurfaceApp } from "@/components/front-door/app-catalog";
+import { SearchIcon } from "@/components/icons";
+import { type SurfaceApp } from "@/components/front-door/app-catalog";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   currentApp: SurfaceApp | undefined;
+  onOpenPalette: () => void;
 };
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It always provides a direct path home, an app switcher, and current location.
- * The agent no longer lives here — it stands as a persistent panel inside each
- * surface — so the bar stays focused on navigation.
+ * It always provides a direct path home, the command palette that switches
+ * surfaces (⌘⇧P), and the current location. The agent no longer lives here — it
+ * stands as a persistent panel — so the bar stays focused on navigation.
  */
-export function TopBar({ currentApp }: TopBarProps) {
-  const router = useRouter();
-
+export function TopBar({ currentApp, onOpenPalette }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -30,25 +29,17 @@ export function TopBar({ currentApp }: TopBarProps) {
 
         <span className={styles.divider} aria-hidden="true" />
 
-        <label className={styles.appPickerLabel}>
-          <span className={styles.srOnly}>Switch application</span>
-          <select
-            className={styles.appPicker}
-            value={currentApp?.href ?? ""}
-            onChange={(event) => {
-              if (event.target.value) router.push(event.target.value);
-            }}
-          >
-            <option value="" disabled>
-              Apps
-            </option>
-            {surfaceApps.map((surface) => (
-              <option key={surface.id} value={surface.href}>
-                {surface.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <button
+          type="button"
+          className={styles.commandTrigger}
+          onClick={onOpenPalette}
+          aria-label="Go to a surface"
+          aria-keyshortcuts="Meta+Shift+P Control+Shift+P"
+        >
+          <SearchIcon className={styles.commandIcon} width={16} height={16} />
+          <span className={styles.commandLabel}>Go to…</span>
+          <kbd className={styles.commandKbd}>⌘⇧P</kbd>
+        </button>
 
         <div className={styles.location} aria-label="Current location">
           <span className={styles.locationSeparator} aria-hidden="true">
