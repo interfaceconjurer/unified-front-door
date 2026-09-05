@@ -1,7 +1,7 @@
 # Continuous deployment to Heroku.
 #
-# Fires on every push to `main` — which is what a merged pull request produces —
-# and can also be run on demand from the Actions tab (workflow_dispatch).
+# This copied project starts with manual deployment only. Re-enable push-based
+# deployment after the new Heroku app and repository secret are configured.
 #
 # The deploy talks to Heroku's source-blob build API directly over HTTPS (curl +
 # jq, no Heroku CLI and no plugins): it creates a source slot, uploads the
@@ -20,8 +20,6 @@
 name: Deploy to Heroku
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 # Never run two deploys at once; queue a later merge behind an in-flight release
@@ -35,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: heroku
-      url: https://platform-studio-prototype-3ce661d053e2.herokuapp.com/
     steps:
       - name: Check out the merged commit
         uses: actions/checkout@v4
@@ -47,7 +44,7 @@ jobs:
         shell: bash
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          APP: platform-studio-prototype
+          APP: unified-front-door
         run: |
           set -euo pipefail
 

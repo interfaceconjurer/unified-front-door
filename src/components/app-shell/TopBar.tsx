@@ -24,9 +24,9 @@ export function TopBar({ scope, almMode, onToggleAlm }: TopBarProps) {
       <div className={styles.left}>
         <div className={styles.brand}>
           <span className={styles.logo} aria-hidden="true">
-            P
+            U
           </span>
-          <span className={styles.brandName}>Platform Studio</span>
+          <span className={styles.brandName}>Unified Front Door</span>
         </div>
         {scope && (
           <div className={styles.scope}>

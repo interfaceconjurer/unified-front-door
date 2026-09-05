@@ -3,8 +3,8 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell/AppShell";
 
 export const metadata: Metadata = {
-  title: "Platform Studio",
-  description: "A React prototyping environment for a new Salesforce vision.",
+  title: "Unified Front Door",
+  description: "A unified entry point for a new Salesforce experience.",
 };
 
 /**

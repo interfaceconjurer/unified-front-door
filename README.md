@@ -1,4 +1,4 @@
-# Platform Studio
+# Unified Front Door
 
 A React prototyping environment that mimics the Salesforce Lightning look using
 the **SLDS 2 (Salesforce Cosmos)** design language, with **Neon serverless

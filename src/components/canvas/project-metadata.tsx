@@ -369,7 +369,7 @@ function apexLines(cls: string): string[] {
 function jsonLines(): string[] {
   return [
     "{",
-    '  "orgName": "Platform Studio Scratch",',
+    '  "orgName": "Unified Front Door Scratch",',
     '  "edition": "Developer",',
     '  "features": ["EnableSetPasswordInApi", "AuthorApex"],',
     '  "settings": {',
@@ -405,7 +405,7 @@ function markdownLines(base: string): string[] {
   return [
     `# ${base}`,
     "",
-    "Wireframe placeholder for the Platform Studio prototype.",
+    "Wireframe placeholder for the Unified Front Door prototype.",
     "",
     "## Overview",
     "",
