@@ -1,0 +1,167 @@
+.rail {
+  display: grid;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+}
+
+.heading {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.list {
+  display: grid;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Same card shape as .metric/.insight in SurfaceProjection, so the rail reads
+   as part of the projection rather than a bolted-on widget. */
+.row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row:hover {
+  border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 45%, transparent);
+}
+
+/* The focused row is the live one — the same emphasis treatment .metricEmphasis
+   gives a headline facet, plus a default cursor since clicking it is a no-op. */
+.rowFocused {
+  border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 45%, transparent);
+  background:
+    linear-gradient(135deg, rgb(1 118 211 / 7%), transparent 60%),
+    var(--slds-g-color-surface-1, #fff);
+  cursor: default;
+}
+
+/* Status → tone, matching the StatusBar org-dot idiom: working reads as the
+   accent (something is actively happening), waiting borrows the scratch-org
+   amber (needs you), idle is neutral (nothing pending). */
+.statusDot {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+}
+
+.working {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.waiting {
+  --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.statusDot.working {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusDot.working {
+    animation: none;
+  }
+}
+
+.rowCopy {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.branchIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  opacity: 0.75;
+}
+
+.worktreeLabel {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-weight: 600;
+}
+
+.branch {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusText {
+  flex: 0 0 auto;
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.focusedTag {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 14%, transparent);
+  color: var(--slds-g-color-accent-1, #0176d3);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .summary {
+    white-space: normal;
+  }
+}

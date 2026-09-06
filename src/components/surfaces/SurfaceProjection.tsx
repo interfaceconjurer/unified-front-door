@@ -45,6 +45,11 @@ type SurfaceProjectionProps = {
   surfaceId: SurfaceId;
   /** Surface-specific lens control (e.g. the Code surface's worktree switcher). */
   toolbar?: React.ReactNode;
+  /** Generic extra body section for content that's specific to one surface and
+   *  doesn't fit the metrics/insights shape every lens shares (e.g. the Code
+   *  surface's agent sessions rail). Kept as a plain slot — SurfaceProjection
+   *  stays a lens renderer for all four surfaces, not a Code-specific layout. */
+  children?: React.ReactNode;
 };
 
 /**
@@ -55,7 +60,7 @@ type SurfaceProjectionProps = {
  * org re-projects in place; switching surface re-frames the same project — the
  * whole point of the front door.
  */
-export function SurfaceProjection({ surfaceId, toolbar }: SurfaceProjectionProps) {
+export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProjectionProps) {
   const surface = surfaceAppById(surfaceId);
   const { activeProject, activeOrg } = useWorkspace();
   const projection = projectionForSurface(surface.id, activeProject, activeOrg);
@@ -112,6 +117,8 @@ export function SurfaceProjection({ surfaceId, toolbar }: SurfaceProjectionProps
             );
           })}
         </div>
+
+        {children && <div className={styles.extra}>{children}</div>}
 
         <footer className={styles.actions}>
           <span className={styles.actionsLabel}>In {surface.label} you can</span>

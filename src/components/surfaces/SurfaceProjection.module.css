@@ -167,6 +167,12 @@
   line-height: 1.5;
 }
 
+/* Generic slot for a surface-specific body section (e.g. Code's sessions
+   rail). Just spacing — the child brings its own chrome, same as .insights. */
+.extra {
+  margin-block-end: var(--slds-g-spacing-6, 2rem);
+}
+
 /* Capability chips — the surface's own action vocabulary, kept as a quiet
    footer so it identifies the surface without competing with the projection. */
 .actions {
