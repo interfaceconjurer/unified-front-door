@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import {
   primaryWorktree,
   sessionKey,
@@ -10,6 +10,7 @@ import {
   type Worktree,
 } from "@/lib/workspace/model";
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
+import { workspaceSelectionStore } from "@/lib/workspace/persistence";
 
 type WorkspaceContextValue = {
   projects: readonly Project[];
@@ -39,23 +40,33 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
  * Fixture-backed for now; the provider is the seam. Surfaces read `useWorkspace()`
  * and never touch the concrete data source, so swapping fixtures for real sfdx /
  * org queries is invisible to them.
+ *
+ * The three selections (active project, per-project worktree, per-project org)
+ * persist to `localStorage` so a reload resumes where you left off — see
+ * `@/lib/workspace/persistence`. They're read here via `useSyncExternalStore`
+ * rather than `useState`, which is what lets rehydration happen without an
+ * effect (nothing for `react-hooks/set-state-in-effect` to catch) and without a
+ * hydration mismatch (the server/first-render snapshot is a fixed default; the
+ * stored value, if any, applies in React's dedicated post-hydration pass).
  */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const projects = PROJECTS;
   const orgs = ORGS;
-  const [activeProjectId, setActiveProjectId] = useState(projects[0]!.id);
-  // Selections are kept per-project so switching away and back restores them.
-  const [worktreeByProject, setWorktreeByProject] = useState<Record<string, string>>({});
-  const [orgByProject, setOrgByProject] = useState<Record<string, string>>({});
+  const selection = useSyncExternalStore(
+    workspaceSelectionStore.subscribe,
+    workspaceSelectionStore.getSnapshot,
+    workspaceSelectionStore.getServerSnapshot,
+  );
 
   const value = useMemo<WorkspaceContextValue>(() => {
+    const activeProjectId = selection.activeProjectId ?? projects[0]!.id;
     const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0]!;
 
-    const worktreeId = worktreeByProject[activeProject.id];
+    const worktreeId = selection.worktreeByProject[activeProject.id];
     const activeWorktree =
       activeProject.worktrees.find((w) => w.id === worktreeId) ?? primaryWorktree(activeProject);
 
-    const orgId = orgByProject[activeProject.id] ?? activeProject.defaultOrgId;
+    const orgId = selection.orgByProject[activeProject.id] ?? activeProject.defaultOrgId;
     const activeOrg = orgs.find((o) => o.id === orgId) ?? orgs[0]!;
 
     return {
@@ -66,13 +77,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       activeOrg,
       agentSessions: activeProject.agentSessions,
       sessionKey: sessionKey(activeProject.id, activeWorktree.id),
-      setActiveProject: setActiveProjectId,
-      setActiveWorktree: (id) =>
-        setWorktreeByProject((current) => ({ ...current, [activeProject.id]: id })),
-      setActiveOrg: (id) =>
-        setOrgByProject((current) => ({ ...current, [activeProject.id]: id })),
+      setActiveProject: workspaceSelectionStore.setActiveProjectId,
+      setActiveWorktree: (id) => workspaceSelectionStore.setWorktreeForProject(activeProject.id, id),
+      setActiveOrg: (id) => workspaceSelectionStore.setOrgForProject(activeProject.id, id),
     };
-  }, [projects, orgs, activeProjectId, worktreeByProject, orgByProject]);
+  }, [projects, orgs, selection]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
