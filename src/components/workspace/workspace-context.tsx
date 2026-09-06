@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useState } from "react";
 import {
   primaryWorktree,
   sessionKey,
+  type AgentSession,
   type Org,
   type Project,
   type Worktree,
@@ -17,6 +18,9 @@ type WorkspaceContextValue = {
   activeWorktree: Worktree;
   /** The org the active project currently targets — a free, independent switch. */
   activeOrg: Org;
+  /** The active project's agent sessions, one per worktree — the seam consumers
+   *  (e.g. the Code surface's sessions rail) read instead of the fixture. */
+  agentSessions: readonly AgentSession[];
   /** Stable key for the current agent thread: {project, worktree}. */
   sessionKey: string;
   setActiveProject: (projectId: string) => void;
@@ -60,6 +64,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       activeProject,
       activeWorktree,
       activeOrg,
+      agentSessions: activeProject.agentSessions,
       sessionKey: sessionKey(activeProject.id, activeWorktree.id),
       setActiveProject: setActiveProjectId,
       setActiveWorktree: (id) =>

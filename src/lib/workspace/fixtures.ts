@@ -35,6 +35,11 @@ export const PROJECTS: readonly Project[] = [
     worktrees: [{ id: "main", label: "main", branch: "main", isPrimary: true }],
     defaultOrgId: "sit",
     facets: { objects: 12, flows: 4, apexClasses: 8, lwc: 15, permissionSets: 3 },
+    // Single worktree → the rail stays hidden (progressive disclosure), but the
+    // session still exists so the seam is exercised even where the UI hides it.
+    agentSessions: [
+      { worktreeId: "main", status: "idle", summary: "No active work; last session ended 2h ago." },
+    ],
   },
   {
     id: "trailblazer-crm",
@@ -47,5 +52,24 @@ export const PROJECTS: readonly Project[] = [
     ],
     defaultOrgId: "uat",
     facets: { objects: 48, flows: 22, apexClasses: 61, lwc: 34, permissionSets: 11 },
+    // Deliberately varied — this is the case the sessions rail exists to show:
+    // three worktrees, three different states a super user needs to triage at once.
+    agentSessions: [
+      {
+        worktreeId: "main",
+        status: "working",
+        summary: "Refactoring OpportunityTriggerHandler — 3 files touched in the last 4 min.",
+      },
+      {
+        worktreeId: "lead-routing",
+        status: "waiting",
+        summary: "Needs approval before deploying the updated Lead Assignment Rule to UAT.",
+      },
+      {
+        worktreeId: "hotfix-9821",
+        status: "idle",
+        summary: "Fix for W-9821 is ready for review; no activity in 25 min.",
+      },
+    ],
   },
 ];

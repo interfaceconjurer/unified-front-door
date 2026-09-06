@@ -52,6 +52,26 @@ export type ProjectFacets = {
   permissionSets: number;
 };
 
+/**
+ * An agent session's live state, from the "does a human need to look at this
+ * right now" angle — working (agent is actively executing), waiting (blocked
+ * on human input/approval), idle (nothing in flight; may just be finished and
+ * ready for review).
+ */
+export type AgentSessionStatus = "working" | "waiting" | "idle";
+
+/**
+ * A worktree's agent thread — the pairing `sessionKey(projectId, worktreeId)`
+ * already encodes. One per worktree; mocked here the same way orgs/facets are,
+ * standing in for a real query against the agent runtime.
+ */
+export type AgentSession = {
+  worktreeId: string;
+  status: AgentSessionStatus;
+  /** Short, human-scannable description of the most recent activity. */
+  summary: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -61,6 +81,10 @@ export type Project = {
    *  to any org in the global registry. */
   defaultOrgId: string;
   facets: ProjectFacets;
+  /** One session per worktree — nested on the project (like `worktrees`) rather
+   *  than a flat global list, since worktree ids are only unique within a
+   *  project ("main" exists in more than one project's fixture). */
+  agentSessions: readonly AgentSession[];
 };
 
 /** The agent's thread is bound to a {project, worktree} pair — switching worktree
