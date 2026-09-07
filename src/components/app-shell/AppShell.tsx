@@ -1,80 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
-import { AgentDrawer } from "@/components/chat/AgentDrawer";
-import { surfaceAppForPath } from "@/components/front-door/app-catalog";
+import { useEffect, useState } from "react";
+import { AgentPanel } from "@/components/chat/AgentPanel";
+import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { CommandPalette } from "./CommandPalette";
+import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import styles from "./AppShell.module.css";
 
 /**
- * Path B's shared chrome. The top bar is the persistent glue across otherwise
- * independent apps; the agent is embedded on the front door and available as
- * an on-demand left panel everywhere else.
+ * The shared chrome. The agent is the constant: a persistent left panel that
+ * never unmounts, so it's the same agent everywhere and its context follows you.
+ * The top bar and the right half are what change — the app launcher on the front
+ * door, a purpose-built surface everywhere else. Surface navigation runs through
+ * a ⌘⇧P command palette the shell owns.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const currentApp = surfaceAppForPath(pathname);
-  const isFrontDoor = pathname === "/";
-  const [agentPanel, setAgentPanel] = useState({ pathname, open: false });
-  const agentOpen = agentPanel.pathname === pathname && agentPanel.open;
-  const agentButtonRef = useRef<HTMLButtonElement>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  const wasOpen = useRef(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
+  // ⌘⇧P (⌃⇧P on non-Mac) toggles the palette from anywhere in the app.
   useEffect(() => {
-    if (agentOpen) {
-      composerRef.current?.focus();
-    } else if (wasOpen.current) {
-      agentButtonRef.current?.focus();
-    }
-    wasOpen.current = agentOpen;
-  }, [agentOpen]);
-
-  useEffect(() => {
-    if (!agentOpen) return;
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setAgentPanel({ pathname, open: false });
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
       }
     }
-
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [agentOpen, pathname]);
-
-  function handleAgentToggle() {
-    if (isFrontDoor) {
-      document.querySelector<HTMLTextAreaElement>("#front-door-composer")?.focus();
-      return;
-    }
-    setAgentPanel((current) => ({
-      pathname,
-      open: current.pathname === pathname ? !current.open : true,
-    }));
-  }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
-    <div className={styles.shell}>
-      <TopBar
-        currentApp={currentApp}
-        isFrontDoor={isFrontDoor}
-        agentOpen={agentOpen}
-        agentButtonRef={agentButtonRef}
-        onToggleAgent={handleAgentToggle}
-      />
-      <div className={styles.body} data-agent-open={agentOpen || undefined}>
-        {!isFrontDoor && (
-          <AgentDrawer
-            open={agentOpen}
-            contextLabel={currentApp?.label ?? "Front Door"}
-            composerRef={composerRef}
-            onClose={() => setAgentPanel({ pathname, open: false })}
-          />
-        )}
-        <main className={styles.main}>{children}</main>
+    <WorkspaceProvider>
+      <div className={styles.shell}>
+        <TopBar onOpenPalette={() => setPaletteOpen(true)} />
+        <div className={styles.body}>
+          <AgentPanel />
+          <main className={styles.main}>{children}</main>
+        </div>
+        <StatusBar />
+        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       </div>
-    </div>
+    </WorkspaceProvider>
   );
 }

@@ -1,0 +1,218 @@
+.surface {
+  display: flex;
+  width: 100%;
+  min-height: 100%;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.workspace {
+  min-width: 0;
+  flex: 1 1 auto;
+  width: min(64rem, 100%);
+  margin: 0 auto;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--slds-g-spacing-4, 1rem);
+  margin-block-end: var(--slds-g-spacing-6, 2rem);
+}
+
+.headingText {
+  min-width: 0;
+}
+
+/* The kicker names the lens AND the project it's projecting — the one place a
+   surface admits it's a view of something shell-level, not a silo. */
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-block-end: var(--slds-g-spacing-2, 0.5rem);
+  color: var(--slds-g-color-accent-1, #0176d3);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.header h1 {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  letter-spacing: -0.02em;
+}
+
+.lead {
+  max-width: 44rem;
+  margin: var(--slds-g-spacing-2, 0.5rem) 0 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  line-height: 1.5;
+}
+
+/* Metric strip: the facets this lens centers on, big numbers first. Emphasis
+   cards are tinted with the accent so the lens's headline facets read loudest. */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  margin: 0 0 var(--slds-g-spacing-6, 2rem);
+  padding: 0;
+  list-style: none;
+}
+
+.metric {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.metricEmphasis {
+  border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 45%, transparent);
+  background:
+    linear-gradient(135deg, rgb(1 118 211 / 7%), transparent 60%),
+    var(--slds-g-color-surface-1, #fff);
+}
+
+.metricIcon {
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: rgb(1 118 211 / 12%);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+.metricValue {
+  align-self: end;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-4, 1.5rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.metricLabel {
+  align-self: start;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+/* Insights: lens-specific narrative. Tone drives an accent rail so caution (a
+   production org, a flow-count warning) reads distinctly from routine info. */
+.insights {
+  display: grid;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  margin-block-end: var(--slds-g-spacing-6, 2rem);
+}
+
+.insight {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-inline-start: 3px solid var(--rail, var(--slds-g-color-border-2, #939393));
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.neutral {
+  --rail: var(--slds-g-color-border-2, #939393);
+}
+.info {
+  --rail: #0176d3;
+}
+.caution {
+  --rail: #ba0517;
+  background:
+    linear-gradient(135deg, rgb(186 5 23 / 5%), transparent 60%),
+    var(--slds-g-color-surface-1, #fff);
+}
+
+.insightIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: color-mix(in srgb, var(--rail) 14%, transparent);
+  color: var(--rail);
+}
+
+.insightTitle {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+}
+
+.insightDetail {
+  margin: var(--slds-g-spacing-1, 0.25rem) 0 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  line-height: 1.5;
+}
+
+/* Generic slot for a surface-specific body section (e.g. Code's sessions
+   rail). Just spacing — the child brings its own chrome, same as .insights. */
+.extra {
+  margin-block-end: var(--slds-g-spacing-6, 2rem);
+}
+
+/* Capability chips — the surface's own action vocabulary, kept as a quiet
+   footer so it identifies the surface without competing with the projection. */
+.actions {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+  padding-block-start: var(--slds-g-spacing-4, 1rem);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.actionsLabel {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.actionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.actionChips li {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+}
+
+@media (max-width: 680px) {
+  .header {
+    flex-direction: column;
+  }
+}

@@ -79,6 +79,13 @@ export const SendIcon: IconComponent = (p) => (
   </Svg>
 );
 
+export const SearchIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="6" />
+    <path d="M20 20l-3.5-3.5" />
+  </Svg>
+);
+
 export const FolderIcon: IconComponent = (p) => (
   <Svg {...p}>
     <path d="M3 7a1 1 0 0 1 1-1h4.5l2 2H20a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />

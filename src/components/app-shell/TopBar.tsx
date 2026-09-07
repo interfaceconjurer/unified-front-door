@@ -1,34 +1,21 @@
 "use client";
 
-import type { RefObject } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { SparklesIcon } from "@/components/icons";
-import { surfaceApps, type SurfaceApp } from "@/components/front-door/app-catalog";
+import { SearchIcon } from "@/components/icons";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
-  currentApp: SurfaceApp | undefined;
-  isFrontDoor: boolean;
-  agentOpen: boolean;
-  agentButtonRef: RefObject<HTMLButtonElement | null>;
-  onToggleAgent: () => void;
+  onOpenPalette: () => void;
 };
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It always provides a direct path home, an app switcher, current location,
- * and access to the agent without imposing a global workspace on each app.
+ * It's deliberately spare: a path home and the command palette that switches
+ * surfaces (⌘⇧P). Workspace context (project · worktree · target org) now lives
+ * in the persistent bottom status bar, and the agent stands as its own panel, so
+ * the top bar is left to answer just one question — "where do you want to go?"
  */
-export function TopBar({
-  currentApp,
-  isFrontDoor,
-  agentOpen,
-  agentButtonRef,
-  onToggleAgent,
-}: TopBarProps) {
-  const router = useRouter();
-
+export function TopBar({ onOpenPalette }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -41,57 +28,20 @@ export function TopBar({
 
         <span className={styles.divider} aria-hidden="true" />
 
-        <label className={styles.appPickerLabel}>
-          <span className={styles.srOnly}>Switch application</span>
-          <select
-            className={styles.appPicker}
-            value={currentApp?.href ?? ""}
-            onChange={(event) => {
-              if (event.target.value) router.push(event.target.value);
-            }}
-          >
-            <option value="" disabled>
-              Apps
-            </option>
-            {surfaceApps.map((surface) => (
-              <option key={surface.id} value={surface.href}>
-                {surface.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className={styles.location} aria-label="Current location">
-          <span className={styles.locationSeparator} aria-hidden="true">
-            /
-          </span>
-          {currentApp ? (
-            <>
-              <span className={styles.appName}>{currentApp.label}</span>
-              <span className={styles.locationSeparator} aria-hidden="true">
-                /
-              </span>
-              <span className={styles.pageName}>Overview</span>
-            </>
-          ) : (
-            <span className={styles.pageName}>Home</span>
-          )}
-        </div>
+        <button
+          type="button"
+          className={styles.commandTrigger}
+          onClick={onOpenPalette}
+          aria-label="Go to a surface"
+          aria-keyshortcuts="Meta+Shift+P Control+Shift+P"
+        >
+          <SearchIcon className={styles.commandIcon} width={16} height={16} />
+          <span className={styles.commandLabel}>Go to…</span>
+          <kbd className={styles.commandKbd}>⌘⇧P</kbd>
+        </button>
       </div>
 
       <div className={styles.actions}>
-        <button
-          ref={agentButtonRef}
-          type="button"
-          className={styles.agentButton}
-          onClick={onToggleAgent}
-          aria-expanded={isFrontDoor ? undefined : agentOpen}
-          aria-controls={isFrontDoor ? "front-door-agent" : "global-agent-panel"}
-        >
-          <SparklesIcon width={17} height={17} />
-          <span>Ask Agent</span>
-        </button>
-
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>
@@ -99,7 +49,6 @@ export function TopBar({
           JW
         </button>
       </div>
-
     </header>
   );
 }

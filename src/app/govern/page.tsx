@@ -1,6 +1,5 @@
-import { surfaceAppById } from "@/components/front-door/app-catalog";
-import { SurfacePlaceholder } from "@/components/surfaces/SurfacePlaceholder";
+import { SurfaceProjection } from "@/components/surfaces/SurfaceProjection";
 
 export default function GovernPage() {
-  return <SurfacePlaceholder surface={surfaceAppById("govern")} />;
+  return <SurfaceProjection surfaceId="govern" />;
 }

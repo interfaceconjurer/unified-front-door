@@ -1,0 +1,377 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-4, 1rem);
+  background: rgb(3 13 33 / 45%);
+  backdrop-filter: blur(3px);
+  animation: overlay-in 120ms ease;
+}
+
+.palette {
+  display: flex;
+  width: min(40rem, 100%);
+  max-height: 60vh;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-4, 1rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 6%) inset,
+    0 24px 60px -12px rgb(3 13 33 / 55%);
+  animation: palette-in 140ms ease;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) 0;
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.tab {
+  padding: 0 0.05rem var(--slds-g-spacing-2, 0.5rem);
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 600;
+  cursor: pointer;
+  /* Overlap the container's border so the active underline reads as one line. */
+  margin-block-end: -1px;
+}
+
+.tab:hover {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.tabActive {
+  border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.searchRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-5, 1.5rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.searchIcon {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.input {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.escHint {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-family: inherit;
+}
+
+.results {
+  margin: 0;
+  padding: var(--slds-g-spacing-2, 0.5rem);
+  list-style: none;
+  overflow-y: auto;
+}
+
+.empty {
+  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-4, 1rem)
+    var(--slds-g-spacing-5, 1.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  width: 100%;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 0;
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+/* Highlight is driven by keyboard/mouse index, not :hover, so ↑/↓ and the
+   pointer agree on a single active row. */
+.resultActive {
+  background: var(--slds-g-color-accent-container-1, #eef4ff);
+}
+
+/* A worktree nested under its project. Rather than a second list, the row is a
+   subordinate child: indented, tied to its parent by a tree guide (├ for a
+   middle child, └ for the last), with a smaller/lighter label and a collapsed
+   dot slot — so the project reads as the header and its worktrees as leaves. */
+.resultIndent {
+  position: relative;
+  /* The guide's vertical stem drops from under the parent project's icon:
+     the row's own left padding (0.75rem) + half the 2.25rem icon = 1.875rem. */
+  --tree-x: 1.875rem;
+  --tree-line: color-mix(
+    in srgb,
+    var(--slds-g-color-on-surface-1, #5c5c5c) 42%,
+    transparent
+  );
+  /* Half the height of a two-line project row: a single line of copy plus
+     minimal block padding, so children stay compact and subordinate. */
+  padding-block: 0.3rem;
+  padding-inline-start: 2.75rem;
+}
+
+/* Vertical stem: full height for a middle child (the line continues down to
+   the next sibling), only the top half for the last child (it turns the └
+   corner at the tick and stops). */
+.resultIndent::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--tree-x);
+  width: 1px;
+  background: var(--tree-line);
+}
+
+.resultLastChild::before {
+  inset-block-end: auto;
+  height: 50%;
+}
+
+/* Horizontal tick from the stem toward the row's status dot. */
+.resultIndent::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: var(--tree-x);
+  top: 50%;
+  width: 0.85rem;
+  height: 1px;
+  background: var(--tree-line);
+  transform: translateY(-50%);
+}
+
+/* The dot's slot collapses to the dot itself (no 2.25rem icon box), so the
+   status dot sits right at the end of the tree tick like a leaf marker. */
+.resultIndent .resultIcon {
+  width: auto;
+  height: auto;
+  min-width: 0.5rem;
+}
+
+/* A child label is smaller and lighter than a project (top-level) label, so
+   the hierarchy reads by weight and size, not just indentation. */
+.resultIndent .resultLabel {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 500;
+}
+
+/* Label + branch sit on ONE line for a child (vs the project's stacked
+   two-line copy), which is what actually halves the row height. The branch
+   shrinks/ellipsizes so a long branch never pushes the row to two lines. */
+.resultIndent .resultCopy {
+  display: flex;
+  align-items: baseline;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.resultIndent .resultDescription {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.resultIcon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: rgb(1 118 211 / 14%);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+/* A status dot takes the icon slot for worktree/session rows — it already
+   carries color, so drop the accent-tinted box behind it. */
+.resultIconPlain {
+  background: transparent;
+}
+
+/* Status → dot color, duplicated verbatim from AgentSessionsRail.module.css
+   so the palette and the Code surface's rail agree on the same visual
+   language for working/waiting/idle. Kept as a local copy (not a shared
+   import) since CSS Modules scope class names per file. */
+.statusDot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+}
+
+.working {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.waiting {
+  --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.statusDot.working {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusDot.working {
+    animation: none;
+  }
+}
+
+.resultCopy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.resultLabel {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 600;
+}
+
+.resultDescription {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The trailing grid cell can hold more than one chip (e.g. a waiting session
+   that's also the current selection), so it's a small flex row rather than a
+   single element. */
+.resultTrailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.currentTag {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Status → text chip, same --status-color variable the dot uses (set by the
+   same .working/.waiting/.idle classes above). */
+.statusLabel {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: color-mix(in srgb, var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c)) 14%, transparent);
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.enterHint {
+  color: var(--slds-g-color-accent-1, #0176d3);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+}
+
+.footer {
+  display: flex;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-5, 1.5rem);
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+}
+
+.footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.footer kbd,
+.escHint {
+  font-family: inherit;
+}
+
+.footer kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.1rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes palette-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .palette {
+    animation: none;
+  }
+}

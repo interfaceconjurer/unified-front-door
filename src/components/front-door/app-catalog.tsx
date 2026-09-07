@@ -5,15 +5,15 @@ import {
   GitBranchIcon,
   type IconComponent,
 } from "@/components/icons";
+import type { SurfaceId } from "@/lib/workspace/model";
 
 export type SurfaceApp = {
-  id: "build" | "code" | "govern" | "alm";
+  id: SurfaceId;
   href: string;
   label: string;
   description: string;
   workspaceDescription: string;
   Icon: IconComponent;
-  navigation: readonly string[];
   capabilities: readonly string[];
 };
 
@@ -26,7 +26,6 @@ export const surfaceApps: readonly SurfaceApp[] = [
     workspaceDescription:
       "A guided workspace for configuring the platform and assembling new capabilities.",
     Icon: GridIcon,
-    navigation: ["Overview", "Builders", "Data model", "Setup"],
     capabilities: ["Guided setup", "Visual builders", "Configuration"],
   },
   {
@@ -37,7 +36,6 @@ export const surfaceApps: readonly SurfaceApp[] = [
     workspaceDescription:
       "A developer workspace designed around source, tests, diagnostics, and deployment readiness.",
     Icon: FileIcon,
-    navigation: ["Overview", "Workspaces", "Source", "Tests"],
     capabilities: ["Source workspace", "Test results", "Diagnostics"],
   },
   {
@@ -48,7 +46,6 @@ export const surfaceApps: readonly SurfaceApp[] = [
     workspaceDescription:
       "A trust workspace for policy, security posture, telemetry, and operational health.",
     Icon: ChartIcon,
-    navigation: ["Overview", "Security", "Observability", "Compliance"],
     capabilities: ["Security posture", "Platform health", "Policy controls"],
   },
   {
@@ -59,7 +56,6 @@ export const surfaceApps: readonly SurfaceApp[] = [
     workspaceDescription:
       "A lifecycle workspace that carries work from planning through release and operation.",
     Icon: GitBranchIcon,
-    navigation: ["Overview", "Work items", "Pipelines", "Releases"],
     capabilities: ["Work planning", "Delivery pipelines", "Release health"],
   },
 ];
