@@ -4,21 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  BeakerIcon,
-  ChartIcon,
   CheckIcon,
   ChevronRightIcon,
-  DatabaseIcon,
-  FileIcon,
-  GitBranchIcon,
-  GridIcon,
-  LayersIcon,
   LinkIcon,
   PlusIcon,
   SendIcon,
-  ShieldIcon,
   SparklesIcon,
-  WorkflowIcon,
 } from "@/components/icons";
 import {
   AGENT_CANVAS,
@@ -28,16 +19,13 @@ import {
 import { useControlPlane } from "@/components/control-plane/ControlPlaneProvider";
 import { RESUME_FIXTURES } from "@/components/control-plane/control-plane-fixtures";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { SurfaceToolkit } from "./SurfaceToolkit";
 import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
 
-const JOBS = [
-  { label: "Design or repair a business process", prompt: "Help me automate a repetitive business process.", Icon: WorkflowIcon },
-  { label: "Build or improve an agent", prompt: "Help me build an agent that qualifies and routes high-value leads.", Icon: SparklesIcon },
-  { label: "Diagnose a failed deployment", prompt: "Help me understand why this deployment failed and how to recover.", Icon: BeakerIcon },
-  { label: "Prepare a release and identify blockers", prompt: "Help me prepare this release and identify blockers.", Icon: GitBranchIcon },
-  { label: "Review access and permissions", prompt: "Help me identify risky access and explain how it is granted.", Icon: ShieldIcon },
-  { label: "Map metadata and dependencies", prompt: "Help me understand the metadata and dependencies in this org.", Icon: DatabaseIcon },
+const SAMPLE_PROMPTS = [
+  { label: "Build an agent to qualify and route leads", prompt: "Help me build an agent that qualifies and routes high-value leads." },
+  { label: "Diagnose a failed deployment", prompt: "Help me understand why this deployment failed and how to recover." },
 ] as const;
 
 const SCENARIO_BY_QUERY = {
@@ -48,7 +36,7 @@ const SCENARIO_BY_QUERY = {
   context: "context-error",
 } as const;
 
-export function AgentWorkstage() {
+export function AgentWorkstage({ onOpenToolkit }: { onOpenToolkit: () => void }) {
   const { state, activeCanvas, dispatch } = useControlPlane();
   const router = useRouter();
   const [draft, setDraft] = useState("");
@@ -102,9 +90,9 @@ export function AgentWorkstage() {
     setDraft("");
   }
 
-  function seedJob(job: (typeof JOBS)[number]) {
-    setDraft((current) => current.trim() ? `${current.trim()}\n\n${job.prompt}` : job.prompt);
-    setSeedStatus(`${job.label} added to your message. Review or send.`);
+  function seedPrompt(prompt: (typeof SAMPLE_PROMPTS)[number]) {
+    setDraft((current) => current.trim() ? `${current.trim()}\n\n${prompt.prompt}` : prompt.prompt);
+    setSeedStatus(`${prompt.label} added to your message. Review or send.`);
     requestAnimationFrame(() => composerRef.current?.focus());
   }
 
@@ -126,7 +114,7 @@ export function AgentWorkstage() {
   }
 
   if (state.homeView === "returning" && state.presentation.mode === "chat-only") {
-    return <ReturningHome draft={draft} setDraft={setDraft} onSubmit={begin} inputRef={composerRef} seedStatus={seedStatus} setSeedStatus={setSeedStatus} />;
+    return <ReturningHome draft={draft} setDraft={setDraft} onSubmit={begin} inputRef={composerRef} seedStatus={seedStatus} setSeedStatus={setSeedStatus} onOpenToolkit={onOpenToolkit} onSelectPrompt={seedPrompt} />;
   }
 
   if (state.phase === "fresh") {
@@ -137,20 +125,10 @@ export function AgentWorkstage() {
             <span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span>
             <h1 id="workstage-heading">What can I help you accomplish?</h1>
           </div>
-          <div className={styles.freshOptions}>
-            <section className={styles.startSection} aria-labelledby="jobs-heading">
-              <h2 id="jobs-heading">Start with a job</h2>
-              <ul className={styles.jobGrid}>
-                {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><job.Icon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
-              </ul>
-            </section>
-            <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
-              <h2 id="capabilities-heading">Explore surfaces</h2>
-              <CapabilityLinks />
-            </section>
-          </div>
+          <SurfaceToolkit onOpenToolkit={onOpenToolkit} />
         </div>
         <div className={styles.welcomeComposerDock}>
+          <SamplePrompts onSelect={seedPrompt} />
           <Composer
             draft={draft}
             setDraft={setDraft}
@@ -275,7 +253,7 @@ function Composer({ draft, setDraft, onSubmit, inputRef, large = false, onContex
   );
 }
 
-function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSeedStatus }: { draft: string; setDraft: (value: string) => void; onSubmit: () => void; inputRef: React.RefObject<HTMLTextAreaElement | null>; seedStatus: string; setSeedStatus: (value: string) => void }) {
+function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSeedStatus, onOpenToolkit, onSelectPrompt }: { draft: string; setDraft: (value: string) => void; onSubmit: () => void; inputRef: React.RefObject<HTMLTextAreaElement | null>; seedStatus: string; setSeedStatus: (value: string) => void; onOpenToolkit: () => void; onSelectPrompt: (prompt: (typeof SAMPLE_PROMPTS)[number]) => void }) {
   const { dispatch } = useControlPlane();
   const { setActiveProject, setActiveWorktree } = useWorkspace();
   const attention = RESUME_FIXTURES.filter((item) => item.kind === "attention").slice(0, 1);
@@ -302,18 +280,13 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
       <div className={styles.returningScroll}>
         <div className={styles.returningContent}>
           <header className={styles.returningLead}><span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span><h1 id="returning-heading">What should we move forward?</h1></header>
+          <SurfaceToolkit onOpenToolkit={onOpenToolkit} compact />
           {attention.length > 0 && <HomeList title="Needs you" records={attention} onResume={resume} tone="attention" />}
           {recent.length > 0 && <HomeList title="Continue" records={recent} onResume={resume} tone="recent" />}
-          <section className={styles.projectSection} aria-labelledby="returning-projects-heading">
-            <h2 id="returning-projects-heading">Projects</h2>
-            <div className={styles.projectTiles}>
-              <button type="button" onClick={() => { setActiveProject("trailblazer-crm"); setActiveWorktree("main", "trailblazer-crm"); }}><span className={styles.projectIcon} aria-hidden="true"><LayersIcon width={21} height={21} /></span><span><strong>Trailblazer CRM</strong><small>2 active sessions · UAT</small></span></button>
-              <button type="button" onClick={() => { setActiveProject("acme-storefront"); setActiveWorktree("main", "acme-storefront"); }}><span className={styles.projectIcon} aria-hidden="true"><LayersIcon width={21} height={21} /></span><span><strong>Acme Storefront</strong><small>1 recent draft · SIT</small></span></button>
-            </div>
-          </section>
         </div>
       </div>
       <div className={styles.welcomeComposerDock}>
+        <SamplePrompts onSelect={onSelectPrompt} />
         <Composer draft={draft} setDraft={setDraft} onSubmit={onSubmit} inputRef={inputRef} large onContext={() => setSeedStatus("Choose a project above or confirm context after starting.")} onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")} />
         {seedStatus && <p className={styles.seedStatus} role="status">{seedStatus}</p>}
       </div>
@@ -326,14 +299,17 @@ function HomeList({ title, records, onResume, tone }: { title: string; records: 
   return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><span className={styles.itemLabel}>{record.homeLabel}</span><strong>{record.homeTitle}</strong><small>{record.homeMeta}</small></div><button type="button" onClick={() => onResume(record.id)}>{record.homeAction}</button></li>)}</ul></section>;
 }
 
-function CapabilityLinks() {
-  const capabilities = [
-    { href: "/build", label: "Build & Setup", detail: "Create and configure", Icon: GridIcon },
-    { href: "/code", label: "Code", detail: "Develop and test", Icon: FileIcon },
-    { href: "/govern", label: "Govern & Observe", detail: "Secure and monitor", Icon: ChartIcon },
-    { href: "/alm", label: "ALM", detail: "Plan and release", Icon: GitBranchIcon },
-  ] as const;
-  return <nav className={styles.capabilityLinks} aria-label="Surface destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><span className={styles.capabilityIcon} aria-hidden="true"><capability.Icon width={22} height={22} /></span><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
+function SamplePrompts({ onSelect }: { onSelect: (prompt: (typeof SAMPLE_PROMPTS)[number]) => void }) {
+  return (
+    <div className={styles.samplePrompts} aria-label="Suggested prompts">
+      {SAMPLE_PROMPTS.map((prompt) => (
+        <button key={prompt.label} type="button" onClick={() => onSelect(prompt)}>
+          <SparklesIcon width={15} height={15} aria-hidden="true" />
+          {prompt.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }

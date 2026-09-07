@@ -23,7 +23,7 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, workspaceToggl
         <Link href="/" className={styles.homeLink} aria-label="Platform home"><span className={styles.logo} aria-hidden="true">U</span><span className={styles.brandName}>Platform</span></Link>
         <button ref={workspaceToggleRef} type="button" className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`} onClick={onTogglePanel} aria-expanded={panelOpen} aria-pressed={panelOpen} aria-label="Toggle workspace panel" aria-keyshortcuts="Meta+B Control+B" title="Toggle workspace panel (⌘B)"><PanelIcon width={16} height={16} /></button>
         <span className={styles.divider} aria-hidden="true" />
-        <button type="button" className={styles.commandTrigger} onClick={onOpenPalette} aria-label="Search capabilities and work" aria-keyshortcuts="Meta+Shift+P Control+Shift+P"><SearchIcon className={styles.commandIcon} width={16} height={16} /><span className={styles.commandLabel}>Search</span><kbd className={styles.commandKbd}>⌘⇧P</kbd></button>
+        <button type="button" className={styles.commandTrigger} onClick={onOpenPalette} aria-label="Open toolkit" aria-keyshortcuts="Meta+Shift+P Control+Shift+P"><SearchIcon className={styles.commandIcon} width={16} height={16} /><span className={styles.commandLabel}>Toolkit</span><kbd className={styles.commandKbd}>⌘⇧P</kbd></button>
         {canvasLabel && <div className={styles.artifactContext} aria-label={`Current canvas: ${canvasLabel}`}><span>Canvas</span><span className={styles.artifactSeparator} aria-hidden="true">/</span><strong>{canvasLabel}</strong></div>}
       </div>
       <nav className={styles.primaryNav} aria-label="Primary navigation">

@@ -7,9 +7,9 @@ import { AgentWorkstage } from "@/components/workstage/AgentWorkstage";
 import styles from "./AgentPanel.module.css";
 
 /** The persistent Agent seam; Home owns the full workstage, direct routes keep a compact companion. */
-export function AgentPanel() {
+export function AgentPanel({ onOpenToolkit }: { onOpenToolkit: () => void }) {
   const pathname = usePathname();
-  if (pathname === "/") return <AgentWorkstage />;
+  if (pathname === "/") return <AgentWorkstage onOpenToolkit={onOpenToolkit} />;
 
   const surface = surfaceAppForPath(pathname);
   return (
