@@ -78,7 +78,7 @@ export function currentLayout(state: ControlPlaneState): LayoutPreset {
 
 export function canOpenCanvas(state: ControlPlaneState, canvasId: CanvasId): boolean {
   const canvas = state.canvases[canvasId];
-  return Boolean(canvas && ["ready", "closed", "result-acknowledged", "action-pending"].includes(canvas.lifecycle));
+  return Boolean(canvas && ["ready", "active", "closed", "result-acknowledged", "action-pending"].includes(canvas.lifecycle));
 }
 
 function updateCanvas(

@@ -108,6 +108,7 @@ export function AgentWorkstage() {
   const agentCanvas = state.canvases[AGENT_CANVAS.id];
   const flowCanvas = state.canvases[FLOW_CANVAS.id];
   const connected = state.acknowledgedCorrelationIds.includes("corr-flow-sample-01");
+  const normalJourney = !["stale-resume", "external-fallback", "preparation-error", "context-error", "agent-unavailable"].includes(state.phase);
 
   return (
     <section className={styles.workstage} aria-labelledby="workstage-heading">
@@ -120,7 +121,7 @@ export function AgentWorkstage() {
         <div className={styles.userMessage}><span>You</span><p>Help me build an agent that qualifies and routes high-value leads.</p></div>
         <div className={styles.agentMessage}><span>Agent</span><p>Two decisions should be settled before an editable artifact is useful: the qualification threshold and the destination for qualified leads.</p></div>
 
-        {state.phase !== "preparation-error" && (
+        {normalJourney && (
           <article className={styles.planCard} aria-labelledby="working-plan-heading">
             <p className={styles.eyebrow}>Working plan · Planning only</p>
             <h2 id="working-plan-heading">Lead qualification and routing</h2>
