@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AgentPanel } from "@/components/chat/AgentPanel";
+import { ControlPlaneAnnouncer } from "@/components/control-plane/ControlPlaneAnnouncer";
+import { ControlPlaneProvider } from "@/components/control-plane/ControlPlaneProvider";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -17,6 +19,14 @@ import styles from "./AppShell.module.css";
  * a ⌘⇧P command palette the shell owns.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <ControlPlaneProvider>
+      <AppShellFrame>{children}</AppShellFrame>
+    </ControlPlaneProvider>
+  );
+}
+
+function AppShellFrame({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
@@ -48,6 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceProvider>
       <div className={styles.shell}>
+        <ControlPlaneAnnouncer />
         <TopBar
           onOpenPalette={() => setPaletteOpen(true)}
           panelOpen={panelOpen}
