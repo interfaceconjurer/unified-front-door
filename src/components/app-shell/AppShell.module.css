@@ -108,8 +108,12 @@
   align-self: center;
   padding: 0.35rem 0.65rem;
   border-radius: var(--slds-g-radius-border-pill, 999px);
-  background: var(--slds-g-color-accent-container-1, #eef4ff);
-  color: var(--slds-g-color-accent-1, #0176d3);
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 12%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+  color: light-dark(#0176d3, #78b9ff);
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
   font-weight: 700;
   white-space: nowrap;
@@ -160,8 +164,12 @@
   }
 
   .narrowSwitcher button[aria-selected="true"] {
-    background: var(--slds-g-color-accent-container-1, #eef4ff);
-    color: var(--slds-g-color-accent-1, #0176d3);
+    background: color-mix(
+      in srgb,
+      var(--slds-g-color-accent-1, #0176d3) 12%,
+      var(--slds-g-color-surface-1, #fff)
+    );
+    color: light-dark(#0176d3, #78b9ff);
   }
 
   .agentPane,

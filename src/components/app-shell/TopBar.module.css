@@ -205,7 +205,11 @@
 }
 
 .focusButtonActive {
-  background: var(--slds-g-color-accent-container-1, #eef4ff);
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 12%,
+    var(--slds-g-color-surface-1, #fff)
+  );
 }
 
 .focusButton kbd {
