@@ -389,8 +389,21 @@
   cursor: pointer;
 }
 
-.previewButton:hover {
+.previewButton:hover:not(:disabled) {
   filter: brightness(0.92);
+}
+
+.previewButton:disabled {
+  border-color: var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-disabled-1, #c9c9c9);
+  cursor: not-allowed;
+}
+
+.focusHint {
+  margin: 0.5rem 0 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  line-height: 1.4;
 }
 
 @media (max-width: 1240px) {

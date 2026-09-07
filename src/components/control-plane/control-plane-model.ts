@@ -70,8 +70,8 @@ export function controlPlaneReducer(
         focusMode: false,
       };
     case "RUN_PREVIEW":
-      return artifactIsOpen(state.phase) && state.phase !== "preview-complete"
-        ? { phase: "preview-complete", focusMode: state.focusMode }
+      return artifactIsOpen(state.phase) && state.focusMode && state.phase !== "preview-complete"
+        ? { phase: "preview-complete", focusMode: true }
         : state;
     case "RUN_AGAIN":
       return state.phase === "ready" || state.phase === "preview-complete"

@@ -152,7 +152,7 @@
 
   .narrowSwitcher button {
     min-width: 5.5rem;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     padding-inline: 0.8rem;
     border: 0;
     border-radius: var(--slds-g-radius-border-pill, 999px);

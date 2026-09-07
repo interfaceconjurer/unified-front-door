@@ -225,10 +225,17 @@ export function FlowAutomationDemo() {
               id="flow-preview-button"
               type="button"
               className={styles.previewButton}
+              disabled={!state.focusMode}
+              aria-describedby={!state.focusMode ? "preview-focus-hint" : undefined}
               onClick={() => dispatch({ type: "RUN_PREVIEW" })}
             >
               {previewVisible ? "Preview again" : "Run preview"}
             </button>
+            {!state.focusMode && (
+              <p id="preview-focus-hint" className={styles.focusHint}>
+                Enter Focus from the agent or top bar to run this preview.
+              </p>
+            )}
           </div>
         </aside>
       </div>

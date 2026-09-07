@@ -38,6 +38,8 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   const [narrowPaneOverride, setNarrowPaneOverride] = useState<NarrowPane | null>(null);
   const { panelOpen, setPanelOpen, togglePanel } = useWorkspacePanel();
   const workspaceToggleRef = useRef<HTMLButtonElement>(null);
+  const agentTabRef = useRef<HTMLButtonElement>(null);
+  const surfaceTabRef = useRef<HTMLButtonElement>(null);
   const previousMode = useRef(mode);
   const artifactOpen = artifactIsOpen(state.phase);
   const buildArtifactActive = pathname === "/build" && artifactOpen;
@@ -59,9 +61,14 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
     dispatch({ type: mode === "focus" ? "EXIT_FOCUS" : "ENTER_FOCUS" });
   }
 
-  function showNarrowPane(pane: NarrowPane) {
+  function showNarrowPane(pane: NarrowPane, moveFocus = false) {
     if (pane === "agent" && mode === "focus") dispatch({ type: "EXIT_FOCUS" });
     setNarrowPaneOverride(pane);
+    if (moveFocus) {
+      requestAnimationFrame(() =>
+        (pane === "agent" ? agentTabRef.current : surfaceTabRef.current)?.focus(),
+      );
+    }
   }
 
   useEffect(() => {
@@ -146,34 +153,56 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
           >
             <div className={styles.narrowSwitcher} role="tablist" aria-label="Workspace pane">
               <button
+                ref={agentTabRef}
+                id="agent-pane-tab"
                 type="button"
                 role="tab"
+                tabIndex={narrowPane === "agent" ? 0 : -1}
                 aria-selected={narrowPane === "agent"}
                 aria-controls="agent-pane"
                 onClick={() => showNarrowPane("agent")}
                 onKeyDown={(event) => {
-                  if (event.key === "ArrowRight") showNarrowPane("surface");
+                  if (event.key === "ArrowRight" || event.key === "End") {
+                    event.preventDefault();
+                    showNarrowPane("surface", true);
+                  }
                 }}
               >
                 Agent
               </button>
               <button
+                ref={surfaceTabRef}
+                id="surface-pane-tab"
                 type="button"
                 role="tab"
+                tabIndex={narrowPane === "surface" ? 0 : -1}
                 aria-selected={narrowPane === "surface"}
                 aria-controls="surface-pane"
                 onClick={() => showNarrowPane("surface")}
                 onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft") showNarrowPane("agent");
+                  if (event.key === "ArrowLeft" || event.key === "Home") {
+                    event.preventDefault();
+                    showNarrowPane("agent", true);
+                  }
                 }}
               >
                 Surface
               </button>
             </div>
-            <div id="agent-pane" className={styles.agentPane} role="tabpanel">
+            <div
+              id="agent-pane"
+              className={styles.agentPane}
+              role="tabpanel"
+              aria-labelledby="agent-pane-tab"
+            >
               <AgentPanel />
             </div>
-            <main id="surface-pane" className={styles.main} role="tabpanel">
+            <main
+              id="surface-pane"
+              className={styles.main}
+              role="tabpanel"
+              aria-labelledby="surface-pane-tab"
+            >
               {children}
             </main>
           </div>
