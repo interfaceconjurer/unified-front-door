@@ -223,18 +223,11 @@
   background: transparent;
 }
 
-/* Status → dot color, duplicated verbatim from AgentSessionsRail.module.css
-   so the palette and the Code surface's rail agree on the same visual
-   language for working/waiting/idle. Kept as a local copy (not a shared
-   import) since CSS Modules scope class names per file. */
-.statusDot {
-  flex: 0 0 auto;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
-}
-
+/* Status → color, for the trailing text chip below (`.statusLabel`) — the dot
+   itself is now the shared `StatusDot` component (see
+   `@/components/workspace/StatusDot`), but the chip is palette-specific
+   chrome the dot component doesn't render, so it still needs these
+   `--status-color` variables set on its own element. */
 .working {
   --status-color: light-dark(#0176d3, #78b9ff);
 }
@@ -245,27 +238,6 @@
 
 .idle {
   --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
-}
-
-.statusDot.working {
-  animation: pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.35;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .statusDot.working {
-    animation: none;
-  }
 }
 
 .resultCopy {

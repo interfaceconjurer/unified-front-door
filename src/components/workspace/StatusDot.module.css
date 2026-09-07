@@ -1,0 +1,44 @@
+/* Status → dot color. Canonical copy: the command palette and the
+   WorkspacePanel both render this component rather than their own dot markup,
+   so this is the one place the mapping lives (the Code surface's
+   AgentSessionsRail still carries its own pre-existing copy — see plan.md). */
+.dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+}
+
+.working {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.waiting {
+  --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.dot.working {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dot.working {
+    animation: none;
+  }
+}

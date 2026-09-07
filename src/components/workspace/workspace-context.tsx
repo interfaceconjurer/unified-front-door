@@ -98,3 +98,28 @@ export function useWorkspace(): WorkspaceContextValue {
   if (!value) throw new Error("useWorkspace must be used within a WorkspaceProvider");
   return value;
 }
+
+/**
+ * The persisted workspace-panel open flag, split out from `useWorkspace()`
+ * because `AppShell` — the component that mounts `<WorkspaceProvider>` — needs
+ * it too, and a component can't consume a context it's the one providing.
+ * Subscribes to the same store directly via `useSyncExternalStore`, so it's
+ * SSR-safe (fixed closed default on the server and first hydration pass) the
+ * same way the provider's own selection read is.
+ */
+export function useWorkspacePanel(): {
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
+  togglePanel: () => void;
+} {
+  const selection = useSyncExternalStore(
+    workspaceSelectionStore.subscribe,
+    workspaceSelectionStore.getSnapshot,
+    workspaceSelectionStore.getServerSnapshot,
+  );
+  return {
+    panelOpen: selection.panelOpen,
+    setPanelOpen: workspaceSelectionStore.setPanelOpen,
+    togglePanel: workspaceSelectionStore.togglePanel,
+  };
+}

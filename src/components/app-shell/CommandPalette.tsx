@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { HomeIcon, LayersIcon, SearchIcon, type IconComponent } from "@/components/icons";
 import { surfaceAppById, surfaceApps } from "@/components/front-door/app-catalog";
+import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import type { AgentSession, AgentSessionStatus, Project, Worktree } from "@/lib/workspace/model";
+import type { AgentSessionStatus } from "@/lib/workspace/model";
+import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./CommandPalette.module.css";
 
 type Destination = {
@@ -34,15 +36,6 @@ const DESTINATIONS: readonly Destination[] = [
     Icon: surface.Icon,
   })),
 ];
-
-const STATUS_LABEL: Record<AgentSessionStatus, string> = {
-  working: "Working",
-  waiting: "Waiting on you",
-  idle: "Idle",
-};
-
-// Waiting-on-you is the triage priority, then actively-working, then idle.
-const STATUS_RANK: Record<AgentSessionStatus, number> = { waiting: 0, working: 1, idle: 2 };
 
 type Tab = "surfaces" | "projects" | "sessions";
 
@@ -135,50 +128,61 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
-      for (const project of projects) {
-        const hasWorktrees = project.worktrees.length > 1;
-        const projectMatches = matchesQuery(project.name, project.description);
-        // A worktree stays visible if it matches on its own, or if its
-        // project matched (in which case all of a matching project's
-        // worktrees show, same as the unfiltered case) — so searching
-        // "hotfix" surfaces just that worktree, still under its project for
-        // context, while searching "trailblazer" surfaces every worktree.
-        const matchingWorktrees = hasWorktrees
-          ? project.worktrees.filter((w) => projectMatches || matchesQuery(w.label, w.branch))
-          : [];
+      for (const { project, base, children } of buildProjectTree(projects)) {
+        // The project row IS the project-on-main node: its title is the project
+        // name and its subtitle is the primary worktree ("main"), so the two
+        // read as one node (title + description), not a header with a separate
+        // child. Search still matches the prose description even though it's no
+        // longer shown. A feature child shows if it matches on its own, or if
+        // its project matched (all of a matching project's worktrees show, same
+        // as unfiltered) — so searching "hotfix" surfaces just that worktree
+        // under its project for context, "trailblazer" surfaces every worktree.
+        // `lastChild` is re-derived against this filtered list (not the shared
+        // derivation's unfiltered one), since the tree guide's corner has to
+        // land on the last child actually on screen.
+        const projectMatches = matchesQuery(
+          project.name,
+          project.description,
+          base.worktree.label,
+          base.worktree.branch,
+        );
+        const matchingChildren = children.filter(
+          ({ worktree }) => projectMatches || matchesQuery(worktree.label, worktree.branch),
+        );
 
-        if (projectMatches || matchingWorktrees.length > 0) {
-          rows.push({
-            id: project.id,
-            label: project.name,
-            description: project.description,
-            Icon: LayersIcon,
-            isCurrent: project.id === activeProject.id,
-            // Project is shell-level, not a route — switch it in place and stay put.
-            select: () => {
-              setActiveProject(project.id);
-              onClose();
-            },
-          });
-        }
+        if (!(projectMatches || matchingChildren.length > 0)) continue;
 
-        matchingWorktrees.forEach((worktree, worktreeIndex) => {
-          const status =
-            project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle";
+        rows.push({
+          id: project.id,
+          label: project.name,
+          // Subtitle = the primary branch, so the node reads as "project on main".
+          description: base.worktree.label,
+          Icon: LayersIcon,
+          // Current only when the project is active AND on its primary worktree —
+          // if a feature worktree is active, its own child row carries "Current".
+          isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
+          // Project is shell-level, not a route — switch it in place and stay put.
+          // Selecting the node lands on main (its subtitle). Pass project.id
+          // explicitly to setActiveWorktree: setActiveProject doesn't take effect
+          // until the next render, so the setter's own default (the *current*
+          // activeProject) would target the wrong project when the project isn't
+          // active yet.
+          select: () => {
+            setActiveProject(project.id);
+            setActiveWorktree(base.worktree.id, project.id);
+            onClose();
+          },
+        });
+
+        matchingChildren.forEach(({ worktree, status }, childIndex) => {
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
             description: worktree.branch,
             isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
             indent: true,
-            lastChild: worktreeIndex === matchingWorktrees.length - 1,
+            lastChild: childIndex === matchingChildren.length - 1,
             status,
-            // Still shell-level — switching worktree re-points the agent
-            // session in place, same "stay put" contract as the project row.
-            // Pass project.id explicitly: setActiveProject above doesn't take
-            // effect until the next render, so setActiveWorktree's own default
-            // (the *current* activeProject) would target the wrong project
-            // when picking a worktree in a project that isn't active yet.
             select: () => {
               setActiveProject(project.id);
               setActiveWorktree(worktree.id, project.id);
@@ -191,23 +195,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
 
     // tab === "sessions": every session, across every project, flattened for
-    // global triage. Sort is stable (JS's Array#sort has guaranteed stable
-    // ordering), so ties fall back to project-then-worktree fixture order.
+    // global triage — `allSessionRows` already sorts waiting → working → idle.
     const codeHref = surfaceAppById("code").href;
-    const sessionRows: { project: Project; worktree: Worktree; session: AgentSession }[] = [];
-    for (const project of projects) {
-      for (const session of project.agentSessions) {
-        const worktree = project.worktrees.find((w) => w.id === session.worktreeId);
-        if (!worktree) continue; // defensive: fixtures always pair a session with a worktree
-        sessionRows.push({ project, worktree, session });
-      }
-    }
-
-    return sessionRows
+    return allSessionRows(projects)
       .filter(({ project, worktree, session }) =>
         matchesQuery(project.name, worktree.label, worktree.branch, session.summary, STATUS_LABEL[session.status]),
       )
-      .sort((a, b) => STATUS_RANK[a.session.status] - STATUS_RANK[b.session.status])
       .map(({ project, worktree, session }) => ({
         id: `${project.id}::${worktree.id}`,
         label: worktree.label,
@@ -351,14 +344,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                     aria-hidden="true"
                   >
                     {item.status ? (
-                      <span className={`${styles.statusDot} ${styles[item.status]}`} />
+                      <StatusDot status={item.status} />
                     ) : (
                       item.Icon && <item.Icon width={18} height={18} />
                     )}
                   </span>
                   <span className={styles.resultCopy}>
                     <span className={styles.resultLabel}>{item.label}</span>
-                    <span className={styles.resultDescription}>{item.description}</span>
+                    {item.description && (
+                      <span className={styles.resultDescription}>{item.description}</span>
+                    )}
                   </span>
                   <span className={styles.resultTrailing}>
                     {item.status && (

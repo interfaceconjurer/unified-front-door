@@ -22,6 +22,11 @@ export type PersistedSelection = {
   activeProjectId: string | null;
   worktreeByProject: Record<string, string>;
   orgByProject: Record<string, string>;
+  /** Whether the persistent workspace panel (the left navigator, as opposed to
+   *  the ephemeral ⌘⇧P palette) is open. Defaults closed so the server render
+   *  and the client's first hydration pass agree — same reasoning as the rest
+   *  of this store. */
+  panelOpen: boolean;
 };
 
 const STORAGE_KEY = "ufd.workspace.v1";
@@ -30,6 +35,7 @@ const EMPTY_SELECTION: PersistedSelection = {
   activeProjectId: null,
   worktreeByProject: {},
   orgByProject: {},
+  panelOpen: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -57,6 +63,7 @@ function parseSelection(raw: string): PersistedSelection {
       activeProjectId: typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
       worktreeByProject: sanitizeStringRecord(parsed.worktreeByProject),
       orgByProject: sanitizeStringRecord(parsed.orgByProject),
+      panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : false,
     };
   } catch {
     return EMPTY_SELECTION;
@@ -136,6 +143,14 @@ class WorkspaceSelectionStore {
       ...current,
       orgByProject: { ...current.orgByProject, [projectId]: orgId },
     }));
+  };
+
+  setPanelOpen = (panelOpen: boolean): void => {
+    this.update((current) => ({ ...current, panelOpen }));
+  };
+
+  togglePanel = (): void => {
+    this.update((current) => ({ ...current, panelOpen: !current.panelOpen }));
   };
 }
 

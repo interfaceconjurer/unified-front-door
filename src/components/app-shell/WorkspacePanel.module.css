@@ -1,0 +1,271 @@
+.panel {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.section {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+}
+
+/* Top (Projects) takes whatever room the bottom section doesn't need, and
+   scrolls its own content — the tree can outgrow the panel long before the
+   triage list below it does. */
+.section:first-child {
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+/* Bottom (Active) sizes to its content but is capped, so a long triage list
+   can't push the project tree above it out of view; past the cap it scrolls
+   independently. */
+.section:last-child {
+  flex: 0 1 auto;
+  max-height: 45%;
+  overflow-y: auto;
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.heading {
+  margin: 0 0 var(--slds-g-spacing-2, 0.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tree,
+.worktreeList,
+.sessionList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.row,
+.worktreeRow,
+.sessionRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.row {
+  padding: 0.4rem var(--slds-g-spacing-2, 0.5rem);
+  font-weight: 600;
+}
+
+/* Hover is a lighter, subtler gray — surface-2 pulled most of the way back
+   toward the base surface — so it reads as a hint under the pointer without
+   competing with the selected row. Scoped to :not(.rowCurrent): the selected
+   row already sits at the stronger fill and must not lighten under the
+   pointer, and `:not()` also lifts hover's specificity above the plain
+   .rowCurrent class so selection can't be overridden by source order. */
+.row:not(.rowCurrent):hover,
+.worktreeRow:not(.rowCurrent):hover,
+.sessionRow:not(.rowCurrent):hover {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-surface-2, #f3f3f3) 45%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+}
+
+/* Selection is the stronger of the two neutral states — the solid surface-2
+   gray that used to be hover. Blue is reserved for prominent calls to action,
+   not for "which row am I on", so nothing here tints toward the accent. */
+.rowCurrent {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.rowIcon {
+  flex: 0 0 auto;
+  /* Neutral, not accent-blue: the project glyph is identity/decoration, not a
+     call to action, so it stays in the on-surface grays. */
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.rowLabel {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The project node's copy is a two-line stack: the project name as the title
+   and its primary worktree ("main") as the subtitle, so the two read as one
+   node rather than a header plus a separate child row. */
+.rowCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.05rem;
+}
+
+.rowBranch {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tree-connected worktree children — same idiom as the command palette's
+   Projects tab (CommandPalette.module.css `.resultIndent`): a vertical guide
+   dropping from the project row, with a ├ tee for a middle child and a └
+   corner (stops halfway) for the last. */
+.worktreeList {
+  display: grid;
+  gap: 0.1rem;
+  padding-inline-start: 0.5rem;
+}
+
+.worktreeRow {
+  position: relative;
+  --tree-x: 0.85rem;
+  --tree-line: color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 42%, transparent);
+  padding: 0.3rem 0.5rem 0.3rem 1.6rem;
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+}
+
+.worktreeRow::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--tree-x);
+  width: 1px;
+  background: var(--tree-line);
+}
+
+.worktreeRowLast::before {
+  inset-block-end: auto;
+  height: 50%;
+}
+
+.worktreeRow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  inset-inline-start: var(--tree-x);
+  width: 0.5rem;
+  height: 1px;
+  background: var(--tree-line);
+  transform: translateY(-50%);
+}
+
+.worktreeLabel {
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.worktreeBranch {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  padding: var(--slds-g-spacing-2, 0.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.sessionList {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sessionRow {
+  align-items: center;
+  padding: 0.5rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+}
+
+.sessionDot {
+  flex: 0 0 auto;
+}
+
+.sessionCopy {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 0.1rem;
+}
+
+.sessionHead {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.branchIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  opacity: 0.75;
+}
+
+.sessionProject {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sessionSummary {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sessionStatus {
+  flex: 0 0 auto;
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Only working/waiting ever reach this list (idle is filtered out by
+   `activeSessionRows`), so those are the only two colors this chip needs. */
+.working {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.waiting {
+  --status-color: #dd7a01;
+}
