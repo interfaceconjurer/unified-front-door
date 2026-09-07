@@ -127,12 +127,69 @@
   background: var(--slds-g-color-accent-container-1, #eef4ff);
 }
 
-/* A worktree nested under its project — pushed in by roughly one icon slot's
-   width so it reads as a child of the row above it, without a second list. */
+/* A worktree nested under its project. Rather than a second list, the row is a
+   subordinate child: indented, tied to its parent by a tree guide (├ for a
+   middle child, └ for the last), with a smaller/lighter label and a collapsed
+   dot slot — so the project reads as the header and its worktrees as leaves. */
 .resultIndent {
-  padding-inline-start: calc(
-    var(--slds-g-spacing-3, 0.75rem) + 2.25rem + var(--slds-g-spacing-3, 0.75rem)
+  position: relative;
+  /* The guide's vertical stem drops from under the parent project's icon:
+     the row's own left padding (0.75rem) + half the 2.25rem icon = 1.875rem. */
+  --tree-x: 1.875rem;
+  --tree-line: color-mix(
+    in srgb,
+    var(--slds-g-color-on-surface-1, #5c5c5c) 42%,
+    transparent
   );
+  /* Tighter than a top-level row (0.75rem) so children group closely under
+     their parent and read as smaller. */
+  padding-block: var(--slds-g-spacing-2, 0.5rem);
+  padding-inline-start: 2.75rem;
+}
+
+/* Vertical stem: full height for a middle child (the line continues down to
+   the next sibling), only the top half for the last child (it turns the └
+   corner at the tick and stops). */
+.resultIndent::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--tree-x);
+  width: 1px;
+  background: var(--tree-line);
+}
+
+.resultLastChild::before {
+  inset-block-end: auto;
+  height: 50%;
+}
+
+/* Horizontal tick from the stem toward the row's status dot. */
+.resultIndent::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: var(--tree-x);
+  top: 50%;
+  width: 0.85rem;
+  height: 1px;
+  background: var(--tree-line);
+  transform: translateY(-50%);
+}
+
+/* The dot's slot collapses to the dot itself (no 2.25rem icon box), so the
+   status dot sits right at the end of the tree tick like a leaf marker. */
+.resultIndent .resultIcon {
+  width: auto;
+  height: auto;
+  min-width: 0.5rem;
+}
+
+/* A child label is smaller and lighter than a project (top-level) label, so
+   the hierarchy reads by weight and size, not just indentation. */
+.resultIndent .resultLabel {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 500;
 }
 
 .resultIcon {

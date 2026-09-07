@@ -76,6 +76,9 @@ type PaletteItem = {
   select: () => void;
   /** Nested one level under its parent project (a worktree row). */
   indent?: boolean;
+  /** The last worktree under its project — draws the tree guide as └ (a
+   *  corner that stops at this row) rather than ├ (a line continuing down). */
+  lastChild?: boolean;
   /** Present on worktree/session rows; renders a status dot + chip instead
    *  of (resp. alongside) the plain icon/current-tag treatment. */
   status?: AgentSessionStatus;
@@ -159,7 +162,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           });
         }
 
-        for (const worktree of matchingWorktrees) {
+        matchingWorktrees.forEach((worktree, worktreeIndex) => {
           const status =
             project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle";
           rows.push({
@@ -168,6 +171,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             description: worktree.branch,
             isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
             indent: true,
+            lastChild: worktreeIndex === matchingWorktrees.length - 1,
             status,
             // Still shell-level — switching worktree re-points the agent
             // session in place, same "stay put" contract as the project row.
@@ -181,7 +185,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               onClose();
             },
           });
-        }
+        });
       }
       return rows;
     }
@@ -338,7 +342,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
                     item.indent ? styles.resultIndent : ""
-                  }`}
+                  } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
                   onClick={() => item.select()}
                 >
