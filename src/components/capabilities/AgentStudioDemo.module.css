@@ -20,7 +20,7 @@
 .actionRow > svg { color: light-dark(#5b3cc4, #b8a8ff); }
 .connected { border-color: color-mix(in srgb, #2e844a 45%, transparent); }
 .ready { display: inline-flex !important; grid-auto-flow: column; align-items: center; gap: .25rem !important; color: light-dark(#1b5f34, #8fd7a8); font-size: .68rem; font-weight: 700; }
-.prepareFlow { width: 100%; min-height: 2.75rem; margin-block-start: .7rem; border: 1px solid #5b3cc4; border-radius: .5rem; background: light-dark(#5b3cc4, #7f5af0); color: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
+.prepareFlow { width: 100%; min-height: 2.75rem; margin-block-start: .7rem; border: 1px solid #5b3cc4; border-radius: .5rem; background: #5b3cc4; color: #fff; font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; }
 .prepareFlow:disabled { border-color: var(--slds-g-color-border-1, #c9c9c9); background: var(--slds-g-color-surface-2, #f3f3f3); color: var(--slds-g-color-on-surface-1, #5c5c5c); cursor: default; }
 .test > div { display: grid; gap: .5rem; margin-block-start: .7rem; padding: .75rem; border-radius: .65rem; background: var(--slds-g-color-surface-2, #f3f3f3); }
 .test > div p { font-size: .75rem; line-height: 1.45; }

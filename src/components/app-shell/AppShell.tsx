@@ -28,6 +28,7 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   const workspaceToggleRef = useRef<HTMLButtonElement>(null);
   const agentTabRef = useRef<HTMLButtonElement>(null);
   const canvasTabRef = useRef<HTMLButtonElement>(null);
+  const wasFocusMode = useRef(false);
   const isHome = pathname === "/";
   const canvasVisible = isHome ? state.presentation.mode !== "chat-only" : true;
   const focusMode = isHome && state.presentation.mode === "focus";
@@ -36,6 +37,14 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
     const frame = requestAnimationFrame(() => setNarrowPane(canvasVisible ? "canvas" : "agent"));
     return () => cancelAnimationFrame(frame);
   }, [canvasVisible, activeCanvas?.id]);
+
+  useEffect(() => {
+    const exitedFocus = wasFocusMode.current && !focusMode;
+    wasFocusMode.current = focusMode;
+    if (!exitedFocus || !canvasVisible) return;
+    const frame = requestAnimationFrame(() => document.getElementById("canvas-focus-button")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [canvasVisible, focusMode]);
 
   const closeWorkspace = useCallback(({ restoreFocus = true }: { restoreFocus?: boolean } = {}) => {
     setPanelOpen(false);

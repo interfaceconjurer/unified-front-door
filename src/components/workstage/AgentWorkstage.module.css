@@ -28,9 +28,9 @@
 .capabilityLinks button { min-height: 2.75rem; align-content: center; border: 0; background: transparent; color: light-dark(#0176d3, #78b9ff); font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
 .threadHeader { display: flex; align-items: center; gap: .9rem; padding: 1rem 1.25rem; border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9); background: radial-gradient(circle at 0 0, rgb(1 118 211 / 9%), transparent 20rem), var(--slds-g-color-surface-1, #fff); }
 .smallAvatar { width: 2.25rem; height: 2.25rem; box-shadow: none; }
-.threadHeader p, .threadHeader h1 { margin: 0; }
+.threadHeader p, .threadHeader h1, .threadHeader h2 { margin: 0; }
 .threadHeader p { color: light-dark(#0176d3, #78b9ff); font-size: .6875rem; font-weight: 700; text-transform: uppercase; }
-.threadHeader h1 { margin-block-start: .2rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.15rem; }
+.threadHeader h1, .threadHeader h2 { margin-block-start: .2rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.15rem; }
 .currentWork { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; margin: .75rem 1rem 0; padding: .8rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-inline-start: 3px solid var(--slds-g-color-accent-1, #0176d3); border-radius: .55rem; background: var(--slds-g-color-surface-2, #f3f3f3); }
 .currentWork p, .currentWork h2 { margin: 0; }
 .currentWork p { color: light-dark(#0176d3, #78b9ff); font-size: .65rem; font-weight: 700; text-transform: uppercase; }

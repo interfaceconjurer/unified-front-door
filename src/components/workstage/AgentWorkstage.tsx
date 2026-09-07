@@ -113,7 +113,7 @@ export function AgentWorkstage() {
     <section className={styles.workstage} aria-labelledby="workstage-heading">
       <header className={styles.threadHeader}>
         <span className={styles.smallAvatar} aria-hidden="true"><SparklesIcon width={17} height={17} /></span>
-        <div><p>Agent Workstage</p><h1 id="workstage-heading">Lead qualification and routing</h1></div>
+        <div><p>Agent Workstage</p>{state.presentation.mode === "chat-only" ? <h1 id="workstage-heading">Lead qualification and routing</h1> : <h2 id="workstage-heading">Lead qualification and routing</h2>}</div>
       </header>
       <CurrentWorkOutline connected={connected} />
       <div className={styles.transcript} role="log" aria-live="off">
@@ -129,15 +129,16 @@ export function AgentWorkstage() {
               <li><CheckIcon width={15} height={15} aria-hidden="true" /> Ask for missing evidence before routing</li>
               <li><CheckIcon width={15} height={15} aria-hidden="true" /> Route qualified leads through an acknowledged Flow action</li>
             </ul>
-            {!agentCanvas && (
-              <button
-                type="button"
-                className={styles.primaryAction}
-                onClick={() => dispatch({ type: "CAPABILITY_READY", canvas: AGENT_CANVAS, ready: AGENT_READY, autoOpen: true })}
-              >
-                Prepare editable agent draft
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={() => {
+                if (!agentCanvas) dispatch({ type: "CAPABILITY_READY", canvas: AGENT_CANVAS, ready: AGENT_READY, autoOpen: true });
+                else document.getElementById(`canvas-heading-${AGENT_CANVAS.id}`)?.focus();
+              }}
+            >
+              {agentCanvas ? "Go to Agent Studio canvas" : "Prepare editable agent draft"}
+            </button>
             <p className={styles.prototype}>No org changes · deterministic prototype fixtures</p>
           </article>
         )}
@@ -201,7 +202,11 @@ function ReturningHome() {
   function resume(id: string) {
     const record = RESUME_FIXTURES.find((item) => item.id === id);
     if (record?.resumeState === "stale") dispatch({ type: "SHOW_SCENARIO", phase: "stale-resume" });
-    else dispatch({ type: "RESUME_EXACT", canvas: record?.canvasId === FLOW_CANVAS.id ? FLOW_CANVAS : AGENT_CANVAS });
+    else {
+      const canvas = record?.canvasId === FLOW_CANVAS.id ? FLOW_CANVAS : AGENT_CANVAS;
+      dispatch({ type: "RESUME_EXACT", canvas });
+      requestAnimationFrame(() => document.getElementById(`canvas-heading-${canvas.id}`)?.focus());
+    }
   }
   return (
     <section className={`${styles.workstage} ${styles.returning}`} aria-labelledby="returning-heading">
@@ -223,7 +228,7 @@ function HomeList({ title, records, onResume }: { title: string; records: typeof
 
 function CapabilityLinks() {
   const { dispatch } = useControlPlane();
-  return <div className={styles.capabilityLinks}><Link href="/build">Build & Setup</Link><Link href="/code">Code</Link><Link href="/govern">Govern & Observe</Link><Link href="/alm">ALM</Link><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "external-fallback" })}>External fallback example</button></div>;
+  return <div className={styles.capabilityLinks}><Link href="/build">Build & Setup</Link><Link href="/code">Code</Link><Link href="/govern">Govern & Observe</Link><Link href="/alm">ALM</Link><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "external-fallback" })}>External fallback</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "preparation-error" })}>Preparation failure</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "context-error" })}>Context recovery</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "agent-unavailable" })}>Agent unavailable</button></div>;
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }

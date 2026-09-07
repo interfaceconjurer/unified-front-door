@@ -230,6 +230,7 @@ export function controlPlaneReducer(
       return {
         ...state,
         phase: action.phase,
+        homeView: "first-time",
         presentation: { mode: "chat-only" },
         announcement: `${action.phase.replaceAll("-", " ")} recovery example shown.`,
       };

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { CheckIcon, DatabaseIcon, GitBranchIcon, LayersIcon } from "@/components/icons";
+import { useControlPlane } from "@/components/control-plane/ControlPlaneProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { Org, OrgKind } from "@/lib/workspace/model";
 import styles from "./StatusBar.module.css";
@@ -30,10 +32,13 @@ type OpenPopover = null | "org";
  * pure readout, same as the worktree chip; only the org chip still opens a popover.
  */
 export function StatusBar() {
+  const pathname = usePathname();
+  const { state } = useControlPlane();
   const { orgs, activeProject, activeWorktree, activeOrg, setActiveOrg } = useWorkspace();
   const [open, setOpen] = useState<OpenPopover>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const showWorktree = activeProject.worktrees.length > 1;
+  const contextAttached = pathname !== "/" || state.conversationState !== "fresh";
 
   // Dismiss the open popover on an outside click or Escape. Subscribing to
   // document events is the sanctioned effect use; state changes only in callbacks.
@@ -56,15 +61,15 @@ export function StatusBar() {
   return (
     <footer className={styles.bar} ref={rootRef}>
       <div className={styles.cluster}>
-        <span
+        {contextAttached ? <span
           className={`${styles.chip} ${styles.static}`}
           title={`${activeProject.name} (switch in ⌘⇧P)`}
         >
           <LayersIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
           <span className={styles.chipLabel}>{activeProject.name}</span>
-        </span>
+        </span> : <span className={`${styles.chip} ${styles.static}`}>No project context attached</span>}
 
-        {showWorktree && (
+        {contextAttached && showWorktree && (
           <span className={`${styles.chip} ${styles.static}`} title="Worktree (switch in Code)">
             <GitBranchIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
             <span className={styles.chipLabel}>{activeWorktree.label}</span>
@@ -72,7 +77,7 @@ export function StatusBar() {
         )}
       </div>
 
-      <div className={styles.cluster}>
+      {contextAttached && <div className={styles.cluster}>
         <div className={styles.chipWrap}>
           <button
             type="button"
@@ -129,7 +134,7 @@ export function StatusBar() {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </footer>
   );
 }
