@@ -6,6 +6,7 @@
  * tree and the same triage list, so the derivation has to live in exactly one
  * place. Keep this file free of React; it's pure data shaping.
  */
+import { primaryWorktree } from "./model";
 import type { AgentSession, AgentSessionStatus, Project, Worktree } from "./model";
 
 export const STATUS_LABEL: Record<AgentSessionStatus, string> = {
@@ -28,27 +29,36 @@ export type WorktreeRow = {
 
 export type ProjectTreeRow = {
   project: Project;
-  /** Empty for a single-worktree project — progressive disclosure: a project
-   *  with nothing to parallelize shows only its header row, no redundant
-   *  single child. */
-  worktrees: readonly WorktreeRow[];
+  /** The primary worktree ("main") — the project's base branch. Rendered
+   *  attached to the project header (no tree connector), part of the project's
+   *  own identity rather than a sibling leaf. Always present. */
+  base: WorktreeRow;
+  /** The non-primary worktrees — the parallel agent workspaces branched off the
+   *  base. These are the tree-connected children. Empty for a project that only
+   *  has its primary worktree (nothing to parallelize). */
+  children: readonly WorktreeRow[];
 };
 
-/** Every project with its tree-connected worktrees, unfiltered. Callers that
- *  support search (the palette) re-derive `lastChild` after filtering their
- *  own copy of `worktrees`, since "last visible row" depends on the filter;
- *  the panel, which has no search box, uses this as-is. */
+/** Every project split into its base (primary) worktree and its tree-connected
+ *  children, unfiltered. Callers that support search (the palette) re-derive
+ *  `children[].lastChild` after filtering their own copy, since "last visible
+ *  row" depends on the filter; the panel, which has no search box, uses this
+ *  as-is. `base.lastChild` is unused (the base draws no connector). */
 export function buildProjectTree(projects: readonly Project[]): ProjectTreeRow[] {
   return projects.map((project) => {
-    const worktrees =
-      project.worktrees.length > 1
-        ? project.worktrees.map((worktree, index) => ({
-            worktree,
-            status: project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle",
-            lastChild: index === project.worktrees.length - 1,
-          }))
-        : [];
-    return { project, worktrees };
+    const primary = primaryWorktree(project);
+    const statusOf = (worktree: Worktree): AgentSessionStatus =>
+      project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle";
+    const children = project.worktrees.filter((w) => w.id !== primary.id);
+    return {
+      project,
+      base: { worktree: primary, status: statusOf(primary), lastChild: true },
+      children: children.map((worktree, index) => ({
+        worktree,
+        status: statusOf(worktree),
+        lastChild: index === children.length - 1,
+      })),
+    };
   });
 }
 

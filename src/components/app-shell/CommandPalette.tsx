@@ -72,6 +72,10 @@ type PaletteItem = {
   /** The last worktree under its project — draws the tree guide as └ (a
    *  corner that stops at this row) rather than ├ (a line continuing down). */
   lastChild?: boolean;
+  /** The project's primary worktree ("main") — attached to the project header
+   *  (indented, no tree connector, no status dot), part of the project rather
+   *  than one of its tree children. */
+  base?: boolean;
   /** Present on worktree/session rows; renders a status dot + chip instead
    *  of (resp. alongside) the plain icon/current-tag treatment. */
   status?: AgentSessionStatus;
@@ -128,50 +132,68 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
-      for (const { project, worktrees } of buildProjectTree(projects)) {
+      for (const { project, base, children } of buildProjectTree(projects)) {
         const projectMatches = matchesQuery(project.name, project.description);
-        // A worktree stays visible if it matches on its own, or if its
-        // project matched (in which case all of a matching project's
-        // worktrees show, same as the unfiltered case) — so searching
-        // "hotfix" surfaces just that worktree, still under its project for
-        // context, while searching "trailblazer" surfaces every worktree.
-        // `lastChild` is re-derived against this filtered list (not the
-        // shared derivation's unfiltered one), since the tree guide's corner
-        // has to land on the last row actually on screen.
-        const matchingWorktrees = worktrees.filter(
+        // The base ("main") is part of the project's identity, so it shows
+        // whenever the project matches or main itself matches. A child worktree
+        // shows if it matches on its own, or if its project matched (in which
+        // case all of a matching project's worktrees show, same as unfiltered)
+        // — so searching "hotfix" surfaces just that worktree under its project
+        // for context, while searching "trailblazer" surfaces every worktree.
+        // `lastChild` is re-derived against this filtered list (not the shared
+        // derivation's unfiltered one), since the tree guide's corner has to
+        // land on the last child actually on screen.
+        const baseMatches =
+          projectMatches || matchesQuery(base.worktree.label, base.worktree.branch);
+        const matchingChildren = children.filter(
           ({ worktree }) => projectMatches || matchesQuery(worktree.label, worktree.branch),
         );
 
-        if (projectMatches || matchingWorktrees.length > 0) {
+        if (!(baseMatches || matchingChildren.length > 0)) continue;
+
+        rows.push({
+          id: project.id,
+          label: project.name,
+          description: project.description,
+          Icon: LayersIcon,
+          isCurrent: project.id === activeProject.id,
+          // Project is shell-level, not a route — switch it in place and stay put.
+          select: () => {
+            setActiveProject(project.id);
+            onClose();
+          },
+        });
+
+        // Pass project.id explicitly to setActiveWorktree: setActiveProject
+        // doesn't take effect until the next render, so the setter's own
+        // default (the *current* activeProject) would target the wrong project
+        // when picking a worktree in a project that isn't active yet.
+        if (baseMatches) {
           rows.push({
-            id: project.id,
-            label: project.name,
-            description: project.description,
-            Icon: LayersIcon,
-            isCurrent: project.id === activeProject.id,
-            // Project is shell-level, not a route — switch it in place and stay put.
+            id: `${project.id}::${base.worktree.id}`,
+            label: base.worktree.label,
+            // Main's branch is its own name; drop the redundant second line so
+            // it reads as a single "main" attached under the project.
+            description: "",
+            isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
+            base: true,
             select: () => {
               setActiveProject(project.id);
+              setActiveWorktree(base.worktree.id, project.id);
               onClose();
             },
           });
         }
 
-        matchingWorktrees.forEach(({ worktree, status }, worktreeIndex) => {
+        matchingChildren.forEach(({ worktree, status }, childIndex) => {
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
             description: worktree.branch,
             isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
             indent: true,
-            lastChild: worktreeIndex === matchingWorktrees.length - 1,
+            lastChild: childIndex === matchingChildren.length - 1,
             status,
-            // Still shell-level — switching worktree re-points the agent
-            // session in place, same "stay put" contract as the project row.
-            // Pass project.id explicitly: setActiveProject above doesn't take
-            // effect until the next render, so setActiveWorktree's own default
-            // (the *current* activeProject) would target the wrong project
-            // when picking a worktree in a project that isn't active yet.
             select: () => {
               setActiveProject(project.id);
               setActiveWorktree(worktree.id, project.id);
@@ -324,23 +346,29 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
                     item.indent ? styles.resultIndent : ""
-                  } ${item.lastChild ? styles.resultLastChild : ""}`}
+                  } ${item.lastChild ? styles.resultLastChild : ""} ${
+                    item.base ? styles.resultBase : ""
+                  }`}
                   onMouseMove={() => setActive(index)}
                   onClick={() => item.select()}
                 >
                   <span
-                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""}`}
+                    className={`${styles.resultIcon} ${
+                      item.status || item.base ? styles.resultIconPlain : ""
+                    }`}
                     aria-hidden="true"
                   >
                     {item.status ? (
                       <StatusDot status={item.status} />
                     ) : (
-                      item.Icon && <item.Icon width={18} height={18} />
+                      !item.base && item.Icon && <item.Icon width={18} height={18} />
                     )}
                   </span>
                   <span className={styles.resultCopy}>
                     <span className={styles.resultLabel}>{item.label}</span>
-                    <span className={styles.resultDescription}>{item.description}</span>
+                    {item.description && (
+                      <span className={styles.resultDescription}>{item.description}</span>
+                    )}
                   </span>
                   <span className={styles.resultTrailing}>
                     {item.status && (

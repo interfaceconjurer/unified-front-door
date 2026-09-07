@@ -40,8 +40,9 @@ export function WorkspacePanel() {
       <section className={styles.section} aria-label="Projects">
         <h2 className={styles.heading}>Projects</h2>
         <ul className={styles.tree}>
-          {tree.map(({ project, worktrees }) => {
+          {tree.map(({ project, base, children }) => {
             const isProjectCurrent = project.id === activeProject.id;
+            const isBaseCurrent = isProjectCurrent && base.worktree.id === activeWorktree.id;
             return (
               <li key={project.id}>
                 <button
@@ -54,9 +55,26 @@ export function WorkspacePanel() {
                   <span className={styles.rowLabel}>{project.name}</span>
                 </button>
 
-                {worktrees.length > 0 && (
+                {/* The primary worktree ("main") is part of the project — a
+                    plain line attached under the header, no tree connector, no
+                    status dot (its activity still surfaces in the Active list
+                    below). Pass project.id explicitly, same closure reason as
+                    the child rows. */}
+                <button
+                  type="button"
+                  className={`${styles.baseRow} ${isBaseCurrent ? styles.rowCurrent : ""}`}
+                  aria-current={isBaseCurrent}
+                  onClick={() => {
+                    setActiveProject(project.id);
+                    setActiveWorktree(base.worktree.id, project.id);
+                  }}
+                >
+                  <span className={styles.baseLabel}>{base.worktree.label}</span>
+                </button>
+
+                {children.length > 0 && (
                   <ul className={styles.worktreeList}>
-                    {worktrees.map(({ worktree, status, lastChild }) => {
+                    {children.map(({ worktree, status, lastChild }) => {
                       const isCurrent = isProjectCurrent && worktree.id === activeWorktree.id;
                       return (
                         <li key={worktree.id}>

@@ -98,6 +98,35 @@
   white-space: nowrap;
 }
 
+/* The primary worktree ("main"), attached under the project header: indented
+   to sit just beneath the project name, plain (no tree connector, no status
+   dot), lighter than the header — part of the project, not a tree child. */
+.baseRow {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  padding: 0.25rem var(--slds-g-spacing-2, 0.5rem) 0.25rem 2rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.baseRow:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.baseLabel {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Tree-connected worktree children — same idiom as the command palette's
    Projects tab (CommandPalette.module.css `.resultIndent`): a vertical guide
    dropping from the project row, with a ├ tee for a middle child and a └
