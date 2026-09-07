@@ -42,12 +42,19 @@ export type ControlPlaneState = {
   };
   lastActiveCanvasId?: CanvasId;
   conversationLayout: LayoutPreset;
+  context?: {
+    projectRef: string;
+    orgRef: string;
+    label: string;
+    contextRevision: string;
+  };
 };
 
 export type ControlPlaneAction =
   | { type: "START_NEW" }
   | { type: "SHOW_RETURNING" }
   | { type: "BEGIN_WORK" }
+  | { type: "CONFIRM_CONTEXT"; projectRef: string; orgRef: string; label: string }
   | { type: "CAPABILITY_READY"; canvas: CanvasRecord; ready: CapabilityReady; autoOpen: boolean }
   | { type: "OPEN_CANVAS"; canvasId: CanvasId; userInitiated: boolean }
   | { type: "CLOSE_CANVAS" }
@@ -57,7 +64,7 @@ export type ControlPlaneAction =
   | { type: "CAPABILITY_ACTION_PENDING"; canvasId: CanvasId; instanceId: string; actionId: string; correlationId: string }
   | { type: "CAPABILITY_RESULT"; canvasId: CanvasId; instanceId: string; result: CapabilityResult }
   | { type: "SHOW_SCENARIO"; phase: Extract<JourneyPhase, "stale-resume" | "external-fallback" | "preparation-error" | "context-error" | "agent-unavailable"> }
-  | { type: "RESUME_EXACT"; canvas: CanvasRecord; resumeRef?: string }
+  | { type: "RESUME_EXACT"; canvas: CanvasRecord; resumeRef?: string; context: { projectRef: string; orgRef: string; label: string } }
   | { type: "RESET" };
 
 export const INITIAL_CONTROL_PLANE_STATE: ControlPlaneState = {
@@ -128,6 +135,18 @@ export function controlPlaneReducer(
         phase: "planning",
         homeView: "first-time",
         announcement: "Working plan ready. No canvas has opened.",
+      };
+    case "CONFIRM_CONTEXT":
+      if (state.phase !== "planning") return state;
+      return {
+        ...state,
+        context: {
+          projectRef: action.projectRef,
+          orgRef: action.orgRef,
+          label: action.label,
+          contextRevision: "ctx-2",
+        },
+        announcement: `${action.label} attached to this work.`,
       };
     case "CAPABILITY_READY": {
       if (!action.ready.title || action.ready.instanceId !== action.canvas.instanceId) return state;
@@ -272,6 +291,10 @@ export function controlPlaneReducer(
           : canvas.capabilityId === "build.flow" ? "flow-ready" : "agent-ready",
         canvases: { ...state.canvases, [canvas.id]: canvas },
         lastActiveCanvasId: canvas.id,
+        context: {
+          ...action.context,
+          contextRevision: "ctx-2",
+        },
         presentation: { mode: "split", activeCanvasId: canvas.id, layout: state.conversationLayout },
         announcement: `${canvas.title} resumed in the last safe canvas layout. Focus mode was not restored.`,
       };

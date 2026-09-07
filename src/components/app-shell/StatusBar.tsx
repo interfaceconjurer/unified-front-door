@@ -38,7 +38,7 @@ export function StatusBar() {
   const [open, setOpen] = useState<OpenPopover>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const showWorktree = activeProject.worktrees.length > 1;
-  const contextAttached = pathname !== "/" || state.conversationState !== "fresh";
+  const contextAttached = pathname !== "/" || Boolean(state.context);
 
   // Dismiss the open popover on an outside click or Escape. Subscribing to
   // document events is the sanctioned effect use; state changes only in callbacks.

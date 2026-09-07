@@ -24,6 +24,9 @@ export type ResumeFixture = {
   title: string;
   owner: string;
   context: string;
+  projectRef: string;
+  orgRef: string;
+  worktreeRef: string;
   status: string;
   updatedAt: string;
   workId: string;
@@ -40,6 +43,9 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     title: "Lead Qualification Agent",
     owner: "Agent Studio",
     context: "Trailblazer CRM · UAT",
+    projectRef: "trailblazer-crm",
+    orgRef: "uat",
+    worktreeRef: "lead-routing",
     status: "Waiting on a routing-action decision",
     updatedAt: "2026-09-07T15:30:00Z",
     workId: "work-lead-qualification",
@@ -54,6 +60,9 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     title: "Route High-Value Leads",
     owner: "Flow Builder",
     context: "Acme Storefront · SIT",
+    projectRef: "acme-storefront",
+    orgRef: "sit",
+    worktreeRef: "main",
     status: "Sample Draft · ready for review",
     updatedAt: "2026-09-06T19:12:00Z",
     workId: "work-route-high-value-leads",
@@ -68,6 +77,9 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     title: "Release validation recovery",
     owner: "ALM",
     context: "Trailblazer CRM · UAT",
+    projectRef: "trailblazer-crm",
+    orgRef: "uat",
+    worktreeRef: "main",
     status: "Validation failed",
     updatedAt: "2026-09-05T12:04:00Z",
     workId: "work-release-recovery",

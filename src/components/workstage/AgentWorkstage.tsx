@@ -14,6 +14,7 @@ import {
   RETURNING_PROJECTS,
 } from "@/components/control-plane/control-plane-fixtures";
 import { CurrentWorkOutline } from "./CurrentWorkOutline";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
 
@@ -38,6 +39,7 @@ export function AgentWorkstage() {
   const { state, activeCanvas, dispatch } = useControlPlane();
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
+  const { setActiveProject, setActiveWorktree } = useWorkspace();
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -130,9 +132,25 @@ export function AgentWorkstage() {
               <li><CheckIcon width={15} height={15} aria-hidden="true" /> Ask for missing evidence before routing</li>
               <li><CheckIcon width={15} height={15} aria-hidden="true" /> Route qualified leads through an acknowledged Flow action</li>
             </ul>
+            {!agentCanvas && <fieldset className={styles.contextDecision}>
+              <legend>Target context</legend>
+              <p>{state.context ? state.context.label : "Choose the project and org before capability work begins."}</p>
+              <button
+                type="button"
+                aria-pressed={Boolean(state.context)}
+                onClick={() => {
+                  setActiveProject("trailblazer-crm");
+                  setActiveWorktree("lead-routing", "trailblazer-crm");
+                  dispatch({ type: "CONFIRM_CONTEXT", projectRef: "trailblazer-crm", orgRef: "uat", label: "Trailblazer CRM · UAT" });
+                }}
+              >
+                {state.context ? "Context confirmed" : "Use Trailblazer CRM · UAT"}
+              </button>
+            </fieldset>}
             <button
               type="button"
               className={styles.primaryAction}
+              disabled={!agentCanvas && !state.context}
               onClick={() => {
                 if (!agentCanvas) dispatch({ type: "CAPABILITY_READY", canvas: AGENT_CANVAS, ready: AGENT_READY, autoOpen: true });
                 else document.getElementById(`canvas-heading-${AGENT_CANVAS.id}`)?.focus();
@@ -198,6 +216,7 @@ function Composer({ draft, setDraft, onSubmit, inputRef, large = false }: { draf
 
 function ReturningHome() {
   const { dispatch } = useControlPlane();
+  const { setActiveProject, setActiveWorktree } = useWorkspace();
   const attention = RESUME_FIXTURES.filter((item) => item.kind === "attention").slice(0, 3);
   const recent = [...RESUME_FIXTURES].filter((item) => item.kind === "recent").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
   function resume(id: string) {
@@ -205,7 +224,15 @@ function ReturningHome() {
     if (record?.resumeState === "stale") dispatch({ type: "SHOW_SCENARIO", phase: "stale-resume" });
     else {
       const canvas = record?.canvasId === FLOW_CANVAS.id ? FLOW_CANVAS : AGENT_CANVAS;
-      dispatch({ type: "RESUME_EXACT", canvas, resumeRef: record?.resumeRef });
+      if (!record) return;
+      setActiveProject(record.projectRef);
+      setActiveWorktree(record.worktreeRef, record.projectRef);
+      dispatch({
+        type: "RESUME_EXACT",
+        canvas,
+        resumeRef: record.resumeRef,
+        context: { projectRef: record.projectRef, orgRef: record.orgRef, label: record.context },
+      });
       requestAnimationFrame(() => document.getElementById(`canvas-heading-${canvas.id}`)?.focus());
     }
   }
@@ -233,6 +260,6 @@ function CapabilityLinks() {
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }
-function StaleResume() { const { dispatch } = useControlPlane(); return <article className={styles.errorCard}><p>Resume reference expired</p><h2>Release validation recovery is no longer at this revision</h2><p>Nothing was substituted. Choose how to continue.</p><div><button type="button" onClick={() => dispatch({ type: "RESUME_EXACT", canvas: FLOW_CANVAS, resumeRef: FLOW_CANVAS.resumeRef })}>Open latest</button><button type="button" onClick={() => dispatch({ type: "START_NEW" })}>Start new</button><Link href="/alm">Open directly</Link></div></article>; }
+function StaleResume() { const { dispatch } = useControlPlane(); return <article className={styles.errorCard}><p>Resume reference expired</p><h2>Release validation recovery is no longer at this revision</h2><p>Nothing was substituted. Choose how to continue.</p><div><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "external-fallback" })}>Open latest</button><button type="button" onClick={() => dispatch({ type: "START_NEW" })}>Start new</button><Link href="/alm">Open directly</Link></div></article>; }
 function ExternalFallback() { return <article className={styles.externalCard}><p>ALM · External capability</p><h2>Release validation recovery</h2><p>This capability does not advertise embedded presentation. Continue in ALM and return here when ready.</p><Link href="/alm">Open ALM directly <ChevronRightIcon width={15} height={15} /></Link><span>Conversation return point preserved · no fake embedded canvas</span></article>; }
 function AgentUnavailable() { return <article className={styles.errorCard} role="alert"><p>Agent temporarily unavailable</p><h2>Your deterministic paths still work</h2><p>No conversation or work was lost. Use Work, Projects, capabilities, or the command palette.</p><div><Link href="/build">Build & Setup</Link><Link href="/code">Code</Link><Link href="/govern">Govern & Observe</Link><Link href="/alm">ALM</Link></div></article>; }
