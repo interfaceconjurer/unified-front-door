@@ -10,6 +10,7 @@ import {
   FileIcon,
   GitBranchIcon,
   GridIcon,
+  LayersIcon,
   LinkIcon,
   PlusIcon,
   SendIcon,
@@ -296,14 +297,16 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
     <section className={`${styles.workstage} ${styles.returning}`} aria-labelledby="returning-heading">
       <div className={styles.returningScroll}>
         <div className={styles.returningContent}>
-          <header className={styles.returningLead}><h1 id="returning-heading">What should we move forward?</h1></header>
-          {attention.length > 0 && <HomeList title="Needs you" records={attention} onResume={resume} actionLabel="Review" tone="attention" />}
-          {recent.length > 0 && <HomeList title="Continue" records={recent} onResume={resume} actionLabel="Resume" tone="recent" />}
-          <div className={styles.projectLinks} aria-label="Projects">
-            <strong>Projects</strong>
-            <button type="button" onClick={() => { setActiveProject("acme-storefront"); setActiveWorktree("main", "acme-storefront"); }}>Acme Storefront</button>
-            <button type="button" onClick={() => { setActiveProject("trailblazer-crm"); setActiveWorktree("main", "trailblazer-crm"); }}>Trailblazer CRM</button>
-          </div>
+          <header className={styles.returningLead}><span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span><h1 id="returning-heading">What should we move forward?</h1></header>
+          {attention.length > 0 && <HomeList title="Needs you" records={attention} onResume={resume} tone="attention" />}
+          {recent.length > 0 && <HomeList title="Continue" records={recent} onResume={resume} tone="recent" />}
+          <section className={styles.projectSection} aria-labelledby="returning-projects-heading">
+            <h2 id="returning-projects-heading">Projects</h2>
+            <div className={styles.projectTiles}>
+              <button type="button" onClick={() => { setActiveProject("trailblazer-crm"); setActiveWorktree("main", "trailblazer-crm"); }}><span className={styles.projectIcon} aria-hidden="true"><LayersIcon width={21} height={21} /></span><span><strong>Trailblazer CRM</strong><small>2 active sessions · UAT</small></span></button>
+              <button type="button" onClick={() => { setActiveProject("acme-storefront"); setActiveWorktree("main", "acme-storefront"); }}><span className={styles.projectIcon} aria-hidden="true"><LayersIcon width={21} height={21} /></span><span><strong>Acme Storefront</strong><small>1 recent draft · SIT</small></span></button>
+            </div>
+          </section>
         </div>
       </div>
       <div className={styles.welcomeComposerDock}>
@@ -314,9 +317,9 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
   );
 }
 
-function HomeList({ title, records, onResume, actionLabel, tone }: { title: string; records: typeof RESUME_FIXTURES; onResume: (id: string) => void; actionLabel: string; tone: "attention" | "recent" }) {
+function HomeList({ title, records, onResume, tone }: { title: string; records: typeof RESUME_FIXTURES; onResume: (id: string) => void; tone: "attention" | "recent" }) {
   const id = title.toLowerCase().replaceAll(" ", "-");
-  return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><strong>{record.title}</strong><span>{record.status}</span><small>{record.context} · {record.owner}</small></div><button type="button" onClick={() => onResume(record.id)}>{actionLabel}</button></li>)}</ul></section>;
+  return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><span className={styles.itemLabel}>{record.homeLabel}</span><strong>{record.homeTitle}</strong><small>{record.homeMeta}</small></div><button type="button" onClick={() => onResume(record.id)}>{record.homeAction}</button></li>)}</ul></section>;
 }
 
 function CapabilityLinks() {

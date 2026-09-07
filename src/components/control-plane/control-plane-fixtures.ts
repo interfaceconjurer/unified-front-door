@@ -28,6 +28,10 @@ export type ResumeFixture = {
   orgRef: string;
   worktreeRef: string;
   status: string;
+  homeLabel: string;
+  homeTitle: string;
+  homeMeta: string;
+  homeAction: string;
   updatedAt: string;
   workId: string;
   conversationId: string;
@@ -47,6 +51,10 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     orgRef: "uat",
     worktreeRef: "lead-routing",
     status: "Waiting on a routing-action decision",
+    homeLabel: "Decision needed",
+    homeTitle: "Choose where qualified leads should go",
+    homeMeta: "Lead Qualification Agent · Trailblazer CRM · UAT",
+    homeAction: "Review decision",
     updatedAt: "2026-09-07T15:30:00Z",
     workId: "work-lead-qualification",
     conversationId: "conversation-lead-routing",
@@ -64,6 +72,10 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     orgRef: "sit",
     worktreeRef: "main",
     status: "Sample Draft · ready for review",
+    homeLabel: "Flow draft",
+    homeTitle: "Review the lead-routing Flow",
+    homeMeta: "Acme Storefront · SIT",
+    homeAction: "Continue",
     updatedAt: "2026-09-06T19:12:00Z",
     workId: "work-route-high-value-leads",
     conversationId: "conversation-flow-review",
@@ -81,6 +93,10 @@ export const RESUME_FIXTURES: readonly ResumeFixture[] = [
     orgRef: "uat",
     worktreeRef: "main",
     status: "Validation failed",
+    homeLabel: "Release check",
+    homeTitle: "Recover the failed validation",
+    homeMeta: "Trailblazer CRM · UAT",
+    homeAction: "Continue",
     updatedAt: "2026-09-05T12:04:00Z",
     workId: "work-release-recovery",
     conversationId: "conversation-release-recovery",

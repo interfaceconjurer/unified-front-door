@@ -97,7 +97,8 @@
 .returning { --welcome-bg: #f6f8fb; --welcome-border: rgb(3 13 33 / 9%); overflow: hidden; align-items: stretch; padding: 0; background: var(--welcome-bg); }
 .returningScroll { width: 100%; min-height: 0; flex: 1 1 auto; overflow-y: auto; padding: clamp(1.75rem, 4vh, 3rem) clamp(1rem, 5vw, 5rem) 1.25rem; }
 .returningContent { width: min(60rem, 100%); margin-inline: auto; }
-.returningLead h1 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(2rem, 3.4vw, 3rem); line-height: 1.08; letter-spacing: -.035em; }
+.returningLead { display: grid; justify-items: center; text-align: center; }
+.returningLead h1 { margin: 1rem 0 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(2rem, 3.4vw, 3rem); line-height: 1.08; letter-spacing: -.035em; }
 .homeSection { margin-block-start: 2rem; }
 .homeSection h2 { margin: 0 0 .85rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.05rem; font-weight: 650; letter-spacing: -.015em; }
 .homeSection ul { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; margin: 0; padding: 0; list-style: none; }
@@ -105,14 +106,22 @@
 .homeSection li { display: flex; min-height: 5rem; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; border: 1px solid var(--welcome-border); border-radius: 1rem; background: transparent; }
 .homeSection.attention li { background: #eaf3ff; }
 .homeSection li div { display: grid; min-width: 0; gap: .2rem; }
-.homeSection li strong { color: var(--slds-g-color-on-surface-2, #2e2e2e); font-size: .88rem; }
+.homeSection li strong { color: var(--slds-g-color-on-surface-2, #2e2e2e); font-size: .95rem; }
 .homeSection li span, .homeSection li small { overflow: hidden; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.homeSection li .itemLabel { color: light-dark(#0b5cab, #8fc5ff); font-size: .68rem; font-weight: 700; }
 .homeSection li button { min-height: 2.75rem; flex: 0 0 auto; padding-inline: .8rem; border: 0; border-radius: .75rem; background: var(--slds-g-color-accent-1, #0176d3); color: var(--slds-g-color-on-accent-1, #fff); font: inherit; font-size: .75rem; font-weight: 700; cursor: pointer; transition: filter 100ms linear; }
 .homeSection li button:hover { filter: brightness(1.08); }
-.projectLinks { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .75rem; margin-block-start: 2rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .78rem; }
-.projectLinks strong { color: var(--slds-g-color-on-surface-2, #2e2e2e); }
-.projectLinks button { min-height: 2.75rem; padding-inline: .35rem; border: 0; background: transparent; color: light-dark(#0176d3, #8fc5ff); font: inherit; font-weight: 650; cursor: pointer; }
-.projectLinks button:hover { color: light-dark(#0b5cab, #fff); }
+.homeSection.recent li button { border: 1px solid var(--welcome-border); background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); }
+.homeSection.recent li button:hover { background: light-dark(#eef4ff, #202328); filter: none; }
+.projectSection { margin-block-start: 2.25rem; }
+.projectSection h2 { margin: 0 0 .85rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.05rem; font-weight: 650; letter-spacing: -.015em; }
+.projectTiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.projectTiles button { display: flex; min-height: 5rem; align-items: center; gap: .8rem; padding: .8rem; border: 1px solid transparent; border-radius: 1rem; background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; text-align: start; cursor: pointer; transition: background-color 100ms linear; }
+.projectTiles button:hover, .projectTiles button:focus-visible { background: #f4f8ff; }
+.projectTiles button > span:last-child { display: grid; min-width: 0; gap: .2rem; }
+.projectTiles strong { font-size: .88rem; }
+.projectTiles small { overflow: hidden; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+.projectIcon { display: grid; width: 2.5rem; height: 2.5rem; flex: 0 0 auto; place-items: center; border-radius: .8rem; background: #eaf3ff; color: light-dark(#0176d3, #8fc5ff); }
 .dock { width: 3.5rem; align-items: stretch; }
 .dock button { display: flex; min-height: 100%; flex-direction: column; align-items: center; gap: .75rem; padding: .75rem .35rem; border: 0; background: var(--slds-g-color-surface-1, #fff); color: light-dark(#0176d3, #78b9ff); cursor: pointer; }
 .dock button span { color: var(--slds-g-color-on-surface-2, #2e2e2e); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; writing-mode: vertical-rl; }
@@ -126,6 +135,9 @@
   .fresh .composer:focus-within,
   .returning .composer:focus-within { background: #30353b; }
   .returning .homeSection.attention li { background: #1c2a3d; }
+  .returning .projectIcon { background: #1c2a3d; }
+  .returning .projectTiles button:hover,
+  .returning .projectTiles button:focus-visible { background: #202328; }
   .fresh .jobGrid button,
   .fresh .jobGrid li:first-child button { background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); }
   .fresh .startSection .jobGrid button:hover,
@@ -135,6 +147,6 @@
   .fresh .capabilityLinks a:focus-visible { background: #202328; }
 }
 @media (max-width: 900px) { .welcomeScroll { padding-block-start: 2rem; } .jobGrid { grid-template-columns: 1fr; } .capabilityLinks ul { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 760px) { .contextDecision { align-items: stretch; flex-direction: column; } .planCardReady { grid-template-columns: 1fr; } .planCardReady .primaryAction { grid-column: 1; grid-row: auto; } .homeSection ul { grid-template-columns: 1fr; } .currentWork { grid-template-columns: 1fr; } .currentWorkActions { justify-content: flex-start; } }
+@media (max-width: 760px) { .contextDecision { align-items: stretch; flex-direction: column; } .planCardReady { grid-template-columns: 1fr; } .planCardReady .primaryAction { grid-column: 1; grid-row: auto; } .homeSection ul, .projectTiles { grid-template-columns: 1fr; } .currentWork { grid-template-columns: 1fr; } .currentWorkActions { justify-content: flex-start; } }
 @media (max-width: 599px) { .jobGrid, .capabilityLinks ul { grid-template-columns: 1fr; } .jobGrid button > span:last-child { white-space: normal; } }
 @media (prefers-reduced-motion: reduce) { .transcript { scroll-behavior: auto; } .workstage * { animation: none !important; transition: none !important; transform: none !important; } }
