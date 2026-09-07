@@ -3,13 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ChevronRightIcon,
-  GitBranchIcon,
-  LayersIcon,
-  SendIcon,
-  SparklesIcon,
-} from "@/components/icons";
+import { ChevronRightIcon, SendIcon, SparklesIcon } from "@/components/icons";
 import {
   surfaceAppForPath,
   surfaceApps,
@@ -201,27 +195,11 @@ export function AgentPanel() {
           <p className={styles.intro}>{scope.intro}</p>
         </div>
 
-        {/* Context bar: what the agent is pointed at. The surface chip is keyed by
-            scope so it remounts and replays its pulse on every hand-off; project
-            and worktree appear only when they carry meaning. The target org is
-            deliberately absent — it's ambient global state, owned by the status
-            bar, not something the agent header should duplicate. */}
-        <div className={styles.contextBar} aria-live="polite">
-          <span key={scope.key} className={styles.scopeChip}>
-            <span className={styles.scopeDot} aria-hidden="true" />
-            {scope.label}
-          </span>
-          <span className={styles.contextChip}>
-            <LayersIcon width={13} height={13} aria-hidden="true" />
-            {activeProject.name}
-          </span>
-          {showWorktree && (
-            <span className={styles.contextChip}>
-              <GitBranchIcon width={13} height={13} aria-hidden="true" />
-              {activeWorktree.label}
-            </span>
-          )}
-        </div>
+        {/* No context chips here on purpose. The agent is agnostic to where it's
+            pointed; the workspace coordinates (project · worktree · org) are the
+            status bar's single source of truth, and the surface owns its own
+            identity. A hand-off stays legible through the in-transcript "Now
+            referencing X" marker, not by restating context in this header. */}
       </div>
 
       <div className={styles.transcript} ref={transcriptRef} role="log" aria-live="polite">
