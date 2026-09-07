@@ -25,12 +25,19 @@ export function FlowAutomationDemo({ embedded = false, canvasId = "direct-build-
 
   function showSampleOutcome() {
     setSampleVisible(true);
-    dispatch({ type: "CAPABILITY_ACTION_PENDING", canvasId, correlationId: FLOW_LAUNCH.correlationId });
+    dispatch({
+      type: "CAPABILITY_ACTION_PENDING",
+      canvasId,
+      instanceId: FLOW_LAUNCH.instanceId,
+      actionId: "flow.show-sample-outcome",
+      correlationId: FLOW_LAUNCH.correlationId,
+    });
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
       dispatch({
         type: "CAPABILITY_RESULT",
         canvasId,
+        instanceId: FLOW_LAUNCH.instanceId,
         result: {
           actionId: "flow.show-sample-outcome",
           correlationId: FLOW_LAUNCH.correlationId,

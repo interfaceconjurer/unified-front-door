@@ -33,8 +33,15 @@ export type ControlPlaneState = {
   canvases: Record<CanvasId, CanvasRecord>;
   homeView: HomeView;
   announcement: string;
-  pendingCorrelationId?: string;
   acknowledgedCorrelationIds: string[];
+  pendingAction?: {
+    canvasId: CanvasId;
+    instanceId: string;
+    actionId: string;
+    correlationId: string;
+  };
+  lastActiveCanvasId?: CanvasId;
+  conversationLayout: LayoutPreset;
 };
 
 export type ControlPlaneAction =
@@ -47,10 +54,10 @@ export type ControlPlaneAction =
   | { type: "SET_LAYOUT"; layout: LayoutPreset }
   | { type: "ENTER_FOCUS" }
   | { type: "EXIT_FOCUS" }
-  | { type: "CAPABILITY_ACTION_PENDING"; canvasId: CanvasId; correlationId: string }
-  | { type: "CAPABILITY_RESULT"; canvasId: CanvasId; result: CapabilityResult }
+  | { type: "CAPABILITY_ACTION_PENDING"; canvasId: CanvasId; instanceId: string; actionId: string; correlationId: string }
+  | { type: "CAPABILITY_RESULT"; canvasId: CanvasId; instanceId: string; result: CapabilityResult }
   | { type: "SHOW_SCENARIO"; phase: Extract<JourneyPhase, "stale-resume" | "external-fallback" | "preparation-error" | "context-error" | "agent-unavailable"> }
-  | { type: "RESUME_EXACT"; canvas: CanvasRecord }
+  | { type: "RESUME_EXACT"; canvas: CanvasRecord; resumeRef?: string }
   | { type: "RESET" };
 
 export const INITIAL_CONTROL_PLANE_STATE: ControlPlaneState = {
@@ -62,6 +69,7 @@ export const INITIAL_CONTROL_PLANE_STATE: ControlPlaneState = {
   homeView: "first-time",
   announcement: "Agent Workstage ready. No project or canvas is selected.",
   acknowledgedCorrelationIds: [],
+  conversationLayout: "canvas-roomy",
 };
 
 export function activeCanvas(state: ControlPlaneState): CanvasRecord | undefined {
@@ -133,8 +141,9 @@ export function controlPlaneReducer(
         conversationState: "work-ready",
         phase: action.canvas.capabilityId === "build.flow" ? "flow-ready" : "agent-ready",
         presentation: action.autoOpen
-          ? { mode: "split", activeCanvasId: action.canvas.id, layout: "canvas-roomy" }
+          ? { mode: "split", activeCanvasId: action.canvas.id, layout: state.conversationLayout }
           : state.presentation,
+        lastActiveCanvasId: action.autoOpen ? action.canvas.id : state.lastActiveCanvasId,
         announcement: `${action.ready.title} is ready${action.autoOpen ? " and opened beside the conversation" : " to open"}.`,
       };
     }
@@ -156,6 +165,7 @@ export function controlPlaneReducer(
           layout: currentLayout(state),
         },
         conversationState: "continuing",
+        lastActiveCanvasId: action.canvasId,
         announcement: `${canvas.title} opened. ${action.userInitiated ? "Focus moved to the canvas heading." : "Conversation focus was preserved."}`,
       };
     }
@@ -167,12 +177,13 @@ export function controlPlaneReducer(
         canvases: updateCanvas(state, canvas.id, { lifecycle: "closed" }),
         presentation: { mode: "chat-only" },
         phase: "closed",
+        lastActiveCanvasId: canvas.id,
         announcement: `${canvas.title} closed. The same conversation remains available.`,
       };
     }
     case "SET_LAYOUT":
       return state.presentation.mode === "split"
-        ? { ...state, presentation: { ...state.presentation, layout: action.layout }, announcement: `${action.layout.replace("-", " ")} layout selected.` }
+        ? { ...state, presentation: { ...state.presentation, layout: action.layout }, conversationLayout: action.layout, announcement: `${action.layout.replace("-", " ")} layout selected.` }
         : state;
     case "ENTER_FOCUS":
       return state.presentation.mode === "split"
@@ -198,19 +209,30 @@ export function controlPlaneReducer(
             announcement: "Focus mode closed. Previous layout restored.",
           }
         : state;
-    case "CAPABILITY_ACTION_PENDING":
-      if (!canOpenCanvas(state, action.canvasId)) return state;
+    case "CAPABILITY_ACTION_PENDING": {
+      const canvas = state.canvases[action.canvasId];
+      if (!canOpenCanvas(state, action.canvasId) || canvas?.instanceId !== action.instanceId) return state;
       return {
         ...state,
         phase: "flow-pending",
-        pendingCorrelationId: action.correlationId,
+        pendingAction: {
+          canvasId: action.canvasId,
+          instanceId: action.instanceId,
+          actionId: action.actionId,
+          correlationId: action.correlationId,
+        },
         canvases: updateCanvas(state, action.canvasId, { lifecycle: "action-pending" }),
         announcement: "Capability action pending acknowledgement.",
       };
+    }
     case "CAPABILITY_RESULT":
       if (
-        !state.pendingCorrelationId ||
-        state.pendingCorrelationId !== action.result.correlationId ||
+        !state.pendingAction ||
+        state.pendingAction.canvasId !== action.canvasId ||
+        state.pendingAction.instanceId !== action.instanceId ||
+        state.pendingAction.actionId !== action.result.actionId ||
+        state.pendingAction.correlationId !== action.result.correlationId ||
+        state.canvases[action.canvasId]?.instanceId !== action.instanceId ||
         action.result.status !== "succeeded"
       ) {
         return state;
@@ -218,7 +240,7 @@ export function controlPlaneReducer(
       return {
         ...state,
         phase: "flow-acknowledged",
-        pendingCorrelationId: undefined,
+        pendingAction: undefined,
         acknowledgedCorrelationIds: [...state.acknowledgedCorrelationIds, action.result.correlationId],
         canvases: updateCanvas(state, action.canvasId, {
           lifecycle: "result-acknowledged",
@@ -234,21 +256,26 @@ export function controlPlaneReducer(
         presentation: { mode: "chat-only" },
         announcement: `${action.phase.replaceAll("-", " ")} recovery example shown.`,
       };
-    case "RESUME_EXACT":
+    case "RESUME_EXACT": {
+      if (!action.resumeRef || action.resumeRef !== action.canvas.resumeRef) return state;
+      const existing = state.canvases[action.canvas.id];
+      const canvas = { ...(existing ?? action.canvas), lifecycle: "active" } as CanvasRecord;
+      const resultAcknowledged = state.acknowledgedCorrelationIds.length > 0;
       return {
         ...state,
         conversationId: "conversation-lead-routing",
         workId: "work-lead-qualification",
         conversationState: "continuing",
         homeView: "first-time",
-        phase: "agent-ready",
-        canvases: {
-          ...state.canvases,
-          [action.canvas.id]: { ...action.canvas, lifecycle: "active" },
-        },
-        presentation: { mode: "split", activeCanvasId: action.canvas.id, layout: "canvas-roomy" },
-        announcement: `${action.canvas.title} resumed in the last safe canvas layout. Focus mode was not restored.`,
+        phase: resultAcknowledged
+          ? "flow-acknowledged"
+          : canvas.capabilityId === "build.flow" ? "flow-ready" : "agent-ready",
+        canvases: { ...state.canvases, [canvas.id]: canvas },
+        lastActiveCanvasId: canvas.id,
+        presentation: { mode: "split", activeCanvasId: canvas.id, layout: state.conversationLayout },
+        announcement: `${canvas.title} resumed in the last safe canvas layout. Focus mode was not restored.`,
       };
+    }
     case "RESET":
       return INITIAL_CONTROL_PLANE_STATE;
   }

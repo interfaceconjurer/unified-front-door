@@ -14,7 +14,7 @@ export function AgentStudioDemo({ canvasId }: { canvasId: string }) {
     <section className={styles.studio} aria-labelledby={`canvas-heading-${canvasId}`}>
       <header className={styles.header}>
         <div><p>Agent Studio · Sample Draft</p><h1 id={`canvas-heading-${canvasId}`} tabIndex={-1}>Lead Qualification Agent</h1><span>Agent definition · rev 3</span></div>
-        <Link href="/build">Open Agent Studio directly</Link>
+        <Link href="/build/agent-studio">Open Agent Studio directly</Link>
       </header>
       <div className={styles.grid}>
         <section className={styles.instructions} aria-labelledby="instructions-heading">

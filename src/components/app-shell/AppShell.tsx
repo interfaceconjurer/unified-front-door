@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { CanvasHost } from "@/components/canvas-host/CanvasHost";
 import { AgentPanel } from "@/components/chat/AgentPanel";
@@ -14,6 +14,16 @@ import { WorkspacePanel } from "./WorkspacePanel";
 import styles from "./AppShell.module.css";
 
 type NarrowPane = "agent" | "canvas";
+
+function subscribeToNarrowViewport(onChange: () => void) {
+  const media = window.matchMedia("(max-width: 1023px)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function narrowViewportSnapshot() {
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return <ControlPlaneProvider><AppShellFrame>{children}</AppShellFrame></ControlPlaneProvider>;
@@ -30,7 +40,9 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   const canvasTabRef = useRef<HTMLButtonElement>(null);
   const wasFocusMode = useRef(false);
   const isHome = pathname === "/";
+  const isNarrow = useSyncExternalStore(subscribeToNarrowViewport, narrowViewportSnapshot, () => false);
   const canvasVisible = isHome ? state.presentation.mode !== "chat-only" : true;
+  const renderCanvasPane = !isHome || Object.keys(state.canvases).length > 0;
   const focusMode = isHome && state.presentation.mode === "focus";
 
   useEffect(() => {
@@ -102,12 +114,12 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
         />
         <div className={styles.body}>
           <div className={`${styles.bodyContent} ${layoutClass ?? ""} ${narrowClass}`} inert={panelOpen ? true : undefined}>
-            {canvasVisible && <div className={styles.narrowSwitcher} role="tablist" aria-label="Workstage pane">
+            {canvasVisible && isNarrow && <div className={styles.narrowSwitcher} role="tablist" aria-label="Workstage pane">
               <button ref={agentTabRef} id="agent-pane-tab" type="button" role="tab" tabIndex={narrowPane === "agent" ? 0 : -1} aria-selected={narrowPane === "agent"} aria-controls="agent-pane" onClick={() => showNarrowPane("agent")} onKeyDown={(event) => { if (["ArrowRight","ArrowLeft","End"].includes(event.key)) { event.preventDefault(); showNarrowPane("canvas", true); } else if (event.key === "Home") { event.preventDefault(); agentTabRef.current?.focus(); } }}>Agent</button>
               <button ref={canvasTabRef} id="canvas-pane-tab" type="button" role="tab" tabIndex={narrowPane === "canvas" ? 0 : -1} aria-selected={narrowPane === "canvas"} aria-controls="canvas-pane" onClick={() => showNarrowPane("canvas")} onKeyDown={(event) => { if (["ArrowRight","ArrowLeft","Home"].includes(event.key)) { event.preventDefault(); showNarrowPane("agent", true); } else if (event.key === "End") { event.preventDefault(); canvasTabRef.current?.focus(); } }}>Canvas</button>
             </div>}
-            <div id="agent-pane" className={styles.agentPane} role={canvasVisible ? "tabpanel" : undefined} aria-labelledby={canvasVisible ? "agent-pane-tab" : undefined}><AgentPanel /></div>
-            {canvasVisible && <main id="canvas-pane" className={styles.main} role="tabpanel" aria-labelledby="canvas-pane-tab">{isHome ? <CanvasHost /> : children}</main>}
+            <div id="agent-pane" className={styles.agentPane} role={canvasVisible && isNarrow ? "tabpanel" : undefined} aria-labelledby={canvasVisible && isNarrow ? "agent-pane-tab" : undefined}><AgentPanel /></div>
+            {renderCanvasPane && <main id="canvas-pane" className={styles.main} role={canvasVisible && isNarrow ? "tabpanel" : undefined} aria-labelledby={canvasVisible && isNarrow ? "canvas-pane-tab" : undefined} hidden={!canvasVisible} inert={!canvasVisible ? true : undefined}>{isHome ? <CanvasHost /> : children}</main>}
           </div>
           {panelOpen && <div className={styles.drawerLayer}><WorkspacePanel onClose={() => closeWorkspace()} /><button type="button" className={styles.drawerScrim} aria-label="Close workspace panel" onClick={() => closeWorkspace()} /></div>}
         </div>

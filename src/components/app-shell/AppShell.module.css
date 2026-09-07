@@ -10,6 +10,7 @@
 .agentPane, .main { min-width: 0; min-height: 0; }
 .agentPane { display: flex; }
 .main { display: flex; overflow: auto; }
+.main[hidden] { display: none; }
 .narrowSwitcher { display: none; }
 .drawerLayer { position: absolute; z-index: 45; inset: 0; display: grid; grid-template-columns: 18rem minmax(0, 1fr); }
 .drawerScrim { border: 0; background: rgb(3 13 33 / 38%); backdrop-filter: blur(1px); cursor: default; }

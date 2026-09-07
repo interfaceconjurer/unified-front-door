@@ -12,7 +12,8 @@ import styles from "./CanvasHost.module.css";
 export function CanvasHost() {
   const { state, activeCanvas, dispatch } = useControlPlane();
   const focusInvoker = useRef<HTMLElement | null>(null);
-  if (!activeCanvas || state.presentation.mode === "chat-only") return null;
+  const displayCanvas = activeCanvas ?? (state.lastActiveCanvasId ? state.canvases[state.lastActiveCanvasId] : undefined);
+  if (!displayCanvas) return null;
 
   function restoreInvoker(canvasId: string) {
     requestAnimationFrame(() => {
@@ -22,9 +23,9 @@ export function CanvasHost() {
   }
 
   return (
-    <section className={styles.host} aria-label={`${activeCanvas.title} canvas`}>
+    <section className={styles.host} aria-label={`${displayCanvas.title} canvas`}>
       <header className={styles.toolbar}>
-        <button type="button" className={styles.close} onClick={() => { const id = activeCanvas.id; dispatch({ type: "CLOSE_CANVAS" }); restoreInvoker(id); }} aria-label={`Close ${activeCanvas.title} canvas`}><CloseIcon width={16} height={16} /><span>Close</span></button>
+        <button type="button" className={styles.close} onClick={() => { const id = displayCanvas.id; dispatch({ type: "CLOSE_CANVAS" }); restoreInvoker(id); }} aria-label={`Close ${displayCanvas.title} canvas`}><CloseIcon width={16} height={16} /><span>Close</span></button>
         <div className={styles.tools}>
           <CanvasSwitcher />
           {state.presentation.mode === "split" && <LayoutPresetMenu />}
@@ -46,7 +47,18 @@ export function CanvasHost() {
         </div>
       </header>
       <div className={styles.body}>
-        {activeCanvas.capabilityId === "agent-studio.agent" ? <AgentStudioDemo canvasId={activeCanvas.id} /> : <FlowAutomationDemo embedded canvasId={activeCanvas.id} />}
+        {Object.values(state.canvases).map((canvas) => {
+          const visible = canvas.id === displayCanvas.id;
+          return (
+            <div key={canvas.id} className={styles.canvasMount} hidden={!visible} inert={!visible ? true : undefined}>
+              {canvas.capabilityId === "agent-studio.agent" ? (
+                <AgentStudioDemo canvasId={canvas.id} />
+              ) : (
+                <FlowAutomationDemo embedded canvasId={canvas.id} />
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );

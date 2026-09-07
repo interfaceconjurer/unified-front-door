@@ -11,7 +11,7 @@ export const AGENT_STUDIO_MANIFEST: CapabilityManifest = {
   label: "Agent Studio",
   ownerLabel: "Agent Studio",
   launchModes: ["embedded", "full-page"],
-  directUrl: "/build",
+  directUrl: "/build/agent-studio",
   acceptedContext: ["project", "org", "worktree", "artifact"],
   requiredContext: ["artifact"],
   preferredLayout: "canvas-roomy",
