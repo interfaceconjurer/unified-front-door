@@ -36,6 +36,8 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps)
           aria-expanded={panelOpen}
           aria-pressed={panelOpen}
           aria-label="Toggle workspace panel"
+          aria-keyshortcuts="Meta+B Control+B"
+          title="Toggle workspace panel (⌘B)"
         >
           <PanelIcon width={16} height={16} />
         </button>

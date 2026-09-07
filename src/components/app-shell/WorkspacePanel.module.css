@@ -76,19 +76,33 @@
   font-weight: 600;
 }
 
+/* Hover is a lighter, subtler gray — surface-2 pulled most of the way back
+   toward the base surface — so it reads as a hint under the pointer without
+   competing with the selected row. */
 .row:hover,
 .worktreeRow:hover,
 .sessionRow:hover {
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-surface-2, #f3f3f3) 45%,
+    var(--slds-g-color-surface-1, #fff)
+  );
 }
 
+/* Selection is the stronger of the two neutral states — the solid surface-2
+   gray that used to be hover. Blue is reserved for prominent calls to action,
+   not for "which row am I on", so nothing here tints toward the accent.
+   Declared after the hover rule (equal specificity) so hovering the already-
+   selected row keeps the stronger selection fill rather than lightening. */
 .rowCurrent {
-  background: var(--slds-g-color-accent-container-1, #eef4ff);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
 .rowIcon {
   flex: 0 0 auto;
-  color: light-dark(#0176d3, #78b9ff);
+  /* Neutral, not accent-blue: the project glyph is identity/decoration, not a
+     call to action, so it stays in the on-surface grays. */
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
 .rowLabel {
