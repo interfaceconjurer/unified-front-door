@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CheckIcon, ChevronRightIcon, SendIcon, SparklesIcon } from "@/components/icons";
 import {
   AGENT_CANVAS,
@@ -18,12 +19,12 @@ import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
 
 const JOBS = [
-  "Qualify and route sales leads",
-  "Automate a business process",
-  "Fix a deployment issue",
-  "Plan a release",
-  "Review access",
-  "Understand an org",
+  { label: "Qualify and route sales leads", prompt: "Help our sales team qualify high-value leads and route them to the right owner." },
+  { label: "Automate a business process", prompt: "Help me automate a repetitive business process." },
+  { label: "Build an agent", prompt: "Help me build an agent for our employees and customers." },
+  { label: "Fix a deployment issue", prompt: "Help me understand and recover from a deployment issue." },
+  { label: "Review access and permissions", prompt: "Help me review who has access and how it is granted." },
+  { label: "Understand an org", prompt: "Help me understand an unfamiliar Salesforce org." },
 ] as const;
 
 const SCENARIO_BY_QUERY = {
@@ -36,8 +37,10 @@ const SCENARIO_BY_QUERY = {
 
 export function AgentWorkstage() {
   const { state, activeCanvas, dispatch } = useControlPlane();
+  const router = useRouter();
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState("");
+  const [seedStatus, setSeedStatus] = useState("");
   const { setActiveProject, setActiveWorktree } = useWorkspace();
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -68,9 +71,27 @@ export function AgentWorkstage() {
   }, [state.phase]);
 
   function begin(value = draft) {
-    if (!value.trim()) return;
-    dispatch({ type: "BEGIN_WORK" });
+    const intent = value.trim();
+    if (!intent) return;
+    const normalized = intent.toLowerCase();
+    if (/lead|sales team|route/.test(normalized)) {
+      dispatch({ type: "BEGIN_WORK" });
+    } else if (/deploy|release/.test(normalized)) {
+      router.push("/alm");
+    } else if (/access|permission/.test(normalized)) {
+      router.push("/govern");
+    } else if (/agent/.test(normalized)) {
+      router.push("/build/agent-studio");
+    } else {
+      router.push("/build");
+    }
     setDraft("");
+  }
+
+  function seedJob(job: (typeof JOBS)[number]) {
+    setDraft((current) => current.trim() ? `${current.trim()}\n\n${job.prompt}` : job.prompt);
+    setSeedStatus(`${job.label} added to your message. Review or send.`);
+    requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   function openCanvas(canvasId: string) {
@@ -99,21 +120,32 @@ export function AgentWorkstage() {
       <section className={`${styles.workstage} ${styles.fresh}`} aria-labelledby="workstage-heading">
         <div className={styles.hero}>
           <span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span>
-          <h1 id="workstage-heading">What would you like to make easier?</h1>
-          <p>Describe the outcome in your own words.</p>
-          <Composer draft={draft} setDraft={setDraft} onSubmit={begin} inputRef={composerRef} large />
+          <h1 id="workstage-heading">What would you like to move forward?</h1>
+          <p>Describe the outcome you want. Agent will help shape the work and bring in the right capabilities.</p>
+          <Composer
+            draft={draft}
+            setDraft={setDraft}
+            onSubmit={begin}
+            inputRef={composerRef}
+            large
+            onContext={() => setSeedStatus("You’ll confirm the project and org before capability work begins.")}
+            onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")}
+          />
+          {seedStatus && <p className={styles.seedStatus} role="status">{seedStatus}</p>}
         </div>
         <div className={styles.freshOptions}>
-          <details className={styles.startSection}>
-            <summary>Or start with a common job</summary>
-            <div className={styles.jobGrid}>
-              {JOBS.map((job) => <button key={job} type="button" onClick={() => begin(job)}>{job}</button>)}
-            </div>
-          </details>
-          <details className={styles.explore}>
-            <summary>Explore capabilities</summary>
+          <section className={styles.startSection} aria-labelledby="jobs-heading">
+            <h2 id="jobs-heading">Start with a job</h2>
+            <p>Choose a common outcome or describe your own above.</p>
+            <ul className={styles.jobGrid}>
+              {JOBS.map((job, index) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span>{job.label}</span>{index === 0 && <small>Suggested example</small>}</button></li>)}
+            </ul>
+          </section>
+          <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
+            <h2 id="capabilities-heading">Explore capabilities</h2>
+            <p>Go directly when you already know where the work belongs.</p>
             <CapabilityLinks />
-          </details>
+          </section>
         </div>
       </section>
     );
@@ -217,12 +249,12 @@ export function AgentWorkstage() {
   );
 }
 
-function Composer({ draft, setDraft, onSubmit, inputRef, large = false }: { draft: string; setDraft: (value: string) => void; onSubmit: () => void; inputRef: React.RefObject<HTMLTextAreaElement | null>; large?: boolean }) {
+function Composer({ draft, setDraft, onSubmit, inputRef, large = false, onContext, onAttach }: { draft: string; setDraft: (value: string) => void; onSubmit: () => void; inputRef: React.RefObject<HTMLTextAreaElement | null>; large?: boolean; onContext?: () => void; onAttach?: () => void }) {
   return (
     <form className={`${styles.composer} ${large ? styles.composerLarge : ""}`} onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <label className={styles.srOnly} htmlFor={large ? "fresh-composer" : "agent-composer"}>Message the agent</label>
-      <textarea id={large ? "fresh-composer" : "agent-composer"} ref={inputRef} rows={large ? 3 : 2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={large ? "For example, help our sales team respond faster…" : "What would you like to do next?"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(); } }} />
-      {large && <div className={styles.contextTools}><button type="button">+ Add project context</button><button type="button">Attach</button></div>}
+      <textarea id={large ? "fresh-composer" : "agent-composer"} ref={inputRef} rows={large ? 3 : 2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={large ? "For example, qualify high-value leads and route them faster…" : "What would you like to do next?"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSubmit(); } }} />
+      {large && <div className={styles.contextTools}><button type="button" onClick={onContext}>+ Add project context</button><button type="button" onClick={onAttach}>Attach</button></div>}
       <button type="submit" className={styles.send} disabled={!draft.trim()} aria-label="Send message"><SendIcon width={18} height={18} /></button>
     </form>
   );
@@ -269,8 +301,13 @@ function HomeList({ title, records, onResume }: { title: string; records: typeof
 }
 
 function CapabilityLinks() {
-  const { dispatch } = useControlPlane();
-  return <div className={styles.capabilityLinks}><Link href="/build">Build & Setup</Link><Link href="/code">Code</Link><Link href="/govern">Govern & Observe</Link><Link href="/alm">ALM</Link><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "external-fallback" })}>External fallback</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "preparation-error" })}>Preparation failure</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "context-error" })}>Context recovery</button><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "agent-unavailable" })}>Agent unavailable</button></div>;
+  const capabilities = [
+    { href: "/build", label: "Build & Setup", detail: "Flows, agents, and configuration" },
+    { href: "/code", label: "Code", detail: "Develop and review source" },
+    { href: "/govern", label: "Govern & Observe", detail: "Access, health, and activity" },
+    { href: "/alm", label: "ALM", detail: "Releases and deployments" },
+  ] as const;
+  return <nav className={styles.capabilityLinks} aria-label="Capability destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }
