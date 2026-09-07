@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckIcon, ChevronRightIcon, SendIcon, SparklesIcon } from "@/components/icons";
+import {
+  ChartIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  FileIcon,
+  GitBranchIcon,
+  GridIcon,
+  SendIcon,
+  SparklesIcon,
+} from "@/components/icons";
 import {
   AGENT_CANVAS,
   AGENT_READY,
@@ -19,12 +28,12 @@ import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
 
 const JOBS = [
-  { label: "Qualify and route sales leads", prompt: "Help our sales team qualify high-value leads and route them to the right owner." },
-  { label: "Automate a business process", prompt: "Help me automate a repetitive business process." },
-  { label: "Build an agent", prompt: "Help me build an agent for our employees and customers." },
-  { label: "Fix a deployment issue", prompt: "Help me understand and recover from a deployment issue." },
-  { label: "Review access and permissions", prompt: "Help me review who has access and how it is granted." },
-  { label: "Understand an org", prompt: "Help me understand an unfamiliar Salesforce org." },
+  { label: "Qualify high-value leads and route them to the right owner", prompt: "Help our sales team qualify high-value leads and route them to the right owner." },
+  { label: "Automate a repetitive business process", prompt: "Help me automate a repetitive business process." },
+  { label: "Build an agent for employees or customers", prompt: "Help me build an agent for our employees and customers." },
+  { label: "Find and fix a deployment issue", prompt: "Help me understand and recover from a deployment issue." },
+  { label: "Review who has access and how it is granted", prompt: "Help me review who has access and how it is granted." },
+  { label: "Map an unfamiliar Salesforce org", prompt: "Help me understand an unfamiliar Salesforce org." },
 ] as const;
 
 const SCENARIO_BY_QUERY = {
@@ -120,8 +129,7 @@ export function AgentWorkstage() {
       <section className={`${styles.workstage} ${styles.fresh}`} aria-labelledby="workstage-heading">
         <div className={styles.hero}>
           <span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span>
-          <h1 id="workstage-heading">What would you like to move forward?</h1>
-          <p>Describe the outcome you want. Agent will help shape the work and bring in the right capabilities.</p>
+          <h1 id="workstage-heading">What can I help you accomplish?</h1>
           <Composer
             draft={draft}
             setDraft={setDraft}
@@ -136,14 +144,12 @@ export function AgentWorkstage() {
         <div className={styles.freshOptions}>
           <section className={styles.startSection} aria-labelledby="jobs-heading">
             <h2 id="jobs-heading">Start with a job</h2>
-            <p>Choose a common outcome or describe your own above.</p>
             <ul className={styles.jobGrid}>
-              {JOBS.map((job, index) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span>{job.label}</span>{index === 0 && <small>Suggested example</small>}</button></li>)}
+              {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><SparklesIcon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
             </ul>
           </section>
           <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
             <h2 id="capabilities-heading">Explore capabilities</h2>
-            <p>Go directly when you already know where the work belongs.</p>
             <CapabilityLinks />
           </section>
         </div>
@@ -253,7 +259,7 @@ function Composer({ draft, setDraft, onSubmit, inputRef, large = false, onContex
   return (
     <form className={`${styles.composer} ${large ? styles.composerLarge : ""}`} onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <label className={styles.srOnly} htmlFor={large ? "fresh-composer" : "agent-composer"}>Message the agent</label>
-      <textarea id={large ? "fresh-composer" : "agent-composer"} ref={inputRef} rows={large ? 3 : 2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={large ? "For example, qualify high-value leads and route them faster…" : "What would you like to do next?"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSubmit(); } }} />
+      <textarea id={large ? "fresh-composer" : "agent-composer"} ref={inputRef} rows={large ? 3 : 2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={large ? "Describe what you want to do…" : "What would you like to do next?"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSubmit(); } }} />
       {large && <div className={styles.contextTools}><button type="button" onClick={onContext}>+ Add project context</button><button type="button" onClick={onAttach}>Attach</button></div>}
       <button type="submit" className={styles.send} disabled={!draft.trim()} aria-label="Send message"><SendIcon width={18} height={18} /></button>
     </form>
@@ -302,12 +308,12 @@ function HomeList({ title, records, onResume }: { title: string; records: typeof
 
 function CapabilityLinks() {
   const capabilities = [
-    { href: "/build", label: "Build & Setup", detail: "Flows, agents, and configuration" },
-    { href: "/code", label: "Code", detail: "Develop and review source" },
-    { href: "/govern", label: "Govern & Observe", detail: "Access, health, and activity" },
-    { href: "/alm", label: "ALM", detail: "Releases and deployments" },
+    { href: "/build", label: "Build & Setup", detail: "Create and configure", Icon: GridIcon },
+    { href: "/code", label: "Code", detail: "Develop and test", Icon: FileIcon },
+    { href: "/govern", label: "Govern & Observe", detail: "Secure and monitor", Icon: ChartIcon },
+    { href: "/alm", label: "ALM", detail: "Plan and release", Icon: GitBranchIcon },
   ] as const;
-  return <nav className={styles.capabilityLinks} aria-label="Capability destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
+  return <nav className={styles.capabilityLinks} aria-label="Capability destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><span className={styles.capabilityIcon} aria-hidden="true"><capability.Icon width={22} height={22} /></span><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }
