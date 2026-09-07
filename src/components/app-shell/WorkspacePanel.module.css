@@ -98,31 +98,20 @@
   white-space: nowrap;
 }
 
-/* The primary worktree ("main"), attached under the project header: indented
-   to sit just beneath the project name, plain (no tree connector, no status
-   dot), lighter than the header — part of the project, not a tree child. */
-.baseRow {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  padding: 0.25rem var(--slds-g-spacing-2, 0.5rem) 0.25rem 2rem;
-  border: 0;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  cursor: pointer;
+/* The project node's copy is a two-line stack: the project name as the title
+   and its primary worktree ("main") as the subtitle, so the two read as one
+   node rather than a header plus a separate child row. */
+.rowCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.05rem;
 }
 
-.baseRow:hover {
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-}
-
-.baseLabel {
+.rowBranch {
   overflow: hidden;
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

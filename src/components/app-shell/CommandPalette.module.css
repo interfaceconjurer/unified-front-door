@@ -207,27 +207,6 @@
   min-width: 0;
 }
 
-/* The project's primary worktree ("main") sits attached under the project
-   header: indented like a child, but with NO tree connector and NO status dot
-   — it reads as part of the project's identity, not one of its parallel
-   worktree children. Its icon slot collapses to nothing (no dot to hold). */
-.resultBase {
-  padding-block: 0.3rem;
-  padding-inline-start: 2.75rem;
-}
-
-.resultBase .resultIcon {
-  width: auto;
-  height: auto;
-  min-width: 0;
-}
-
-.resultBase .resultLabel {
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
-  font-weight: 500;
-}
-
 .resultIcon {
   display: grid;
   place-items: center;

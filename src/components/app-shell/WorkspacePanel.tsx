@@ -45,31 +45,26 @@ export function WorkspacePanel() {
             const isBaseCurrent = isProjectCurrent && base.worktree.id === activeWorktree.id;
             return (
               <li key={project.id}>
+                {/* The project and its primary worktree ("main") are ONE node:
+                    the project name as the title, main as the subtitle — not a
+                    header with a separate child row. Selecting it lands on main
+                    (its subtitle). Pass project.id explicitly, same closure
+                    reason as the child rows. main's activity still surfaces in
+                    the Active list below; no status dot here. */}
                 <button
                   type="button"
-                  className={`${styles.row} ${isProjectCurrent ? styles.rowCurrent : ""}`}
-                  aria-current={isProjectCurrent}
-                  onClick={() => setActiveProject(project.id)}
-                >
-                  <LayersIcon className={styles.rowIcon} width={16} height={16} />
-                  <span className={styles.rowLabel}>{project.name}</span>
-                </button>
-
-                {/* The primary worktree ("main") is part of the project — a
-                    plain line attached under the header, no tree connector, no
-                    status dot (its activity still surfaces in the Active list
-                    below). Pass project.id explicitly, same closure reason as
-                    the child rows. */}
-                <button
-                  type="button"
-                  className={`${styles.baseRow} ${isBaseCurrent ? styles.rowCurrent : ""}`}
+                  className={`${styles.row} ${isBaseCurrent ? styles.rowCurrent : ""}`}
                   aria-current={isBaseCurrent}
                   onClick={() => {
                     setActiveProject(project.id);
                     setActiveWorktree(base.worktree.id, project.id);
                   }}
                 >
-                  <span className={styles.baseLabel}>{base.worktree.label}</span>
+                  <LayersIcon className={styles.rowIcon} width={16} height={16} />
+                  <span className={styles.rowCopy}>
+                    <span className={styles.rowLabel}>{project.name}</span>
+                    <span className={styles.rowBranch}>{base.worktree.label}</span>
+                  </span>
                 </button>
 
                 {children.length > 0 && (

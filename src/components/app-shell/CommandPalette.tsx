@@ -72,10 +72,6 @@ type PaletteItem = {
   /** The last worktree under its project — draws the tree guide as └ (a
    *  corner that stops at this row) rather than ├ (a line continuing down). */
   lastChild?: boolean;
-  /** The project's primary worktree ("main") — attached to the project header
-   *  (indented, no tree connector, no status dot), part of the project rather
-   *  than one of its tree children. */
-  base?: boolean;
   /** Present on worktree/session rows; renders a status dot + chip instead
    *  of (resp. alongside) the plain icon/current-tag treatment. */
   status?: AgentSessionStatus;
@@ -133,57 +129,50 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
       for (const { project, base, children } of buildProjectTree(projects)) {
-        const projectMatches = matchesQuery(project.name, project.description);
-        // The base ("main") is part of the project's identity, so it shows
-        // whenever the project matches or main itself matches. A child worktree
-        // shows if it matches on its own, or if its project matched (in which
-        // case all of a matching project's worktrees show, same as unfiltered)
-        // — so searching "hotfix" surfaces just that worktree under its project
-        // for context, while searching "trailblazer" surfaces every worktree.
+        // The project row IS the project-on-main node: its title is the project
+        // name and its subtitle is the primary worktree ("main"), so the two
+        // read as one node (title + description), not a header with a separate
+        // child. Search still matches the prose description even though it's no
+        // longer shown. A feature child shows if it matches on its own, or if
+        // its project matched (all of a matching project's worktrees show, same
+        // as unfiltered) — so searching "hotfix" surfaces just that worktree
+        // under its project for context, "trailblazer" surfaces every worktree.
         // `lastChild` is re-derived against this filtered list (not the shared
         // derivation's unfiltered one), since the tree guide's corner has to
         // land on the last child actually on screen.
-        const baseMatches =
-          projectMatches || matchesQuery(base.worktree.label, base.worktree.branch);
+        const projectMatches = matchesQuery(
+          project.name,
+          project.description,
+          base.worktree.label,
+          base.worktree.branch,
+        );
         const matchingChildren = children.filter(
           ({ worktree }) => projectMatches || matchesQuery(worktree.label, worktree.branch),
         );
 
-        if (!(baseMatches || matchingChildren.length > 0)) continue;
+        if (!(projectMatches || matchingChildren.length > 0)) continue;
 
         rows.push({
           id: project.id,
           label: project.name,
-          description: project.description,
+          // Subtitle = the primary branch, so the node reads as "project on main".
+          description: base.worktree.label,
           Icon: LayersIcon,
-          isCurrent: project.id === activeProject.id,
+          // Current only when the project is active AND on its primary worktree —
+          // if a feature worktree is active, its own child row carries "Current".
+          isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
           // Project is shell-level, not a route — switch it in place and stay put.
+          // Selecting the node lands on main (its subtitle). Pass project.id
+          // explicitly to setActiveWorktree: setActiveProject doesn't take effect
+          // until the next render, so the setter's own default (the *current*
+          // activeProject) would target the wrong project when the project isn't
+          // active yet.
           select: () => {
             setActiveProject(project.id);
+            setActiveWorktree(base.worktree.id, project.id);
             onClose();
           },
         });
-
-        // Pass project.id explicitly to setActiveWorktree: setActiveProject
-        // doesn't take effect until the next render, so the setter's own
-        // default (the *current* activeProject) would target the wrong project
-        // when picking a worktree in a project that isn't active yet.
-        if (baseMatches) {
-          rows.push({
-            id: `${project.id}::${base.worktree.id}`,
-            label: base.worktree.label,
-            // Main's branch is its own name; drop the redundant second line so
-            // it reads as a single "main" attached under the project.
-            description: "",
-            isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
-            base: true,
-            select: () => {
-              setActiveProject(project.id);
-              setActiveWorktree(base.worktree.id, project.id);
-              onClose();
-            },
-          });
-        }
 
         matchingChildren.forEach(({ worktree, status }, childIndex) => {
           rows.push({
@@ -346,22 +335,18 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
                     item.indent ? styles.resultIndent : ""
-                  } ${item.lastChild ? styles.resultLastChild : ""} ${
-                    item.base ? styles.resultBase : ""
-                  }`}
+                  } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
                   onClick={() => item.select()}
                 >
                   <span
-                    className={`${styles.resultIcon} ${
-                      item.status || item.base ? styles.resultIconPlain : ""
-                    }`}
+                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""}`}
                     aria-hidden="true"
                   >
                     {item.status ? (
                       <StatusDot status={item.status} />
                     ) : (
-                      !item.base && item.Icon && <item.Icon width={18} height={18} />
+                      item.Icon && <item.Icon width={18} height={18} />
                     )}
                   </span>
                   <span className={styles.resultCopy}>
