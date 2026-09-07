@@ -241,7 +241,7 @@ export function controlPlaneReducer(
           correlationId: action.correlationId,
         },
         canvases: updateCanvas(state, action.canvasId, { lifecycle: "action-pending" }),
-        announcement: "Capability action pending acknowledgement.",
+        announcement: "Checking the sample. Waiting for Build to acknowledge the result.",
       };
     }
     case "CAPABILITY_RESULT":
@@ -296,7 +296,7 @@ export function controlPlaneReducer(
           contextRevision: "ctx-2",
         },
         presentation: { mode: "split", activeCanvasId: canvas.id, layout: state.conversationLayout },
-        announcement: `${canvas.title} resumed in the last safe canvas layout. Focus mode was not restored.`,
+        announcement: `${canvas.title} resumed in the last safe layout. Focus stayed off.`,
       };
     }
     case "RESET":

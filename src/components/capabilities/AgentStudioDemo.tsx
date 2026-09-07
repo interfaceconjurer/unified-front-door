@@ -19,23 +19,23 @@ export function AgentStudioDemo({ canvasId }: { canvasId: string }) {
       <div className={styles.grid}>
         <section className={styles.instructions} aria-labelledby="instructions-heading">
           <p className={styles.eyebrow}>Instructions</p><h2 id="instructions-heading">Qualify before routing</h2>
-          <p>Collect company fit and revenue evidence. Explain uncertainty. Route only after qualification criteria are met.</p>
+          <p>Check company fit and annual revenue. Ask when evidence is missing. Route only after the criteria are met.</p>
         </section>
         <section className={styles.topics} aria-labelledby="topics-heading">
           <p className={styles.eyebrow}>Topics</p><h2 id="topics-heading">Qualification topics</h2>
-          <ul><li><span>01</span><div><strong>Company fit</strong><small>Industry, employee count, operating region</small></div></li><li><span>02</span><div><strong>Commercial intent</strong><small>Use case, timeline, annual revenue</small></div></li><li><span>03</span><div><strong>Routing</strong><small>Enterprise threshold and owner handoff</small></div></li></ul>
+          <ul><li><span>01</span><div><strong>Company fit</strong><small>Industry, size, region</small></div></li><li><span>02</span><div><strong>Commercial intent</strong><small>Use case, timeline, revenue</small></div></li><li><span>03</span><div><strong>Routing</strong><small>Threshold and owner</small></div></li></ul>
         </section>
         <section className={styles.actions} aria-labelledby="actions-heading">
-          <p className={styles.eyebrow}>Actions</p><h2 id="actions-heading">Connected capabilities</h2>
+          <h2 id="actions-heading">Actions</h2>
           <div className={styles.actionRow}><SparklesIcon width={17} height={17} /><span><strong>Find account context</strong><small>Sample response fixture</small></span><span className={styles.ready}>Ready</span></div>
-          {flowConnected ? <div className={`${styles.actionRow} ${styles.connected}`}><WorkflowIcon width={17} height={17} /><span><strong>Route High-Value Leads</strong><small>Build acknowledgement · rev 3</small></span><span className={styles.ready}><CheckIcon width={13} height={13} /> Connected</span></div> : <button type="button" className={styles.prepareFlow} disabled={flowPrepared || !state.context} onClick={() => dispatch({ type: "CAPABILITY_READY", canvas: FLOW_CANVAS, ready: FLOW_READY, autoOpen: false })}>{!state.context ? "Attach project and org context in Front Door" : flowPrepared ? "Routing Flow ready in conversation" : "Prepare routing Flow suggestion"}</button>}
+          {flowConnected ? <div className={`${styles.actionRow} ${styles.connected}`}><WorkflowIcon width={17} height={17} /><span><strong>Route High-Value Leads</strong><small>Connected · rev 3</small></span><span className={styles.ready}><CheckIcon width={13} height={13} /> Connected</span></div> : flowPrepared ? <p className={styles.flowReadyStatus}><CheckIcon width={14} height={14} aria-hidden="true" /> Routing Flow ready to review</p> : <button type="button" className={styles.prepareFlow} disabled={!state.context} onClick={() => dispatch({ type: "CAPABILITY_READY", canvas: FLOW_CANVAS, ready: FLOW_READY, autoOpen: false })}>{state.context ? "Add routing Flow" : "Open from Front Door to add routing"}</button>}
         </section>
         <section className={styles.test} aria-labelledby="test-heading">
           <p className={styles.eyebrow}>Test conversation</p><h2 id="test-heading">Sample response</h2>
-          <div><p><strong>Lead</strong> We expect $420k annual revenue and need US enterprise routing.</p><p><strong>Agent</strong> This meets the sample threshold. I can request the acknowledged routing action after you review it.</p></div>
+          <div><p><strong>Lead</strong> We expect $420k in annual revenue and need US enterprise support.</p><p><strong>Agent</strong> This meets the sample threshold. Review the routing Flow before trying the sample.</p></div>
         </section>
       </div>
-      <footer>Interactive prototype · sample data · nothing is saved or run in Salesforce.</footer>
+      <footer>Prototype · sample data · nothing is saved or run.</footer>
     </section>
   );
 }

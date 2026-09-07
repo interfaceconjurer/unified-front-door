@@ -17,10 +17,10 @@ export function WorkObjectCard({ canvas, active, closed, onOpen, onRefine }: Wor
     <article className={styles.card} aria-labelledby={`work-object-${canvas.id}`}>
       <div className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>{isFlow ? "Flow draft" : "Agent draft"} · Ready</p>
+          <p className={styles.eyebrow}>{isFlow ? "Flow" : "Agent"} · {canvas.truthState}</p>
           <h3 id={`work-object-${canvas.id}`}>{canvas.title}</h3>
           <p className={styles.summary}>
-            {isFlow ? "6 nodes · 2 unresolved decisions" : "3 topics · 2 actions · test response ready"}
+            {isFlow ? "4 steps · 1 decision" : "3 topics · 2 actions"}
           </p>
         </div>
         <div className={styles.thumbnail} aria-hidden="true">
@@ -29,32 +29,21 @@ export function WorkObjectCard({ canvas, active, closed, onOpen, onRefine }: Wor
           <span />
         </div>
       </div>
-      <dl className={styles.meta}>
-        <div><dt>Truth</dt><dd>{canvas.truthState}</dd></div>
-        <div><dt>Owner</dt><dd>{canvas.ownerLabel}</dd></div>
-        {canvas.revision && <div><dt>Freshness</dt><dd>{canvas.revision}</dd></div>}
-      </dl>
+      <p className={styles.ownerLine}>{canvas.ownerLabel} owns this sample{canvas.revision ? ` · ${canvas.revision}` : ""}</p>
       <div className={styles.actions}>
-        <button
-          type="button"
-          className={styles.primary}
-          data-canvas-invoker={canvas.id}
-          onClick={onOpen}
-          disabled={active}
-        >
-          {active ? "Canvas open" : closed ? "Reopen canvas" : "Open editable canvas"}
-          {!active && <ChevronRightIcon width={15} height={15} aria-hidden="true" />}
-        </button>
-        <button type="button" className={styles.secondary} onClick={onRefine}>
-          Keep refining here
-        </button>
+        {active ? (
+          <span className={styles.openStatus} data-canvas-invoker={canvas.id}>
+            {isFlow ? "Flow open" : "Agent draft open"}
+          </span>
+        ) : (
+          <button type="button" className={styles.primary} data-canvas-invoker={canvas.id} onClick={onOpen}>
+            {closed ? (isFlow ? "Reopen Flow" : "Reopen Agent draft") : (isFlow ? "Review Flow" : "Review Agent draft")}
+            <ChevronRightIcon width={15} height={15} aria-hidden="true" />
+          </button>
+        )}
+        <button type="button" className={styles.secondary} onClick={onRefine}>Keep discussing</button>
       </div>
-      <p className={styles.disclosure}>
-        {canvas.ownerLabel} owned · interactive sample structure · nothing is saved or run in Salesforce
-      </p>
-      <Link className={styles.directLink} href={canvas.canonicalUrl}>
-        Open directly in {canvas.ownerLabel}
-      </Link>
+      <Link className={styles.directLink} href={canvas.canonicalUrl}>Open in {canvas.ownerLabel}</Link>
     </article>
   );
 }
