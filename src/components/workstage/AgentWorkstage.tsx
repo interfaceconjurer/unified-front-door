@@ -21,10 +21,7 @@ import {
   FLOW_CANVAS,
 } from "@/components/capabilities/capability-fixtures";
 import { useControlPlane } from "@/components/control-plane/ControlPlaneProvider";
-import {
-  RESUME_FIXTURES,
-  RETURNING_PROJECTS,
-} from "@/components/control-plane/control-plane-fixtures";
+import { RESUME_FIXTURES } from "@/components/control-plane/control-plane-fixtures";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
@@ -86,6 +83,7 @@ export function AgentWorkstage() {
     if (!intent) return;
     const normalized = intent.toLowerCase();
     if (/lead|sales team|route/.test(normalized)) {
+      if (state.phase !== "fresh") dispatch({ type: "START_NEW" });
       dispatch({ type: "BEGIN_WORK" });
     } else if (/deploy|release/.test(normalized)) {
       router.push("/alm");
@@ -123,7 +121,7 @@ export function AgentWorkstage() {
   }
 
   if (state.homeView === "returning" && state.presentation.mode === "chat-only") {
-    return <ReturningHome />;
+    return <ReturningHome draft={draft} setDraft={setDraft} onSubmit={begin} inputRef={composerRef} seedStatus={seedStatus} setSeedStatus={setSeedStatus} />;
   }
 
   if (state.phase === "fresh") {
@@ -272,11 +270,11 @@ function Composer({ draft, setDraft, onSubmit, inputRef, large = false, onContex
   );
 }
 
-function ReturningHome() {
+function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSeedStatus }: { draft: string; setDraft: (value: string) => void; onSubmit: () => void; inputRef: React.RefObject<HTMLTextAreaElement | null>; seedStatus: string; setSeedStatus: (value: string) => void }) {
   const { dispatch } = useControlPlane();
   const { setActiveProject, setActiveWorktree } = useWorkspace();
-  const attention = RESUME_FIXTURES.filter((item) => item.kind === "attention").slice(0, 3);
-  const recent = [...RESUME_FIXTURES].filter((item) => item.kind === "recent").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+  const attention = RESUME_FIXTURES.filter((item) => item.kind === "attention").slice(0, 1);
+  const recent = [...RESUME_FIXTURES].filter((item) => item.kind === "recent").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 2);
   function resume(id: string) {
     const record = RESUME_FIXTURES.find((item) => item.id === id);
     if (record?.resumeState === "stale") dispatch({ type: "SHOW_SCENARIO", phase: "stale-resume" });
@@ -296,20 +294,29 @@ function ReturningHome() {
   }
   return (
     <section className={`${styles.workstage} ${styles.returning}`} aria-labelledby="returning-heading">
-      <div className={styles.returningLead}><h1 id="returning-heading">What needs to move forward?</h1><button type="button" onClick={() => dispatch({ type: "START_NEW" })}>Describe a new outcome <span>↑</span></button></div>
-      <HomeList title="Needs you" records={attention} onResume={resume} />
-      <div className={styles.returningColumns}>
-        <HomeList title="Recent work" records={recent} onResume={resume} />
-        <section className={styles.homeSection} aria-labelledby="projects-heading"><h2 id="projects-heading">Projects</h2><ul>{RETURNING_PROJECTS.slice(0, 3).map((project) => <li key={project.id}><div><strong>{project.name}</strong><span>{project.detail}</span></div><button type="button">Open</button></li>)}</ul><Link href="/?fixture=returning">Browse all projects</Link></section>
+      <div className={styles.returningScroll}>
+        <div className={styles.returningContent}>
+          <header className={styles.returningLead}><h1 id="returning-heading">What should we move forward?</h1></header>
+          {attention.length > 0 && <HomeList title="Needs you" records={attention} onResume={resume} actionLabel="Review" tone="attention" />}
+          {recent.length > 0 && <HomeList title="Continue" records={recent} onResume={resume} actionLabel="Resume" tone="recent" />}
+          <div className={styles.projectLinks} aria-label="Projects">
+            <strong>Projects</strong>
+            <button type="button" onClick={() => { setActiveProject("acme-storefront"); setActiveWorktree("main", "acme-storefront"); }}>Acme Storefront</button>
+            <button type="button" onClick={() => { setActiveProject("trailblazer-crm"); setActiveWorktree("main", "trailblazer-crm"); }}>Trailblazer CRM</button>
+          </div>
+        </div>
       </div>
-      <details className={styles.explore}><summary>Explore capabilities</summary><CapabilityLinks /></details>
+      <div className={styles.welcomeComposerDock}>
+        <Composer draft={draft} setDraft={setDraft} onSubmit={onSubmit} inputRef={inputRef} large onContext={() => setSeedStatus("Choose a project above or confirm context after starting.")} onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")} />
+        {seedStatus && <p className={styles.seedStatus} role="status">{seedStatus}</p>}
+      </div>
     </section>
   );
 }
 
-function HomeList({ title, records, onResume }: { title: string; records: typeof RESUME_FIXTURES; onResume: (id: string) => void }) {
+function HomeList({ title, records, onResume, actionLabel, tone }: { title: string; records: typeof RESUME_FIXTURES; onResume: (id: string) => void; actionLabel: string; tone: "attention" | "recent" }) {
   const id = title.toLowerCase().replaceAll(" ", "-");
-  return <section className={styles.homeSection} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><strong>{record.title}</strong><span>{record.status} · {record.context}</span><small>{record.owner}</small></div><button type="button" onClick={() => onResume(record.id)}>Resume</button></li>)}</ul></section>;
+  return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><strong>{record.title}</strong><span>{record.status}</span><small>{record.context} · {record.owner}</small></div><button type="button" onClick={() => onResume(record.id)}>{actionLabel}</button></li>)}</ul></section>;
 }
 
 function CapabilityLinks() {

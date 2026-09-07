@@ -111,6 +111,7 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
           canvasLabel={isHome ? activeCanvas?.title : undefined}
           onNewChat={() => dispatch({ type: "START_NEW" })}
           onShowWork={() => dispatch({ type: "SHOW_RETURNING" })}
+          homeActive={isHome}
         />
         <div className={styles.body}>
           <div className={`${styles.bodyContent} ${layoutClass ?? ""} ${narrowClass}`} inert={panelOpen ? true : undefined}>

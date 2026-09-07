@@ -13,11 +13,12 @@ type TopBarProps = {
   canvasLabel?: string;
   onNewChat: () => void;
   onShowWork: () => void;
+  homeActive: boolean;
 };
 
-export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, workspaceToggleRef, canvasLabel, onNewChat, onShowWork }: TopBarProps) {
+export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, workspaceToggleRef, canvasLabel, onNewChat, onShowWork, homeActive }: TopBarProps) {
   return (
-    <header className={styles.bar}>
+    <header className={`${styles.bar} ${homeActive ? styles.homeBar : ""}`}>
       <div className={styles.left}>
         <Link href="/" className={styles.homeLink} aria-label="Platform home"><span className={styles.logo} aria-hidden="true">U</span><span className={styles.brandName}>Platform</span></Link>
         <button ref={workspaceToggleRef} type="button" className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`} onClick={onTogglePanel} aria-expanded={panelOpen} aria-pressed={panelOpen} aria-label="Toggle workspace panel" aria-keyshortcuts="Meta+B Control+B" title="Toggle workspace panel (⌘B)"><PanelIcon width={16} height={16} /></button>
