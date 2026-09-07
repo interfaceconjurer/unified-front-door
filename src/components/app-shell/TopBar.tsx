@@ -1,21 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { SearchIcon } from "@/components/icons";
+import { PanelIcon, SearchIcon } from "@/components/icons";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   onOpenPalette: () => void;
+  panelOpen: boolean;
+  onTogglePanel: () => void;
 };
 
 /**
  * The common wayfinder shared by the front door and every purpose-built app.
- * It's deliberately spare: a path home and the command palette that switches
- * surfaces (⌘⇧P). Workspace context (project · worktree · target org) now lives
- * in the persistent bottom status bar, and the agent stands as its own panel, so
- * the top bar is left to answer just one question — "where do you want to go?"
+ * It's deliberately spare: a path home, the workspace-panel toggle, and the
+ * command palette that switches surfaces (⌘⇧P). Workspace context
+ * (project · worktree · target org) now lives in the persistent bottom status
+ * bar, and the agent stands as its own panel, so the top bar is left to
+ * answer just one question — "where do you want to go?"
  */
-export function TopBar({ onOpenPalette }: TopBarProps) {
+export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -25,6 +28,17 @@ export function TopBar({ onOpenPalette }: TopBarProps) {
           </span>
           <span className={styles.brandName}>Front Door</span>
         </Link>
+
+        <button
+          type="button"
+          className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`}
+          onClick={onTogglePanel}
+          aria-expanded={panelOpen}
+          aria-pressed={panelOpen}
+          aria-label="Toggle workspace panel"
+        >
+          <PanelIcon width={16} height={16} />
+        </button>
 
         <span className={styles.divider} aria-hidden="true" />
 

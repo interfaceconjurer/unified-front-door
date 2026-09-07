@@ -204,6 +204,13 @@ export const CheckIcon: IconComponent = (p) => (
   </Svg>
 );
 
+export const PanelIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9.5 4v16" />
+  </Svg>
+);
+
 export const ServerIcon: IconComponent = (p) => (
   <Svg {...p}>
     <rect x="3" y="4" width="18" height="7" rx="1.5" />

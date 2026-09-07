@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { HomeIcon, LayersIcon, SearchIcon, type IconComponent } from "@/components/icons";
 import { surfaceAppById, surfaceApps } from "@/components/front-door/app-catalog";
+import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import type { AgentSession, AgentSessionStatus, Project, Worktree } from "@/lib/workspace/model";
+import type { AgentSessionStatus } from "@/lib/workspace/model";
+import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./CommandPalette.module.css";
 
 type Destination = {
@@ -34,15 +36,6 @@ const DESTINATIONS: readonly Destination[] = [
     Icon: surface.Icon,
   })),
 ];
-
-const STATUS_LABEL: Record<AgentSessionStatus, string> = {
-  working: "Working",
-  waiting: "Waiting on you",
-  idle: "Idle",
-};
-
-// Waiting-on-you is the triage priority, then actively-working, then idle.
-const STATUS_RANK: Record<AgentSessionStatus, number> = { waiting: 0, working: 1, idle: 2 };
 
 type Tab = "surfaces" | "projects" | "sessions";
 
@@ -135,17 +128,19 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
-      for (const project of projects) {
-        const hasWorktrees = project.worktrees.length > 1;
+      for (const { project, worktrees } of buildProjectTree(projects)) {
         const projectMatches = matchesQuery(project.name, project.description);
         // A worktree stays visible if it matches on its own, or if its
         // project matched (in which case all of a matching project's
         // worktrees show, same as the unfiltered case) — so searching
         // "hotfix" surfaces just that worktree, still under its project for
         // context, while searching "trailblazer" surfaces every worktree.
-        const matchingWorktrees = hasWorktrees
-          ? project.worktrees.filter((w) => projectMatches || matchesQuery(w.label, w.branch))
-          : [];
+        // `lastChild` is re-derived against this filtered list (not the
+        // shared derivation's unfiltered one), since the tree guide's corner
+        // has to land on the last row actually on screen.
+        const matchingWorktrees = worktrees.filter(
+          ({ worktree }) => projectMatches || matchesQuery(worktree.label, worktree.branch),
+        );
 
         if (projectMatches || matchingWorktrees.length > 0) {
           rows.push({
@@ -162,9 +157,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           });
         }
 
-        matchingWorktrees.forEach((worktree, worktreeIndex) => {
-          const status =
-            project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle";
+        matchingWorktrees.forEach(({ worktree, status }, worktreeIndex) => {
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
@@ -191,23 +184,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
 
     // tab === "sessions": every session, across every project, flattened for
-    // global triage. Sort is stable (JS's Array#sort has guaranteed stable
-    // ordering), so ties fall back to project-then-worktree fixture order.
+    // global triage — `allSessionRows` already sorts waiting → working → idle.
     const codeHref = surfaceAppById("code").href;
-    const sessionRows: { project: Project; worktree: Worktree; session: AgentSession }[] = [];
-    for (const project of projects) {
-      for (const session of project.agentSessions) {
-        const worktree = project.worktrees.find((w) => w.id === session.worktreeId);
-        if (!worktree) continue; // defensive: fixtures always pair a session with a worktree
-        sessionRows.push({ project, worktree, session });
-      }
-    }
-
-    return sessionRows
+    return allSessionRows(projects)
       .filter(({ project, worktree, session }) =>
         matchesQuery(project.name, worktree.label, worktree.branch, session.summary, STATUS_LABEL[session.status]),
       )
-      .sort((a, b) => STATUS_RANK[a.session.status] - STATUS_RANK[b.session.status])
       .map(({ project, worktree, session }) => ({
         id: `${project.id}::${worktree.id}`,
         label: worktree.label,
@@ -351,7 +333,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                     aria-hidden="true"
                   >
                     {item.status ? (
-                      <span className={`${styles.statusDot} ${styles[item.status]}`} />
+                      <StatusDot status={item.status} />
                     ) : (
                       item.Icon && <item.Icon width={18} height={18} />
                     )}

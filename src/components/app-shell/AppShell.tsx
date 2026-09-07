@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
+import { WorkspacePanel } from "./WorkspacePanel";
 import styles from "./AppShell.module.css";
 
 /**
@@ -17,6 +18,12 @@ import styles from "./AppShell.module.css";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Read from the persisted store (SSR-safe: fixed closed default on the
+  // server and first hydration pass) rather than a plain `useState`, so the
+  // panel survives a reload — see `useWorkspacePanel`. This has to happen
+  // above `<WorkspaceProvider>` since AppShell is the component that mounts
+  // it, so it can't consume that context itself.
+  const { panelOpen, togglePanel } = useWorkspacePanel();
 
   // ⌘⇧P (⌃⇧P on non-Mac) toggles the palette from anywhere in the app.
   useEffect(() => {
@@ -33,8 +40,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceProvider>
       <div className={styles.shell}>
-        <TopBar onOpenPalette={() => setPaletteOpen(true)} />
-        <div className={styles.body}>
+        <TopBar
+          onOpenPalette={() => setPaletteOpen(true)}
+          panelOpen={panelOpen}
+          onTogglePanel={togglePanel}
+        />
+        <div className={`${styles.body} ${panelOpen ? styles.bodyPanelOpen : ""}`}>
+          {panelOpen && <WorkspacePanel />}
           <AgentPanel />
           <main className={styles.main}>{children}</main>
         </div>

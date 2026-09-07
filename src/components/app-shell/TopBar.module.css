@@ -58,6 +58,34 @@
   background: var(--slds-g-color-border-1, #c9c9c9);
 }
 
+/* The workspace-panel toggle — same square-icon-button shape as the
+   help/avatar buttons on the right, so it reads as chrome, not a destination. */
+.panelToggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.panelToggle:hover {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.panelToggleActive {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  background: var(--slds-g-color-accent-container-1, #eef4ff);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
 /* The command-palette trigger reads like a search field, but its real job is
    to advertise the ⌘⇧P shortcut that does the switching. */
 .commandTrigger {

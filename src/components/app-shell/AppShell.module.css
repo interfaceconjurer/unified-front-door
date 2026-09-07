@@ -21,6 +21,13 @@
   min-width: 0;
 }
 
+/* Opening the persistent workspace panel adds a third, fixed-width first
+   column ahead of the existing [agent | main] split, rather than shrinking
+   either of those two evenly. */
+.bodyPanelOpen {
+  grid-template-columns: minmax(15rem, 18rem) repeat(2, minmax(0, 1fr));
+}
+
 .main {
   display: flex;
   min-width: 0;
@@ -29,7 +36,8 @@
 }
 
 @media (max-width: 900px) {
-  .body {
+  .body,
+  .bodyPanelOpen {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(0, 1fr);
     overflow-y: auto;
