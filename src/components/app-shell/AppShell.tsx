@@ -40,6 +40,7 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   const workspaceToggleRef = useRef<HTMLButtonElement>(null);
   const agentTabRef = useRef<HTMLButtonElement>(null);
   const surfaceTabRef = useRef<HTMLButtonElement>(null);
+  const narrowTabFocusIntent = useRef(false);
   const previousMode = useRef(mode);
   const artifactOpen = artifactIsOpen(state.phase);
   const buildArtifactActive = pathname === "/build" && artifactOpen;
@@ -62,6 +63,9 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   }
 
   function showNarrowPane(pane: NarrowPane, moveFocus = false) {
+    if (moveFocus && pane === "agent" && mode === "focus") {
+      narrowTabFocusIntent.current = true;
+    }
     if (pane === "agent" && mode === "focus") dispatch({ type: "EXIT_FOCUS" });
     setNarrowPaneOverride(pane);
     if (moveFocus) {
@@ -109,6 +113,10 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
       setPanelOpen(false);
       requestAnimationFrame(() => document.getElementById("flow-preview-button")?.focus());
     } else if (previous === "focus") {
+      if (narrowTabFocusIntent.current) {
+        narrowTabFocusIntent.current = false;
+        return;
+      }
       requestAnimationFrame(() => {
         const target =
           document.getElementById("agent-completion-heading") ??
@@ -162,9 +170,16 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
                 aria-controls="agent-pane"
                 onClick={() => showNarrowPane("agent")}
                 onKeyDown={(event) => {
-                  if (event.key === "ArrowRight" || event.key === "End") {
+                  if (
+                    event.key === "ArrowRight" ||
+                    event.key === "ArrowLeft" ||
+                    event.key === "End"
+                  ) {
                     event.preventDefault();
                     showNarrowPane("surface", true);
+                  } else if (event.key === "Home") {
+                    event.preventDefault();
+                    agentTabRef.current?.focus();
                   }
                 }}
               >
@@ -180,9 +195,16 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
                 aria-controls="surface-pane"
                 onClick={() => showNarrowPane("surface")}
                 onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "Home") {
+                  if (
+                    event.key === "ArrowLeft" ||
+                    event.key === "ArrowRight" ||
+                    event.key === "Home"
+                  ) {
                     event.preventDefault();
                     showNarrowPane("agent", true);
+                  } else if (event.key === "End") {
+                    event.preventDefault();
+                    surfaceTabRef.current?.focus();
                   }
                 }}
               >
