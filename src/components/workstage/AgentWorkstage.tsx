@@ -4,9 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  BeakerIcon,
   ChartIcon,
   CheckIcon,
   ChevronRightIcon,
+  DatabaseIcon,
   FileIcon,
   GitBranchIcon,
   GridIcon,
@@ -14,7 +16,9 @@ import {
   LinkIcon,
   PlusIcon,
   SendIcon,
+  ShieldIcon,
   SparklesIcon,
+  WorkflowIcon,
 } from "@/components/icons";
 import {
   AGENT_CANVAS,
@@ -28,12 +32,12 @@ import { WorkObjectCard } from "./WorkObjectCard";
 import styles from "./AgentWorkstage.module.css";
 
 const JOBS = [
-  { label: "Qualify high-value leads and route them to the right owner", prompt: "Help our sales team qualify high-value leads and route them to the right owner." },
-  { label: "Automate a repetitive business process", prompt: "Help me automate a repetitive business process." },
-  { label: "Build an agent for employees or customers", prompt: "Help me build an agent for our employees and customers." },
-  { label: "Find and fix a deployment issue", prompt: "Help me understand and recover from a deployment issue." },
-  { label: "Review who has access and how it is granted", prompt: "Help me review who has access and how it is granted." },
-  { label: "Map an unfamiliar Salesforce org", prompt: "Help me understand an unfamiliar Salesforce org." },
+  { label: "Design or repair a business process", prompt: "Help me automate a repetitive business process.", Icon: WorkflowIcon },
+  { label: "Build or improve an agent", prompt: "Help me build an agent that qualifies and routes high-value leads.", Icon: SparklesIcon },
+  { label: "Diagnose a failed deployment", prompt: "Help me understand why this deployment failed and how to recover.", Icon: BeakerIcon },
+  { label: "Prepare a release and identify blockers", prompt: "Help me prepare this release and identify blockers.", Icon: GitBranchIcon },
+  { label: "Review access and permissions", prompt: "Help me identify risky access and explain how it is granted.", Icon: ShieldIcon },
+  { label: "Map metadata and dependencies", prompt: "Help me understand the metadata and dependencies in this org.", Icon: DatabaseIcon },
 ] as const;
 
 const SCENARIO_BY_QUERY = {
@@ -137,7 +141,7 @@ export function AgentWorkstage() {
             <section className={styles.startSection} aria-labelledby="jobs-heading">
               <h2 id="jobs-heading">Start with a job</h2>
               <ul className={styles.jobGrid}>
-                {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><SparklesIcon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
+                {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><job.Icon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
               </ul>
             </section>
             <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">

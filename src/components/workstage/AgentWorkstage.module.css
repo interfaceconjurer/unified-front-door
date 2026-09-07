@@ -24,7 +24,7 @@
 .seedStatus { width: min(60rem, 100%); margin: .55rem auto 0 !important; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .75rem !important; text-align: center; }
 .freshOptions { display: grid; width: min(60rem, 100%); gap: 3rem; margin: 2rem auto 0; }
 .startSection h2, .capabilitySection h2 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.15rem; font-weight: 650; letter-spacing: -.015em; }
-.jobGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+.jobGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; margin: 1rem 0 0; padding: 0; list-style: none; }
 .jobGrid button { display: flex; width: 100%; min-height: 3.75rem; align-items: center; gap: .75rem; padding: .75rem .9rem; border: 1px solid color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 58%, transparent); border-radius: .9rem; background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; font-size: .84rem; font-weight: 500; line-height: 1.35; text-align: start; cursor: pointer; box-shadow: 0 1px 0 rgb(3 13 33 / 4%); transition: border-color 100ms linear, background-color 100ms linear, color 100ms linear; }
 .jobGrid button > span:last-child { white-space: nowrap; }
 .jobGrid li:first-child button { background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); }
@@ -146,7 +146,7 @@
   .fresh .capabilityLinks a:hover,
   .fresh .capabilityLinks a:focus-visible { background: #202328; }
 }
-@media (max-width: 900px) { .welcomeScroll { padding-block-start: 2rem; } .jobGrid { grid-template-columns: 1fr; } .capabilityLinks ul { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .welcomeScroll { padding-block-start: 2rem; } .jobGrid { grid-template-columns: 1fr 1fr; } .capabilityLinks ul { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .contextDecision { align-items: stretch; flex-direction: column; } .planCardReady { grid-template-columns: 1fr; } .planCardReady .primaryAction { grid-column: 1; grid-row: auto; } .homeSection ul, .projectTiles { grid-template-columns: 1fr; } .currentWork { grid-template-columns: 1fr; } .currentWorkActions { justify-content: flex-start; } }
 @media (max-width: 599px) { .jobGrid, .capabilityLinks ul { grid-template-columns: 1fr; } .jobGrid button > span:last-child { white-space: normal; } }
 @media (prefers-reduced-motion: reduce) { .transcript { scroll-behavior: auto; } .workstage * { animation: none !important; transition: none !important; transform: none !important; } }
