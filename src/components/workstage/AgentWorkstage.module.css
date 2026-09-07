@@ -22,7 +22,7 @@
 .welcomeComposerDock { width: 100%; flex: 0 0 auto; padding: 1rem clamp(1rem, 5vw, 5rem) 1.25rem; background: linear-gradient(to bottom, transparent, var(--welcome-bg) 18%); }
 .welcomeComposerDock .composer { width: min(60rem, 100%); margin-inline: auto; }
 .seedStatus { width: min(60rem, 100%); margin: .55rem auto 0 !important; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .75rem !important; text-align: center; }
-.freshOptions { display: grid; width: min(60rem, 100%); gap: 2.25rem; margin: 2rem auto 0; }
+.freshOptions { display: grid; width: min(60rem, 100%); gap: 3rem; margin: 2rem auto 0; }
 .startSection h2, .capabilitySection h2 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 1.15rem; font-weight: 650; letter-spacing: -.015em; }
 .jobGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin: 1rem 0 0; padding: 0; list-style: none; }
 .jobGrid button { display: flex; width: 100%; min-height: 3.75rem; align-items: center; gap: .75rem; padding: .75rem .9rem; border: 1px solid color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 58%, transparent); border-radius: .9rem; background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; font-size: .84rem; font-weight: 500; line-height: 1.35; text-align: start; cursor: pointer; box-shadow: 0 1px 0 rgb(3 13 33 / 4%); transition: border-color 100ms linear, background-color 100ms linear, color 100ms linear; }
@@ -32,8 +32,9 @@
 .fresh .startSection .jobGrid button:focus-visible { border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 46%, var(--welcome-border)); background: #f4f8ff; color: light-dark(#0b5cab, #fff); }
 .jobIcon { display: grid; width: 2rem; height: 2rem; flex: 0 0 auto; place-items: center; color: light-dark(#0176d3, #8fc5ff); }
 .capabilityLinks ul { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; margin: 1rem 0 0; padding: 0; list-style: none; }
-.capabilityLinks a { display: grid; min-height: 7rem; align-content: start; gap: .25rem; padding: 1rem; border: 1px solid transparent; border-radius: 1.15rem; background: #fff; color: var(--slds-g-color-on-surface-2, #2e2e2e); text-decoration: none; box-shadow: 0 1px 0 rgb(3 13 33 / 5%); transition: border-color 100ms linear, background-color 100ms linear, color 100ms linear; }
-.capabilityLinks a:hover { border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 38%, var(--welcome-border)); background: #f4f8ff; color: light-dark(#0b5cab, #fff); text-decoration: none; }
+.capabilityLinks a { display: grid; min-height: 7rem; align-content: start; gap: .25rem; padding: 1rem; border: 1px solid transparent; border-radius: 1.15rem; background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); text-decoration: none; box-shadow: none; transition: background-color 100ms linear, color 100ms linear; }
+.capabilityLinks a:hover,
+.capabilityLinks a:focus-visible { background: #f4f8ff; color: light-dark(#0b5cab, #fff); text-decoration: none; }
 .capabilityLinks a:hover *, .capabilityLinks a:focus-visible * { text-decoration: none; }
 .capabilityIcon { display: grid; width: 2.5rem; height: 2.5rem; place-items: center; margin-block-end: .4rem; border-radius: .8rem; background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 11%, var(--slds-g-color-surface-1, #fff)); color: light-dark(#0176d3, #8fc5ff); }
 .capabilityLinks strong { font-size: .9rem; font-weight: 650; }
@@ -123,8 +124,9 @@
   .fresh .jobGrid li:first-child button { background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); }
   .fresh .startSection .jobGrid button:hover,
   .fresh .startSection .jobGrid button:focus-visible { background: #202328; }
-  .fresh .capabilityLinks a { background: #202328; }
-  .fresh .capabilityLinks a:hover { background: #292d33; }
+  .fresh .capabilityLinks a { background: transparent; }
+  .fresh .capabilityLinks a:hover,
+  .fresh .capabilityLinks a:focus-visible { background: #202328; }
 }
 @media (max-width: 900px) { .welcomeScroll { padding-block-start: 2rem; } .jobGrid { grid-template-columns: 1fr; } .capabilityLinks ul { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 760px) { .contextDecision { align-items: stretch; flex-direction: column; } .planCardReady { grid-template-columns: 1fr; } .planCardReady .primaryAction { grid-column: 1; grid-row: auto; } .returningLead { align-items: stretch; flex-direction: column; } .returningLead > button { min-width: 100%; } .returningColumns { grid-template-columns: 1fr; } .currentWork { grid-template-columns: 1fr; } .currentWorkActions { justify-content: flex-start; } }

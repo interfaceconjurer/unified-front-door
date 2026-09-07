@@ -142,7 +142,7 @@ export function AgentWorkstage() {
               </ul>
             </section>
             <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
-              <h2 id="capabilities-heading">Explore capabilities</h2>
+              <h2 id="capabilities-heading">Explore surfaces</h2>
               <CapabilityLinks />
             </section>
           </div>
@@ -319,7 +319,7 @@ function CapabilityLinks() {
     { href: "/govern", label: "Govern & Observe", detail: "Secure and monitor", Icon: ChartIcon },
     { href: "/alm", label: "ALM", detail: "Plan and release", Icon: GitBranchIcon },
   ] as const;
-  return <nav className={styles.capabilityLinks} aria-label="Capability destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><span className={styles.capabilityIcon} aria-hidden="true"><capability.Icon width={22} height={22} /></span><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
+  return <nav className={styles.capabilityLinks} aria-label="Surface destinations"><ul>{capabilities.map((capability) => <li key={capability.href}><Link href={capability.href}><span className={styles.capabilityIcon} aria-hidden="true"><capability.Icon width={22} height={22} /></span><strong>{capability.label}</strong><span>{capability.detail}</span></Link></li>)}</ul></nav>;
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
 function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }
