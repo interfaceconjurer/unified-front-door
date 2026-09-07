@@ -10,6 +10,8 @@ import {
   FileIcon,
   GitBranchIcon,
   GridIcon,
+  LinkIcon,
+  PlusIcon,
   SendIcon,
   SparklesIcon,
 } from "@/components/icons";
@@ -127,9 +129,25 @@ export function AgentWorkstage() {
   if (state.phase === "fresh") {
     return (
       <section className={`${styles.workstage} ${styles.fresh}`} aria-labelledby="workstage-heading">
-        <div className={styles.hero}>
-          <span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span>
-          <h1 id="workstage-heading">What can I help you accomplish?</h1>
+        <div className={styles.welcomeScroll}>
+          <div className={styles.hero}>
+            <span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span>
+            <h1 id="workstage-heading">What can I help you accomplish?</h1>
+          </div>
+          <div className={styles.freshOptions}>
+            <section className={styles.startSection} aria-labelledby="jobs-heading">
+              <h2 id="jobs-heading">Start with a job</h2>
+              <ul className={styles.jobGrid}>
+                {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><SparklesIcon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
+              </ul>
+            </section>
+            <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
+              <h2 id="capabilities-heading">Explore capabilities</h2>
+              <CapabilityLinks />
+            </section>
+          </div>
+        </div>
+        <div className={styles.welcomeComposerDock}>
           <Composer
             draft={draft}
             setDraft={setDraft}
@@ -140,18 +158,6 @@ export function AgentWorkstage() {
             onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")}
           />
           {seedStatus && <p className={styles.seedStatus} role="status">{seedStatus}</p>}
-        </div>
-        <div className={styles.freshOptions}>
-          <section className={styles.startSection} aria-labelledby="jobs-heading">
-            <h2 id="jobs-heading">Start with a job</h2>
-            <ul className={styles.jobGrid}>
-              {JOBS.map((job) => <li key={job.label}><button type="button" onClick={() => seedJob(job)}><span className={styles.jobIcon} aria-hidden="true"><SparklesIcon width={19} height={19} /></span><span>{job.label}</span></button></li>)}
-            </ul>
-          </section>
-          <section className={styles.capabilitySection} aria-labelledby="capabilities-heading">
-            <h2 id="capabilities-heading">Explore capabilities</h2>
-            <CapabilityLinks />
-          </section>
         </div>
       </section>
     );
@@ -260,7 +266,7 @@ function Composer({ draft, setDraft, onSubmit, inputRef, large = false, onContex
     <form className={`${styles.composer} ${large ? styles.composerLarge : ""}`} onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
       <label className={styles.srOnly} htmlFor={large ? "fresh-composer" : "agent-composer"}>Message the agent</label>
       <textarea id={large ? "fresh-composer" : "agent-composer"} ref={inputRef} rows={large ? 3 : 2} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={large ? "Describe what you want to do…" : "What would you like to do next?"} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); onSubmit(); } }} />
-      {large && <div className={styles.contextTools}><button type="button" onClick={onContext}>+ Add project context</button><button type="button" onClick={onAttach}>Attach</button></div>}
+      {large && <div className={styles.contextTools}><button type="button" onClick={onContext}><PlusIcon width={16} height={16} aria-hidden="true" />Project context</button><button type="button" onClick={onAttach}><LinkIcon width={16} height={16} aria-hidden="true" />Attach</button></div>}
       <button type="submit" className={styles.send} disabled={!draft.trim()} aria-label="Send message"><SendIcon width={18} height={18} /></button>
     </form>
   );
