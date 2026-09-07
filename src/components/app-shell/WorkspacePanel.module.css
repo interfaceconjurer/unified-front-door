@@ -6,6 +6,40 @@
   overflow: hidden;
   border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   background: var(--slds-g-color-surface-1, #fff);
+  box-shadow: 12px 0 32px rgb(3 13 33 / 18%);
+}
+
+.drawerHeader {
+  display: flex;
+  min-height: 3.25rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: var(--slds-g-spacing-3, 0.75rem);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.drawerHeader h2 {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+}
+
+.drawerHeader button {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.drawerHeader button:hover {
+  border-color: var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
 .section {

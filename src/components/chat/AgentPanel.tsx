@@ -2,14 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
+  CheckIcon,
   ChevronRightIcon,
   GitBranchIcon,
   LayersIcon,
   SendIcon,
   SparklesIcon,
 } from "@/components/icons";
+import { useControlPlane } from "@/components/control-plane/ControlPlaneProvider";
+import { AUTOMATION_PLAN } from "@/components/control-plane/control-plane-fixtures";
+import { artifactIsOpen } from "@/components/control-plane/control-plane-model";
 import {
   surfaceAppForPath,
   surfaceApps,
@@ -22,10 +26,6 @@ type Message =
   | { id: number; role: "agent" | "user"; text: string }
   | { id: number; role: "context"; text: string };
 
-// The one agent, described by wherever the workspace is currently pointed. The
-// front door is the high-level scope; each surface narrows it. Everything the
-// panel renders — heading, context chip, suggested prompts, composer — reads off
-// this so moving between surfaces visibly re-points the same agent.
 type Scope = {
   key: string;
   label: string;
@@ -53,16 +53,11 @@ function scopeForSurface(surface: SurfaceApp): Scope {
   return {
     key: surface.id,
     label: surface.label,
-    // Deliberately surface-agnostic: the surface itself owns the domain title
-    // and the primary messaging (see SurfaceProjection's <h1>). The agent is a
-    // constant companion that follows you across surfaces, so its heading must
-    // not restate the surface's name or compete with it for prominence. Which
-    // surface it's pointed at is carried, quietly, by the scope chip below.
     heading: "How can I help?",
     intro:
-      "The same agent, wherever you go — your project and context come with you as you move between surfaces.",
+      "I’ll coordinate the work and explain what’s happening; the surface beside me owns the artifact.",
     greeting: `Now working in ${surface.label}. ${surface.workspaceDescription}`,
-    suggestions: surface.capabilities.map((c) => c),
+    suggestions: surface.capabilities.map((capability) => capability),
   };
 }
 
@@ -75,56 +70,38 @@ function recommendApp(text: string): SurfaceApp {
   const normalized = text.toLowerCase();
   if (/deploy|release|pipeline|work item|lifecycle/.test(normalized)) return surfaceApps[3]!;
   if (/code|apex|lwc|test|debug|source/.test(normalized)) return surfaceApps[1]!;
-  if (/security|permission|monitor|observe|health|trust|govern/.test(normalized)) return surfaceApps[2]!;
+  if (/security|permission|monitor|observe|health|trust|govern/.test(normalized)) {
+    return surfaceApps[2]!;
+  }
   return surfaceApps[0]!;
 }
 
-// The greeting that seeds a brand-new thread. Fixed id so it's stable across a
-// session; appended messages take ids from the running counter (>= 1).
-function seedThread(scope: Scope): Message[] {
-  return [{ id: 0, role: "agent", text: scope.greeting }];
+function seedThread(greeting: string): Message[] {
+  return [{ id: 0, role: "agent", text: greeting }];
 }
 
-/**
- * The persistent, agent-forward left panel — the same agent on the front door
- * and inside every surface, and it never unmounts across navigation.
- *
- * Its thread is bound to the active {project, worktree} session: switching
- * worktree (or project) swaps to that session's own thread, the way parallel
- * Herdr worktrees each carry their own agent. Moving between *surfaces* within a
- * session keeps the thread and just drops a context marker. The context bar
- * reflects project / worktree / org, revealed progressively so a simple user
- * with one worktree and one org sees almost none of it.
- *
- * Interaction is a wireframe: sending appends the message and a scope-aware
- * canned reply. On the front door it also recommends a surface to jump into.
- */
+/** Persistent conversational control plane; durable Flow state renders in Build. */
 export function AgentPanel() {
   const pathname = usePathname();
+  const router = useRouter();
   const scope = scopeForPath(pathname);
   const isHome = scope.key === HOME_SCOPE.key;
-
+  const { state, mode, artifact, dispatch } = useControlPlane();
   const { activeProject, activeWorktree, activeOrg, sessionKey } = useWorkspace();
   const showWorktree = activeProject.worktrees.length > 1;
+  const buildJourneyVisible = pathname === "/build" && artifactIsOpen(state.phase);
 
   const [draft, setDraft] = useState("");
-  // One thread per {project, worktree} session, seeded from the mount scope.
   const [sessions, setSessions] = useState<Record<string, Message[]>>(() => ({
-    [sessionKey]: seedThread(scope),
+    [sessionKey]: seedThread(scope.greeting),
   }));
   const [recommendation, setRecommendation] = useState<SurfaceApp | null>(null);
   const nextId = useRef(1);
   const transcriptRef = useRef<HTMLDivElement>(null);
-
-  const thread = sessions[sessionKey] ?? seedThread(scope);
-
-  // Two transitions to handle, both guarded on refs so they fire on change only:
-  // switching session (project/worktree) swaps threads — nothing appended, just
-  // clear transient UI; moving between surfaces within a session drops a slim,
-  // coalesced context marker (the header carries the scoped messaging, so we
-  // don't re-greet, and consecutive markers replace rather than stack).
   const prevSession = useRef(sessionKey);
   const prevScope = useRef(scope.key);
+  const thread = sessions[sessionKey] ?? seedThread(scope.greeting);
+
   useEffect(() => {
     const sessionChanged = prevSession.current !== sessionKey;
     const scopeChanged = prevScope.current !== scope.key;
@@ -138,7 +115,7 @@ export function AgentPanel() {
     if (scopeChanged) {
       setRecommendation(null);
       setSessions((current) => {
-        const existing = current[sessionKey] ?? [{ id: 0, role: "agent", text: scope.greeting }];
+        const existing = current[sessionKey] ?? seedThread(scope.greeting);
         const marker: Message = {
           id: nextId.current++,
           role: "context",
@@ -154,36 +131,89 @@ export function AgentPanel() {
     }
   }, [sessionKey, scope.key, scope.label, scope.greeting]);
 
-  // Keep the newest content in view as the active thread grows.
   useEffect(() => {
-    const el = transcriptRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [sessions, sessionKey, recommendation]);
+    const element = transcriptRef.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [sessions, sessionKey, recommendation, state.phase]);
+
+  function appendMessages(messages: Omit<Message, "id">[]) {
+    setSessions((current) => {
+      const existing = current[sessionKey] ?? seedThread(scope.greeting);
+      return {
+        ...current,
+        [sessionKey]: [
+          ...existing,
+          ...messages.map((message) => ({ ...message, id: nextId.current++ })),
+        ],
+      };
+    });
+  }
 
   function send(text = draft) {
     const value = text.trim();
     if (!value) return;
 
-    const reply = isHome
-      ? `I’d start this in ${recommendApp(value).label}. I’ll carry your goal and the context we establish here into that workspace.`
-      : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
-          showWorktree ? ` · ${activeWorktree.label}` : ""
-        } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
+    if (
+      isHome &&
+      state.phase === "orient" &&
+      /build.*automation|automation/.test(value.toLowerCase())
+    ) {
+      appendMessages([{ role: "user", text: value }]);
+      setRecommendation(null);
+      dispatch({ type: "START_AUTOMATION" });
+      setDraft("");
+      return;
+    }
 
-    setSessions((current) => {
-      const existing = current[sessionKey] ?? seedThread(scope);
-      return {
-        ...current,
-        [sessionKey]: [
-          ...existing,
-          { id: nextId.current++, role: "user", text: value },
-          { id: nextId.current++, role: "agent", text: reply },
-        ],
-      };
-    });
+    const reply = isHome
+      ? `I’d start this in ${recommendApp(value).label}. I’ll carry your goal and context into that workspace.`
+      : buildJourneyVisible
+        ? `I’m referencing ${artifact.name}. Build remains the source of truth for the draft and its preview.`
+        : `This prototype is scoped to ${scope.label}, working in ${activeProject.name}${
+            showWorktree ? ` · ${activeWorktree.label}` : ""
+          } against ${activeOrg.label}.`;
+
+    appendMessages([
+      { role: "user", text: value },
+      { role: "agent", text: reply },
+    ]);
     if (isHome) setRecommendation(recommendApp(value));
     setDraft("");
   }
+
+  if (mode === "focus") {
+    return (
+      <section className={`${styles.agent} ${styles.agentDock}`} aria-label="Agent">
+        <button
+          type="button"
+          className={styles.dockButton}
+          onClick={() => dispatch({ type: "EXIT_FOCUS" })}
+          aria-label={
+            state.phase === "preview-complete"
+              ? "Preview passed. Restore agent"
+              : "Restore agent"
+          }
+        >
+          <span className={styles.dockAvatar} aria-hidden="true">
+            {state.phase === "preview-complete" ? (
+              <CheckIcon width={18} height={18} />
+            ) : (
+              <SparklesIcon width={18} height={18} />
+            )}
+          </span>
+          <span className={styles.dockLabel}>Agent</span>
+          <ChevronRightIcon width={16} height={16} aria-hidden="true" />
+        </button>
+      </section>
+    );
+  }
+
+  const heading = state.phase === "proposal" && isHome ? "Let’s shape the automation" : scope.heading;
+  const intro =
+    state.phase === "proposal" && isHome
+      ? "I’ve turned your outcome into a concrete starting plan. Review it before Build owns the draft."
+      : scope.intro;
+  const hideGenericSuggestions = state.phase === "proposal" || buildJourneyVisible;
 
   return (
     <section className={styles.agent} aria-label="Agent" aria-labelledby="agent-heading">
@@ -191,22 +221,17 @@ export function AgentPanel() {
         <span className={styles.avatar} aria-hidden="true">
           <SparklesIcon width={21} height={21} />
         </span>
-        {/* Compact inside a surface: the surface's own <h1> is the page's
-            primary title, so the agent heading steps down to a subordinate,
-            companion scale. On the front door there's no surface to defer to,
-            so the agent keeps its full prominence. */}
         <div className={`${styles.headingText} ${isHome ? "" : styles.headingCompact}`}>
-          <p className={styles.kicker}>Agent</p>
-          <h1 id="agent-heading">{scope.heading}</h1>
-          <p className={styles.intro}>{scope.intro}</p>
+          <p className={styles.kicker}>Agent · control plane</p>
+          {isHome ? (
+            <h1 id="agent-heading">{heading}</h1>
+          ) : (
+            <h2 id="agent-heading">{heading}</h2>
+          )}
+          <p className={styles.intro}>{intro}</p>
         </div>
 
-        {/* Context bar: what the agent is pointed at. The surface chip is keyed by
-            scope so it remounts and replays its pulse on every hand-off; project
-            and worktree appear only when they carry meaning. The target org is
-            deliberately absent — it's ambient global state, owned by the status
-            bar, not something the agent header should duplicate. */}
-        <div className={styles.contextBar} aria-live="polite">
+        <div className={styles.contextBar} aria-label="Agent context">
           <span key={scope.key} className={styles.scopeChip}>
             <span className={styles.scopeDot} aria-hidden="true" />
             {scope.label}
@@ -237,6 +262,108 @@ export function AgentPanel() {
           ),
         )}
 
+        {state.phase === "proposal" && isHome && (
+          <article className={styles.planCard} aria-labelledby="automation-plan-title">
+            <p className={styles.cardEyebrow}>Proposed plan</p>
+            <h2 id="automation-plan-title">{AUTOMATION_PLAN.title}</h2>
+            <p>{AUTOMATION_PLAN.summary}</p>
+            <ul>
+              {AUTOMATION_PLAN.steps.map((step) => (
+                <li key={step}>
+                  <CheckIcon width={15} height={15} aria-hidden="true" />
+                  {step}
+                </li>
+              ))}
+            </ul>
+            <div className={styles.cardActions}>
+              <button
+                type="button"
+                className={styles.primaryAction}
+                onClick={() => {
+                  dispatch({ type: "OPEN_ARTIFACT" });
+                  router.push("/build");
+                }}
+              >
+                Open in Build
+                <ChevronRightIcon width={16} height={16} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryAction}
+                onClick={() => dispatch({ type: "DISMISS_PROPOSAL" })}
+              >
+                Not now
+              </button>
+            </div>
+          </article>
+        )}
+
+        {buildJourneyVisible && state.phase === "artifact-open" && (
+          <article className={styles.referenceCard} aria-labelledby="agent-reference-heading">
+            <p className={styles.cardEyebrow}>Opened in Build</p>
+            <h3 id="agent-reference-heading" tabIndex={-1}>
+              Flow · {artifact.name}
+            </h3>
+            <p>Build owns this draft. I’ll stay alongside it and point to the decisions we discuss.</p>
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={() => dispatch({ type: "REFERENCE_DECISION" })}
+            >
+              Show the routing decision
+              <ChevronRightIcon width={16} height={16} aria-hidden="true" />
+            </button>
+          </article>
+        )}
+
+        {buildJourneyVisible && state.phase === "node-referenced" && (
+          <article className={styles.referenceCard} aria-labelledby="agent-reference-heading">
+            <p className={styles.cardEyebrow}>Referencing in {artifact.name}</p>
+            <h3 id="agent-reference-heading" tabIndex={-1}>
+              Decision · High value?
+            </h3>
+            <p>
+              The Yes path assigns Enterprise Queue. The No path preserves the current owner.
+            </p>
+            <button
+              type="button"
+              className={styles.primaryAction}
+              onClick={() => dispatch({ type: "ENTER_FOCUS" })}
+            >
+              Enter focus
+            </button>
+          </article>
+        )}
+
+        {buildJourneyVisible && state.phase === "ready" && (
+          <article className={styles.completionCard} aria-labelledby="agent-completion-heading">
+            <p className={styles.cardEyebrow}>Preview complete</p>
+            <h3 id="agent-completion-heading" tabIndex={-1}>
+              Route confirmed
+            </h3>
+            <p>
+              Edge Communications followed the Yes path to Enterprise Queue. The Flow remains a
+              draft in Build.
+            </p>
+            <div className={styles.cardActions}>
+              <button
+                type="button"
+                className={styles.primaryAction}
+                onClick={() => dispatch({ type: "RUN_AGAIN" })}
+              >
+                Run again
+              </button>
+              <button
+                type="button"
+                className={styles.secondaryAction}
+                onClick={() => document.getElementById("flow-artifact-heading")?.focus()}
+              >
+                Keep working in Build
+              </button>
+            </div>
+          </article>
+        )}
+
         {recommendation && (
           <Link className={styles.recommendation} href={recommendation.href}>
             <span>
@@ -249,13 +376,15 @@ export function AgentPanel() {
       </div>
 
       <div className={styles.promptArea}>
-        <div className={styles.suggestions} aria-label="Suggested prompts">
-          {scope.suggestions.map((prompt) => (
-            <button key={prompt} type="button" onClick={() => send(prompt)}>
-              {prompt}
-            </button>
-          ))}
-        </div>
+        {!hideGenericSuggestions && (
+          <div className={styles.suggestions} aria-label="Suggested prompts">
+            {scope.suggestions.map((prompt) => (
+              <button key={prompt} type="button" onClick={() => send(prompt)}>
+                {prompt}
+              </button>
+            ))}
+          </div>
+        )}
 
         <form
           className={styles.composer}
@@ -271,11 +400,7 @@ export function AgentPanel() {
             id="agent-composer"
             rows={2}
             value={draft}
-            placeholder={
-              isHome
-                ? "Describe what you want to build, change, or understand…"
-                : `Ask about ${scope.label}…`
-            }
+            placeholder={isHome ? "Describe what you want to build, change, or understand…" : `Ask about ${scope.label}…`}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey) {
@@ -288,9 +413,7 @@ export function AgentPanel() {
             <SendIcon width={19} height={19} />
           </button>
         </form>
-        <p className={styles.composerHint}>
-          The prototype routes by intent; it is not connected to a model yet.
-        </p>
+        <p className={styles.composerHint}>Prototype journey · no model or org actions are connected.</p>
       </div>
     </section>
   );

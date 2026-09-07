@@ -151,9 +151,70 @@
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
+.artifactContext {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.artifactContext svg {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.artifactContext strong {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifactSeparator {
+  color: var(--slds-g-color-border-2, #939393);
+}
+
 .actions {
   gap: var(--slds-g-spacing-2, 0.5rem);
   flex: 0 0 auto;
+}
+
+.focusButton {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.45rem 0.25rem 0.7rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.focusButton:hover,
+.focusButtonActive {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.focusButtonActive {
+  background: var(--slds-g-color-accent-container-1, #eef4ff);
+}
+
+.focusButton kbd {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  font-family: inherit;
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 400;
 }
 
 .helpButton,
@@ -199,6 +260,7 @@
 
   .brandName,
   .location,
+  .artifactContext,
   .helpButton {
     display: none;
   }
@@ -208,7 +270,8 @@
   }
 
   .commandLabel,
-  .commandKbd {
+  .commandKbd,
+  .focusButton kbd {
     display: none;
   }
 }

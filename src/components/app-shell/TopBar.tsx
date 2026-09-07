@@ -1,24 +1,32 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
-import { PanelIcon, SearchIcon } from "@/components/icons";
+import { PanelIcon, SearchIcon, WorkflowIcon } from "@/components/icons";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   onOpenPalette: () => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
+  workspaceToggleRef: Ref<HTMLButtonElement>;
+  artifactLabel?: string;
+  focusAvailable: boolean;
+  focusActive: boolean;
+  onToggleFocus: () => void;
 };
 
-/**
- * The common wayfinder shared by the front door and every purpose-built app.
- * It's deliberately spare: a path home, the workspace-panel toggle, and the
- * command palette that switches surfaces (⌘⇧P). Workspace context
- * (project · worktree · target org) now lives in the persistent bottom status
- * bar, and the agent stands as its own panel, so the top bar is left to
- * answer just one question — "where do you want to go?"
- */
-export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps) {
+/** Common wayfinding plus the current artifact and explicit Focus control. */
+export function TopBar({
+  onOpenPalette,
+  panelOpen,
+  onTogglePanel,
+  workspaceToggleRef,
+  artifactLabel,
+  focusAvailable,
+  focusActive,
+  onToggleFocus,
+}: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -30,6 +38,7 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps)
         </Link>
 
         <button
+          ref={workspaceToggleRef}
           type="button"
           className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`}
           onClick={onTogglePanel}
@@ -55,9 +64,32 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps)
           <span className={styles.commandLabel}>Go to…</span>
           <kbd className={styles.commandKbd}>⌘⇧P</kbd>
         </button>
+
+        {artifactLabel && (
+          <div className={styles.artifactContext} aria-label={`Current Flow: ${artifactLabel}`}>
+            <WorkflowIcon width={15} height={15} aria-hidden="true" />
+            <span>Flow</span>
+            <span className={styles.artifactSeparator} aria-hidden="true">
+              /
+            </span>
+            <strong>{artifactLabel}</strong>
+          </div>
+        )}
       </div>
 
       <div className={styles.actions}>
+        {focusAvailable && (
+          <button
+            type="button"
+            className={`${styles.focusButton} ${focusActive ? styles.focusButtonActive : ""}`}
+            onClick={onToggleFocus}
+            aria-pressed={focusActive}
+            aria-keyshortcuts="Meta+Shift+F Control+Shift+F"
+          >
+            {focusActive ? "Exit focus" : "Focus"}
+            <kbd>⌘⇧F</kbd>
+          </button>
+        )}
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>
