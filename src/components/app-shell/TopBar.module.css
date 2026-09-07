@@ -65,8 +65,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
@@ -92,8 +92,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  min-height: 2rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.55rem 0.25rem 0.7rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-surface-2, #f3f3f3);
@@ -177,6 +177,36 @@
   color: var(--slds-g-color-border-2, #939393);
 }
 
+.primaryNav {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-inline: auto 0.75rem;
+}
+
+.primaryNav a,
+.primaryNav button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding-inline: 0.7rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primaryNav a:hover,
+.primaryNav button:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
 .actions {
   gap: var(--slds-g-spacing-2, 0.5rem);
   flex: 0 0 auto;
@@ -226,8 +256,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-circle, 50%);
   background: var(--slds-g-color-surface-1, #fff);
@@ -274,8 +304,17 @@
   }
 
   .commandLabel,
-  .commandKbd,
-  .focusButton kbd {
+  .commandKbd {
     display: none;
+  }
+
+  .primaryNav {
+    gap: 0;
+    margin-inline-end: 0.25rem;
+  }
+
+  .primaryNav a,
+  .primaryNav button {
+    padding-inline: 0.45rem;
   }
 }
