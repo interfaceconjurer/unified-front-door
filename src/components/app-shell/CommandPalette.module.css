@@ -127,6 +127,14 @@
   background: var(--slds-g-color-accent-container-1, #eef4ff);
 }
 
+/* A worktree nested under its project — pushed in by roughly one icon slot's
+   width so it reads as a child of the row above it, without a second list. */
+.resultIndent {
+  padding-inline-start: calc(
+    var(--slds-g-spacing-3, 0.75rem) + 2.25rem + var(--slds-g-spacing-3, 0.75rem)
+  );
+}
+
 .resultIcon {
   display: grid;
   place-items: center;
@@ -135,6 +143,57 @@
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: rgb(1 118 211 / 14%);
   color: light-dark(#0176d3, #78b9ff);
+}
+
+/* A status dot takes the icon slot for worktree/session rows — it already
+   carries color, so drop the accent-tinted box behind it. */
+.resultIconPlain {
+  background: transparent;
+}
+
+/* Status → dot color, duplicated verbatim from AgentSessionsRail.module.css
+   so the palette and the Code surface's rail agree on the same visual
+   language for working/waiting/idle. Kept as a local copy (not a shared
+   import) since CSS Modules scope class names per file. */
+.statusDot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+}
+
+.working {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.waiting {
+  --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.statusDot.working {
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusDot.working {
+    animation: none;
+  }
 }
 
 .resultCopy {
@@ -158,11 +217,33 @@
   white-space: nowrap;
 }
 
+/* The trailing grid cell can hold more than one chip (e.g. a waiting session
+   that's also the current selection), so it's a small flex row rather than a
+   single element. */
+.resultTrailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .currentTag {
   padding: 0.15rem 0.5rem;
   border-radius: var(--slds-g-radius-border-pill, 999px);
   background: var(--slds-g-color-surface-2, #f3f3f3);
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Status → text chip, same --status-color variable the dot uses (set by the
+   same .working/.waiting/.idle classes above). */
+.statusLabel {
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: color-mix(in srgb, var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c)) 14%, transparent);
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
   font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
   font-weight: 700;
   white-space: nowrap;

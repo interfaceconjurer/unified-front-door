@@ -25,7 +25,13 @@ type WorkspaceContextValue = {
   /** Stable key for the current agent thread: {project, worktree}. */
   sessionKey: string;
   setActiveProject: (projectId: string) => void;
-  setActiveWorktree: (worktreeId: string) => void;
+  /** Targets `activeProject` by default. Pass `projectId` to set a worktree on
+   *  a project other than the active one (e.g. jumping into a project from a
+   *  global list) — without it, `setActiveProject` + `setActiveWorktree` back
+   *  to back would still write onto the OLD active project, since this value
+   *  is a closure over the render that produced it and can't see a project
+   *  switch made earlier in the same synchronous call. */
+  setActiveWorktree: (worktreeId: string, projectId?: string) => void;
   setActiveOrg: (orgId: string) => void;
 };
 
@@ -78,7 +84,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       agentSessions: activeProject.agentSessions,
       sessionKey: sessionKey(activeProject.id, activeWorktree.id),
       setActiveProject: workspaceSelectionStore.setActiveProjectId,
-      setActiveWorktree: (id) => workspaceSelectionStore.setWorktreeForProject(activeProject.id, id),
+      setActiveWorktree: (id, projectId) =>
+        workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
       setActiveOrg: (id) => workspaceSelectionStore.setOrgForProject(activeProject.id, id),
     };
   }, [projects, orgs, selection]);
