@@ -53,8 +53,14 @@ function scopeForSurface(surface: SurfaceApp): Scope {
   return {
     key: surface.id,
     label: surface.label,
-    heading: `How can I help in ${surface.label}?`,
-    intro: `I’ve carried your context into ${surface.label}. Ask me about the work here — I’m the same agent, now scoped to this surface.`,
+    // Deliberately surface-agnostic: the surface itself owns the domain title
+    // and the primary messaging (see SurfaceProjection's <h1>). The agent is a
+    // constant companion that follows you across surfaces, so its heading must
+    // not restate the surface's name or compete with it for prominence. Which
+    // surface it's pointed at is carried, quietly, by the scope chip below.
+    heading: "How can I help?",
+    intro:
+      "The same agent, wherever you go — your project and context come with you as you move between surfaces.",
     greeting: `Now working in ${surface.label}. ${surface.workspaceDescription}`,
     suggestions: surface.capabilities.map((c) => c),
   };
@@ -185,7 +191,11 @@ export function AgentPanel() {
         <span className={styles.avatar} aria-hidden="true">
           <SparklesIcon width={21} height={21} />
         </span>
-        <div className={styles.headingText}>
+        {/* Compact inside a surface: the surface's own <h1> is the page's
+            primary title, so the agent heading steps down to a subordinate,
+            companion scale. On the front door there's no surface to defer to,
+            so the agent keeps its full prominence. */}
+        <div className={`${styles.headingText} ${isHome ? "" : styles.headingCompact}`}>
           <p className={styles.kicker}>Agent</p>
           <h1 id="agent-heading">{scope.heading}</h1>
           <p className={styles.intro}>{scope.intro}</p>

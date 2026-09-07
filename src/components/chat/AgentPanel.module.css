@@ -53,6 +53,15 @@
   letter-spacing: -0.025em;
 }
 
+/* Inside a surface, the agent heading is a companion label, not a page title —
+   it must sit clearly below the surface's own <h1> (clamp(1.6rem, 3vw, 2.25rem)
+   in SurfaceProjection) in the visual hierarchy. Same specificity as the rule
+   above (0,1,1); relies on source order to win, so it must stay after it. */
+.headingCompact h1 {
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
+  letter-spacing: -0.01em;
+}
+
 .intro {
   margin: 0.35rem 0 0;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
