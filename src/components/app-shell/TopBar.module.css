@@ -12,6 +12,11 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
 }
 
+.homeBar {
+  background: #f6f8fb;
+  box-shadow: none;
+}
+
 .left,
 .actions,
 .homeLink,
@@ -65,8 +70,8 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
@@ -92,8 +97,8 @@
   display: inline-flex;
   align-items: center;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  min-height: 2rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.65rem;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.55rem 0.25rem 0.7rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-surface-2, #f3f3f3);
@@ -151,9 +156,104 @@
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
+.artifactContext {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: var(--slds-g-spacing-3, 0.75rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.artifactContext svg {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.artifactContext strong {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifactSeparator {
+  color: var(--slds-g-color-border-2, #939393);
+}
+
+.primaryNav {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-inline: auto 0.75rem;
+}
+
+.primaryNav a,
+.primaryNav button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding-inline: 0.7rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.primaryNav a:hover,
+.primaryNav button:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
 .actions {
   gap: var(--slds-g-spacing-2, 0.5rem);
   flex: 0 0 auto;
+}
+
+.focusButton {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.45rem 0.25rem 0.7rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.focusButton:hover,
+.focusButtonActive {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+.focusButtonActive {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-accent-1, #0176d3) 12%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+}
+
+.focusButton kbd {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  font-family: inherit;
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 400;
 }
 
 .helpButton,
@@ -161,8 +261,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-circle, 50%);
   background: var(--slds-g-color-surface-1, #fff);
@@ -192,6 +292,13 @@
   border: 0;
 }
 
+@media (prefers-color-scheme: dark) {
+  .homeBar {
+    background: #0f1113;
+    border-block-end-color: rgb(255 255 255 / 12%);
+  }
+}
+
 @media (max-width: 760px) {
   .bar {
     padding-inline: var(--slds-g-spacing-3, 0.75rem);
@@ -199,6 +306,7 @@
 
   .brandName,
   .location,
+  .artifactContext,
   .helpButton {
     display: none;
   }
@@ -210,5 +318,15 @@
   .commandLabel,
   .commandKbd {
     display: none;
+  }
+
+  .primaryNav {
+    gap: 0;
+    margin-inline-end: 0.25rem;
+  }
+
+  .primaryNav a,
+  .primaryNav button {
+    padding-inline: 0.45rem;
   }
 }

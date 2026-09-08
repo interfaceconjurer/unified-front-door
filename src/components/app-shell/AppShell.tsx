@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { CanvasHost } from "@/components/canvas-host/CanvasHost";
 import { AgentPanel } from "@/components/chat/AgentPanel";
+import { ControlPlaneAnnouncer } from "@/components/control-plane/ControlPlaneAnnouncer";
+import { ControlPlaneProvider, useControlPlane } from "@/components/control-plane/ControlPlaneProvider";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -9,54 +13,117 @@ import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
 import styles from "./AppShell.module.css";
 
-/**
- * The shared chrome. The agent is the constant: a persistent left panel that
- * never unmounts, so it's the same agent everywhere and its context follows you.
- * The top bar and the right half are what change — the app launcher on the front
- * door, a purpose-built surface everywhere else. Surface navigation runs through
- * a ⌘⇧P command palette the shell owns.
- */
-export function AppShell({ children }: { children: React.ReactNode }) {
-  const [paletteOpen, setPaletteOpen] = useState(false);
-  // Read from the persisted store (SSR-safe: fixed closed default on the
-  // server and first hydration pass) rather than a plain `useState`, so the
-  // panel survives a reload — see `useWorkspacePanel`. This has to happen
-  // above `<WorkspaceProvider>` since AppShell is the component that mounts
-  // it, so it can't consume that context itself.
-  const { panelOpen, togglePanel } = useWorkspacePanel();
+type NarrowPane = "agent" | "canvas";
 
-  // Global shortcuts: ⌘⇧P (⌃⇧P off Mac) toggles the palette, ⌘B (⌃B off Mac)
-  // toggles the left workspace panel. togglePanel is a stable store method, so
-  // the listener is bound once. Shift distinguishes the two — plain ⌘B must not
-  // also fire when ⌘⇧P is pressed.
+function subscribeToNarrowViewport(onChange: () => void) {
+  const media = window.matchMedia("(max-width: 1023px)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function narrowViewportSnapshot() {
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return <ControlPlaneProvider><AppShellFrame>{children}</AppShellFrame></ControlPlaneProvider>;
+}
+
+function AppShellFrame({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const { state, activeCanvas, currentLayout, dispatch } = useControlPlane();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [narrowPane, setNarrowPane] = useState<NarrowPane>("agent");
+  const { panelOpen, setPanelOpen, togglePanel } = useWorkspacePanel();
+  const workspaceToggleRef = useRef<HTMLButtonElement>(null);
+  const agentTabRef = useRef<HTMLButtonElement>(null);
+  const canvasTabRef = useRef<HTMLButtonElement>(null);
+  const wasFocusMode = useRef(false);
+  const isHome = pathname === "/";
+  const isNarrow = useSyncExternalStore(subscribeToNarrowViewport, narrowViewportSnapshot, () => false);
+  const canvasVisible = isHome ? state.presentation.mode !== "chat-only" : true;
+  const renderCanvasPane = !isHome || Object.keys(state.canvases).length > 0;
+  const focusMode = isHome && state.presentation.mode === "focus";
+
+  useEffect(() => {
+    const keepAgentVisible = isNarrow && state.canvasOpenIntent === "automatic";
+    const frame = requestAnimationFrame(() => setNarrowPane(canvasVisible && !keepAgentVisible ? "canvas" : "agent"));
+    return () => cancelAnimationFrame(frame);
+  }, [canvasVisible, activeCanvas?.id, isNarrow, state.canvasOpenIntent]);
+
+  useEffect(() => {
+    const exitedFocus = wasFocusMode.current && !focusMode;
+    wasFocusMode.current = focusMode;
+    if (!exitedFocus || !canvasVisible) return;
+    const frame = requestAnimationFrame(() => document.getElementById("canvas-focus-button")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [canvasVisible, focusMode]);
+
+  const closeWorkspace = useCallback(({ restoreFocus = true }: { restoreFocus?: boolean } = {}) => {
+    setPanelOpen(false);
+    if (restoreFocus) requestAnimationFrame(() => workspaceToggleRef.current?.focus());
+  }, [setPanelOpen]);
+
+  function openPalette() {
+    if (panelOpen) closeWorkspace({ restoreFocus: false });
+    setPaletteOpen(true);
+  }
+
+  function showNarrowPane(pane: NarrowPane, moveFocus = false) {
+    setNarrowPane(pane);
+    if (focusMode && pane === "agent") dispatch({ type: "EXIT_FOCUS" });
+    if (moveFocus) requestAnimationFrame(() => (pane === "agent" ? agentTabRef.current : canvasTabRef.current)?.focus());
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (event.key === "Escape" && focusMode && !paletteOpen && !panelOpen) {
+        event.preventDefault(); dispatch({ type: "EXIT_FOCUS" }); return;
+      }
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
-      if (event.shiftKey && key === "p") {
-        event.preventDefault();
-        setPaletteOpen((open) => !open);
-      } else if (!event.shiftKey && key === "b") {
-        event.preventDefault();
-        togglePanel();
-      }
+      if (event.shiftKey && key === "p") { event.preventDefault(); if (panelOpen) closeWorkspace({ restoreFocus: false }); setPaletteOpen((open) => !open); }
+      else if (!event.shiftKey && key === "b") { event.preventDefault(); setPaletteOpen(false); togglePanel(); }
+      else if (event.shiftKey && key === "f" && isHome && canvasVisible) { event.preventDefault(); dispatch({ type: focusMode ? "EXIT_FOCUS" : "ENTER_FOCUS" }); }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePanel]);
+  }, [canvasVisible, closeWorkspace, dispatch, focusMode, isHome, paletteOpen, panelOpen, togglePanel]);
+
+  const layoutClass = !isHome
+    ? styles.modeDirect
+    : focusMode
+      ? styles.modeFocus
+      : state.presentation.mode === "chat-only"
+        ? styles.modeChatOnly
+        : styles[`layout${currentLayout.replace(/(^|-)([a-z])/g, (_, __, letter: string) => letter.toUpperCase())}` as keyof typeof styles];
+  const narrowClass = narrowPane === "agent" ? styles.narrowAgentActive : styles.narrowCanvasActive;
 
   return (
     <WorkspaceProvider>
       <div className={styles.shell}>
+        <ControlPlaneAnnouncer />
         <TopBar
-          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenPalette={openPalette}
           panelOpen={panelOpen}
-          onTogglePanel={togglePanel}
+          onTogglePanel={() => { setPaletteOpen(false); togglePanel(); }}
+          workspaceToggleRef={workspaceToggleRef}
+          canvasLabel={isHome ? activeCanvas?.title : undefined}
+          onNewChat={() => dispatch({ type: "START_NEW" })}
+          onShowWork={() => dispatch({ type: "SHOW_RETURNING" })}
+          homeActive={isHome}
         />
-        <div className={`${styles.body} ${panelOpen ? styles.bodyPanelOpen : ""}`}>
-          {panelOpen && <WorkspacePanel />}
-          <AgentPanel />
-          <main className={styles.main}>{children}</main>
+        <div className={styles.body}>
+          <div className={`${styles.bodyContent} ${layoutClass ?? ""} ${narrowClass}`} inert={panelOpen ? true : undefined}>
+            {canvasVisible && isNarrow && <div className={styles.narrowSwitcher} role="tablist" aria-label="Workstage pane">
+              <button ref={agentTabRef} id="agent-pane-tab" type="button" role="tab" tabIndex={narrowPane === "agent" ? 0 : -1} aria-selected={narrowPane === "agent"} aria-controls="agent-pane" onClick={() => showNarrowPane("agent")} onKeyDown={(event) => { if (["ArrowRight","ArrowLeft","End"].includes(event.key)) { event.preventDefault(); showNarrowPane("canvas", true); } else if (event.key === "Home") { event.preventDefault(); agentTabRef.current?.focus(); } }}>Agent</button>
+              <button ref={canvasTabRef} id="canvas-pane-tab" type="button" role="tab" tabIndex={narrowPane === "canvas" ? 0 : -1} aria-selected={narrowPane === "canvas"} aria-controls="canvas-pane" onClick={() => showNarrowPane("canvas")} onKeyDown={(event) => { if (["ArrowRight","ArrowLeft","Home"].includes(event.key)) { event.preventDefault(); showNarrowPane("agent", true); } else if (event.key === "End") { event.preventDefault(); canvasTabRef.current?.focus(); } }}>Canvas</button>
+            </div>}
+            <div id="agent-pane" className={styles.agentPane} role={canvasVisible && isNarrow ? "tabpanel" : undefined} aria-labelledby={canvasVisible && isNarrow ? "agent-pane-tab" : undefined}><AgentPanel onOpenToolkit={openPalette} /></div>
+            {renderCanvasPane && <main id="canvas-pane" className={styles.main} role={canvasVisible && isNarrow ? "tabpanel" : undefined} aria-labelledby={canvasVisible && isNarrow ? "canvas-pane-tab" : undefined} hidden={!canvasVisible} inert={!canvasVisible ? true : undefined}>{isHome ? <CanvasHost /> : children}</main>}
+          </div>
+          {panelOpen && <div className={styles.drawerLayer}><WorkspacePanel onClose={() => closeWorkspace()} /><button type="button" className={styles.drawerScrim} aria-label="Close workspace panel" onClick={() => closeWorkspace()} /></div>}
         </div>
         <StatusBar />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}

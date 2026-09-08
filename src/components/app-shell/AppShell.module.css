@@ -1,45 +1,27 @@
-.shell {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+.shell { display: flex; height: 100vh; flex-direction: column; overflow: hidden; background: var(--slds-g-color-surface-2, #f3f3f3); color: var(--slds-g-color-on-surface-2, #2e2e2e); }
+.body { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+.bodyContent { display: grid; width: 100%; height: 100%; min-width: 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+.modeChatOnly { grid-template-columns: minmax(0, 1fr); }
+.layoutCanvasRoomy { grid-template-columns: minmax(22rem, 40fr) minmax(30rem, 60fr); }
+.layoutBalanced { grid-template-columns: minmax(25rem, 1fr) minmax(25rem, 1fr); }
+.layoutChatRoomy { grid-template-columns: minmax(30rem, 60fr) minmax(22rem, 40fr); }
+.modeDirect { grid-template-columns: 22.5rem minmax(0, 1fr); }
+.modeFocus { grid-template-columns: 3.5rem minmax(0, 1fr); }
+.agentPane, .main { min-width: 0; min-height: 0; }
+.agentPane { display: flex; }
+.main { display: flex; overflow: auto; }
+.main[hidden] { display: none; }
+.narrowSwitcher { display: none; }
+.drawerLayer { position: absolute; z-index: 45; inset: 0; display: grid; grid-template-columns: 18rem minmax(0, 1fr); }
+.drawerScrim { border: 0; background: rgb(3 13 33 / 38%); backdrop-filter: blur(1px); cursor: default; }
+@media (max-width: 1199px) and (min-width: 1024px) { .modeDirect { grid-template-columns: 21rem minmax(0, 1fr); } }
+@media (max-width: 1023px) {
+  .bodyContent, .modeChatOnly, .layoutCanvasRoomy, .layoutBalanced, .layoutChatRoomy, .modeDirect, .modeFocus { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .narrowSwitcher { display: inline-flex; z-index: 2; justify-self: center; gap: .2rem; margin: .5rem; padding: .2rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 999px; background: var(--slds-g-color-surface-1, #fff); }
+  .narrowSwitcher button { min-width: 5.5rem; min-height: 2.75rem; padding-inline: .8rem; border: 0; border-radius: 999px; background: transparent; color: var(--slds-g-color-on-surface-1, #5c5c5c); font: inherit; font-weight: 650; cursor: pointer; }
+  .narrowSwitcher button[aria-selected="true"] { background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 12%, var(--slds-g-color-surface-1, #fff)); color: light-dark(#0176d3, #78b9ff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 35%, transparent); }
+  .agentPane, .main { grid-column: 1; grid-row: 2; }
+  .narrowAgentActive .main, .narrowCanvasActive .agentPane { display: none; }
 }
-
-/* The agent and the active surface split the shell evenly — the agent stays
-   forward everywhere, and only the right half swaps as you move around. */
-.body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Bound the row to the shell's height so each half scrolls its own content
-     internally, rather than the whole column growing and pushing its header off
-     the top as the agent thread fills up. */
-  grid-template-rows: minmax(0, 1fr);
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-}
-
-/* Opening the persistent workspace panel adds a third, fixed-width first
-   column ahead of the existing [agent | main] split, rather than shrinking
-   either of those two evenly. */
-.bodyPanelOpen {
-  grid-template-columns: minmax(15rem, 18rem) repeat(2, minmax(0, 1fr));
-}
-
-.main {
-  display: flex;
-  min-width: 0;
-  min-height: 0;
-  overflow: auto;
-}
-
-@media (max-width: 900px) {
-  .body,
-  .bodyPanelOpen {
-    grid-template-columns: 1fr;
-    grid-auto-rows: minmax(0, 1fr);
-    overflow-y: auto;
-  }
-}
+@media (max-width: 767px) { .drawerLayer { grid-template-columns: min(90vw, 18rem) minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) { .drawerScrim { backdrop-filter: none; } .bodyContent { transition: none; } }
