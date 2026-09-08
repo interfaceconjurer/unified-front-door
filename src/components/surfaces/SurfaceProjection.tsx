@@ -70,11 +70,13 @@ export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProje
       <section className={styles.workspace} aria-labelledby="surface-heading">
         <header className={styles.header}>
           <div className={styles.headingText}>
-            <div className={styles.kicker}>
-              <surface.Icon width={15} height={15} aria-hidden="true" />
-              {surface.label} · {activeProject.name}
-            </div>
-            <h1 id="surface-heading">{surface.label}</h1>
+            {/* Surface identity only — its icon and name. The project this lens
+                projects is not restated here; that's the status bar's single
+                source of truth for workspace coordinates. */}
+            <h1 id="surface-heading">
+              <surface.Icon className={styles.titleIcon} width={26} height={26} aria-hidden="true" />
+              {surface.label}
+            </h1>
             <p className={styles.lead}>{projection.lead}</p>
           </div>
           {toolbar}

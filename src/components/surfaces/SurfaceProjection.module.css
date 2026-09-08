@@ -26,25 +26,21 @@
   min-width: 0;
 }
 
-/* The kicker names the lens AND the project it's projecting — the one place a
-   surface admits it's a view of something shell-level, not a silo. */
-.kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  margin-block-end: var(--slds-g-spacing-2, 0.5rem);
-  color: var(--slds-g-color-accent-1, #0176d3);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .header h1 {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-3, 0.75rem);
   margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
   font-size: clamp(1.6rem, 3vw, 2.25rem);
   letter-spacing: -0.02em;
+}
+
+/* Surface identity mark beside the title. Neutral, not accent-blue: blue is
+   reserved for prominent calls to action, and this is decoration. */
+.titleIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
 .lead {
