@@ -3,9 +3,9 @@ import { ChevronRightIcon } from "@/components/icons";
 import { surfaceApps } from "@/components/front-door/app-catalog";
 import styles from "./AgentWorkstage.module.css";
 
-export function SurfaceToolkit({ onOpenToolkit, compact = false }: { onOpenToolkit: () => void; compact?: boolean }) {
+export function SurfaceToolkit({ onOpenToolkit }: { onOpenToolkit: () => void }) {
   return (
-    <section className={`${styles.surfaceToolkit} ${compact ? styles.surfaceToolkitCompact : ""}`} aria-labelledby="surface-toolkit-heading">
+    <section className={styles.surfaceToolkit} aria-labelledby="surface-toolkit-heading">
       <header className={styles.surfaceToolkitHeader}>
         <h2 id="surface-toolkit-heading">Explore surfaces</h2>
         <button type="button" onClick={onOpenToolkit}>

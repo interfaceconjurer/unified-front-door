@@ -280,9 +280,9 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
       <div className={styles.returningScroll}>
         <div className={styles.returningContent}>
           <header className={styles.returningLead}><span className={styles.heroMark} aria-hidden="true"><SparklesIcon width={22} height={22} /></span><h1 id="returning-heading">What should we move forward?</h1></header>
-          <SurfaceToolkit onOpenToolkit={onOpenToolkit} compact />
-          {attention.length > 0 && <HomeList title="Needs you" records={attention} onResume={resume} tone="attention" />}
-          {recent.length > 0 && <HomeList title="Continue" records={recent} onResume={resume} tone="recent" />}
+          <SurfaceToolkit onOpenToolkit={onOpenToolkit} />
+          {attention.length > 0 && <HomeList title="Your action" records={attention} onResume={resume} tone="attention" />}
+          {recent.length > 0 && <HomeList title="Recent work" records={recent} onResume={resume} tone="recent" />}
         </div>
       </div>
       <div className={styles.welcomeComposerDock}>
@@ -296,7 +296,7 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
 
 function HomeList({ title, records, onResume, tone }: { title: string; records: typeof RESUME_FIXTURES; onResume: (id: string) => void; tone: "attention" | "recent" }) {
   const id = title.toLowerCase().replaceAll(" ", "-");
-  return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><span className={styles.itemLabel}>{record.homeLabel}</span><strong>{record.homeTitle}</strong><small>{record.homeMeta}</small></div><button type="button" onClick={() => onResume(record.id)}>{record.homeAction}</button></li>)}</ul></section>;
+  return <section className={`${styles.homeSection} ${styles[tone]}`} aria-labelledby={`${id}-heading`}><h2 id={`${id}-heading`}>{title}</h2><ul>{records.map((record) => <li key={record.id}><div><span className={styles.itemLabel}>{record.homeLabel}</span><strong>{record.homeTitle}</strong>{record.homeDetail && <span className={styles.itemDetail}>{record.homeDetail}</span>}<small>{record.homeMeta}</small></div><button type="button" aria-label={`${record.homeAction}: ${record.homeTitle}, ${record.context}`} onClick={() => onResume(record.id)}>{record.homeAction}</button></li>)}</ul></section>;
 }
 
 function SamplePrompts({ onSelect }: { onSelect: (prompt: (typeof SAMPLE_PROMPTS)[number]) => void }) {
