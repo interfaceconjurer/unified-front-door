@@ -27,6 +27,7 @@ export type HomeView = "first-time" | "returning";
 export type ControlPlaneState = {
   conversationId: string;
   workId?: string;
+  requestText?: string;
   conversationState: ConversationState;
   phase: JourneyPhase;
   presentation: PresentationState;
@@ -42,9 +43,12 @@ export type ControlPlaneState = {
   };
   lastActiveCanvasId?: CanvasId;
   conversationLayout: LayoutPreset;
+  canvasOpenIntent?: "automatic" | "explicit" | "resume";
+  phaseBeforeClose?: JourneyPhase;
   context?: {
     projectRef: string;
     orgRef: string;
+    worktreeRef?: string;
     label: string;
     contextRevision: string;
   };
@@ -53,8 +57,10 @@ export type ControlPlaneState = {
 export type ControlPlaneAction =
   | { type: "START_NEW" }
   | { type: "SHOW_RETURNING" }
-  | { type: "BEGIN_WORK" }
-  | { type: "CONFIRM_CONTEXT"; projectRef: string; orgRef: string; label: string }
+  | { type: "BEGIN_WORK"; requestText: string }
+  | { type: "RETRY_PREPARATION" }
+  | { type: "RETRY_CONTEXT" }
+  | { type: "CONFIRM_CONTEXT"; projectRef: string; orgRef: string; worktreeRef?: string; label: string }
   | { type: "CAPABILITY_READY"; canvas: CanvasRecord; ready: CapabilityReady; autoOpen: boolean }
   | { type: "OPEN_CANVAS"; canvasId: CanvasId; userInitiated: boolean }
   | { type: "CLOSE_CANVAS" }
@@ -64,7 +70,7 @@ export type ControlPlaneAction =
   | { type: "CAPABILITY_ACTION_PENDING"; canvasId: CanvasId; instanceId: string; actionId: string; correlationId: string }
   | { type: "CAPABILITY_RESULT"; canvasId: CanvasId; instanceId: string; result: CapabilityResult }
   | { type: "SHOW_SCENARIO"; phase: Extract<JourneyPhase, "stale-resume" | "external-fallback" | "preparation-error" | "context-error" | "agent-unavailable"> }
-  | { type: "RESUME_EXACT"; canvas: CanvasRecord; resumeRef?: string; context: { projectRef: string; orgRef: string; label: string } }
+  | { type: "RESUME_EXACT"; canvas: CanvasRecord; resumeRef?: string; conversationId: string; workId: string; context: { projectRef: string; orgRef: string; worktreeRef?: string; label: string } }
   | { type: "RESET" };
 
 export const INITIAL_CONTROL_PLANE_STATE: ControlPlaneState = {
@@ -131,10 +137,36 @@ export function controlPlaneReducer(
         ...state,
         workId: "work-lead-qualification",
         conversationId: "conversation-lead-routing",
+        requestText: action.requestText,
         conversationState: "planning",
         phase: "planning",
         homeView: "first-time",
         announcement: "Working plan ready. No canvas has opened.",
+      };
+    case "RETRY_PREPARATION":
+      if (state.phase !== "preparation-error") return state;
+      return {
+        ...state,
+        workId: state.workId ?? "work-lead-qualification",
+        conversationId: state.workId ? state.conversationId : "conversation-lead-routing",
+        requestText: state.requestText ?? "Help me build an agent that qualifies and routes high-value leads.",
+        conversationState: "planning",
+        phase: "planning",
+        homeView: "first-time",
+        announcement: "Preparation retry returned to the reviewable plan.",
+      };
+    case "RETRY_CONTEXT":
+      if (state.phase !== "context-error") return state;
+      return {
+        ...state,
+        workId: state.workId ?? "work-lead-qualification",
+        conversationId: state.workId ? state.conversationId : "conversation-lead-routing",
+        requestText: state.requestText ?? "Help me build an agent that qualifies and routes high-value leads.",
+        conversationState: "planning",
+        phase: "planning",
+        homeView: "first-time",
+        context: undefined,
+        announcement: "Choose and confirm the target context before continuing.",
       };
     case "CONFIRM_CONTEXT":
       if (state.phase !== "planning") return state;
@@ -143,6 +175,7 @@ export function controlPlaneReducer(
         context: {
           projectRef: action.projectRef,
           orgRef: action.orgRef,
+          worktreeRef: action.worktreeRef,
           label: action.label,
           contextRevision: "ctx-2",
         },
@@ -163,6 +196,7 @@ export function controlPlaneReducer(
           ? { mode: "split", activeCanvasId: action.canvas.id, layout: state.conversationLayout }
           : state.presentation,
         lastActiveCanvasId: action.autoOpen ? action.canvas.id : state.lastActiveCanvasId,
+        canvasOpenIntent: action.autoOpen ? "automatic" : state.canvasOpenIntent,
         announcement: `${action.ready.title} is ready${action.autoOpen ? " and opened beside the conversation" : " to open"}.`,
       };
     }
@@ -184,7 +218,10 @@ export function controlPlaneReducer(
           layout: currentLayout(state),
         },
         conversationState: "continuing",
+        phase: state.phase === "closed" ? (state.phaseBeforeClose ?? "agent-ready") : state.phase,
+        phaseBeforeClose: undefined,
         lastActiveCanvasId: action.canvasId,
+        canvasOpenIntent: action.userInitiated ? "explicit" : state.canvasOpenIntent,
         announcement: `${canvas.title} opened. ${action.userInitiated ? "Focus moved to the canvas heading." : "Conversation focus was preserved."}`,
       };
     }
@@ -195,8 +232,11 @@ export function controlPlaneReducer(
         ...state,
         canvases: updateCanvas(state, canvas.id, { lifecycle: "closed" }),
         presentation: { mode: "chat-only" },
+        phaseBeforeClose: state.phase === "flow-pending" ? "flow-ready" : state.phase,
         phase: "closed",
+        pendingAction: undefined,
         lastActiveCanvasId: canvas.id,
+        canvasOpenIntent: undefined,
         announcement: `${canvas.title} closed. The same conversation remains available.`,
       };
     }
@@ -273,30 +313,44 @@ export function controlPlaneReducer(
         phase: action.phase,
         homeView: "first-time",
         presentation: { mode: "chat-only" },
+        canvases: {},
+        pendingAction: undefined,
+        acknowledgedCorrelationIds: [],
+        lastActiveCanvasId: undefined,
+        canvasOpenIntent: undefined,
+        phaseBeforeClose: undefined,
         announcement: `${action.phase.replaceAll("-", " ")} recovery example shown.`,
       };
     case "RESUME_EXACT": {
       if (!action.resumeRef || action.resumeRef !== action.canvas.resumeRef) return state;
-      const existing = state.canvases[action.canvas.id];
+      const sameWork = state.conversationId === action.conversationId && state.workId === action.workId;
+      const existing = sameWork ? state.canvases[action.canvas.id] : undefined;
       const canvas = { ...(existing ?? action.canvas), lifecycle: "active" } as CanvasRecord;
-      const resultAcknowledged = state.acknowledgedCorrelationIds.length > 0;
+      const resultAcknowledged = sameWork && state.acknowledgedCorrelationIds.length > 0;
+      const layout = sameWork ? state.conversationLayout : "canvas-roomy";
       return {
         ...state,
-        conversationId: "conversation-lead-routing",
-        workId: "work-lead-qualification",
+        conversationId: action.conversationId,
+        workId: action.workId,
+        requestText: undefined,
         conversationState: "continuing",
         homeView: "first-time",
         phase: resultAcknowledged
           ? "flow-acknowledged"
           : canvas.capabilityId === "build.flow" ? "flow-ready" : "agent-ready",
-        canvases: { ...state.canvases, [canvas.id]: canvas },
+        canvases: sameWork ? { ...state.canvases, [canvas.id]: canvas } : { [canvas.id]: canvas },
+        pendingAction: undefined,
+        acknowledgedCorrelationIds: resultAcknowledged ? state.acknowledgedCorrelationIds : [],
         lastActiveCanvasId: canvas.id,
+        canvasOpenIntent: "resume",
+        phaseBeforeClose: undefined,
+        conversationLayout: layout,
         context: {
           ...action.context,
           contextRevision: "ctx-2",
         },
-        presentation: { mode: "split", activeCanvasId: canvas.id, layout: state.conversationLayout },
-        announcement: `${canvas.title} resumed in the last safe layout. Focus stayed off.`,
+        presentation: { mode: "split", activeCanvasId: canvas.id, layout },
+        announcement: `${canvas.title} resumed in ${action.context.label}. Focus stayed off.`,
       };
     }
     case "RESET":

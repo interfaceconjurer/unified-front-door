@@ -74,20 +74,18 @@ export function AgentWorkstage({ onOpenToolkit }: { onOpenToolkit: () => void })
   function begin(value = draft) {
     const intent = value.trim();
     if (!intent) return;
-    const normalized = intent.toLowerCase();
-    if (/lead|sales team|route/.test(normalized)) {
+    if (intent === SAMPLE_PROMPTS[0].prompt) {
       if (state.phase !== "fresh") dispatch({ type: "START_NEW" });
-      dispatch({ type: "BEGIN_WORK" });
-    } else if (/deploy|release/.test(normalized)) {
-      router.push("/alm");
-    } else if (/access|permission/.test(normalized)) {
-      router.push("/govern");
-    } else if (/agent/.test(normalized)) {
-      router.push("/build/agent-studio");
-    } else {
-      router.push("/build");
+      dispatch({ type: "BEGIN_WORK", requestText: intent });
+      setDraft("");
+      return;
     }
-    setDraft("");
+    if (intent === SAMPLE_PROMPTS[1].prompt) {
+      router.push("/alm");
+      setDraft("");
+      return;
+    }
+    setSeedStatus("Free-form Agent routing isn’t connected in this prototype. Choose a surface or use a sample prompt.");
   }
 
   function seedPrompt(prompt: (typeof SAMPLE_PROMPTS)[number]) {
@@ -156,7 +154,7 @@ export function AgentWorkstage({ onOpenToolkit }: { onOpenToolkit: () => void })
         <div><p>Agent Workstage</p>{state.presentation.mode === "chat-only" ? <h1 id="workstage-heading">Qualify and route leads</h1> : <h2 id="workstage-heading">Qualify and route leads</h2>}</div>
       </header>
       <div ref={transcriptRef} className={styles.transcript} role="log" aria-live="off">
-        <div className={styles.userMessage}><span>You</span><p>Help our sales team respond faster by qualifying high-value leads and routing them to the right owner.</p></div>
+        <div className={styles.userMessage}><span>You</span><p>{state.requestText ?? "Help me build an agent that qualifies and routes high-value leads."}</p></div>
         {!agentCanvas && <div className={styles.agentMessage}><span>Agent</span><p>Before I prepare a draft, confirm where this work belongs.</p></div>}
 
         {normalJourney && !flowCanvas && (
@@ -178,7 +176,7 @@ export function AgentWorkstage({ onOpenToolkit }: { onOpenToolkit: () => void })
                   onClick={() => {
                     setActiveProject("trailblazer-crm");
                     setActiveWorktree("lead-routing", "trailblazer-crm");
-                    dispatch({ type: "CONFIRM_CONTEXT", projectRef: "trailblazer-crm", orgRef: "uat", label: "Trailblazer CRM · UAT" });
+                    dispatch({ type: "CONFIRM_CONTEXT", projectRef: "trailblazer-crm", orgRef: "uat", worktreeRef: "lead-routing", label: "Trailblazer CRM · UAT" });
                   }}
                 >
                   {state.context ? "Trailblazer CRM · UAT confirmed" : "Confirm Trailblazer CRM · UAT"}
@@ -225,10 +223,10 @@ export function AgentWorkstage({ onOpenToolkit }: { onOpenToolkit: () => void })
         )}
 
         {state.phase === "flow-pending" && <StatusCard tone="pending" title="Checking sample…">Waiting for Build to acknowledge the result.</StatusCard>}
-        {connected && <StatusCard tone="success" title="Sample result acknowledged">Edge Communications took the Yes path to Enterprise Queue. Sample only · nothing was saved or run.</StatusCard>}
+        {connected && normalJourney && state.phase !== "closed" && <StatusCard tone="success" title="Sample result acknowledged">Edge Communications took the Yes path to Enterprise Queue. Sample only · nothing was saved or run.</StatusCard>}
         {state.phase === "closed" && <StatusCard tone="neutral" title="Canvas closed">Your conversation and drafts are still here.</StatusCard>}
-        {state.phase === "preparation-error" && <RecoveryCard title="Agent Studio could not prepare the draft" detail="The conversation is intact and no empty canvas opened." />}
-        {state.phase === "context-error" && <RecoveryCard title="Confirm the target context" detail="Trailblazer CRM · UAT and Acme Storefront · SIT are different contexts. Choose or change context before launch." />}
+        {state.phase === "preparation-error" && <RecoveryCard title="Agent Studio could not prepare the draft" detail="The conversation is intact and no empty canvas opened." actionLabel="Retry preparation" actionType="RETRY_PREPARATION" />}
+        {state.phase === "context-error" && <RecoveryCard title="Confirm the target context" detail="Trailblazer CRM · UAT and Acme Storefront · SIT are different contexts. Choose context before launch." actionLabel="Choose context" actionType="RETRY_CONTEXT" />}
         {state.phase === "stale-resume" && <StaleResume />}
         {state.phase === "external-fallback" && <ExternalFallback />}
         {state.phase === "agent-unavailable" && <AgentUnavailable />}
@@ -270,7 +268,9 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
         type: "RESUME_EXACT",
         canvas,
         resumeRef: record.resumeRef,
-        context: { projectRef: record.projectRef, orgRef: record.orgRef, label: record.context },
+        conversationId: record.conversationId,
+        workId: record.workId,
+        context: { projectRef: record.projectRef, orgRef: record.orgRef, worktreeRef: record.worktreeRef, label: record.context },
       });
       requestAnimationFrame(() => document.getElementById(`canvas-heading-${canvas.id}`)?.focus());
     }
@@ -287,7 +287,7 @@ function ReturningHome({ draft, setDraft, onSubmit, inputRef, seedStatus, setSee
       </div>
       <div className={styles.welcomeComposerDock}>
         <SamplePrompts onSelect={onSelectPrompt} />
-        <Composer draft={draft} setDraft={setDraft} onSubmit={onSubmit} inputRef={inputRef} large onContext={() => setSeedStatus("Choose a project above or confirm context after starting.")} onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")} />
+        <Composer draft={draft} setDraft={setDraft} onSubmit={onSubmit} inputRef={inputRef} large onContext={() => setSeedStatus("You’ll confirm project and org before capability work begins.")} onAttach={() => setSeedStatus("Attachments aren’t connected in this prototype.")} />
         {seedStatus && <p className={styles.seedStatus} role="status">{seedStatus}</p>}
       </div>
     </section>
@@ -312,7 +312,7 @@ function SamplePrompts({ onSelect }: { onSelect: (prompt: (typeof SAMPLE_PROMPTS
   );
 }
 function StatusCard({ tone, title, children }: { tone: "pending" | "success" | "neutral"; title: string; children: React.ReactNode }) { return <article className={`${styles.statusCard} ${styles[tone]}`}><p>{tone === "success" ? "Result" : "Capability activity"}</p><h2>{title}</h2><div>{children}</div></article>; }
-function RecoveryCard({ title, detail }: { title: string; detail: string }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: "BEGIN_WORK" })}>Retry preparation</button><Link href="/build">Open directly</Link></div></article>; }
+function RecoveryCard({ title, detail, actionLabel, actionType }: { title: string; detail: string; actionLabel: string; actionType: "RETRY_PREPARATION" | "RETRY_CONTEXT" }) { const { dispatch } = useControlPlane(); return <article className={styles.errorCard} role="alert"><h2>{title}</h2><p>{detail}</p><div><button type="button" onClick={() => dispatch({ type: actionType })}>{actionLabel}</button><Link href="/build">Open directly</Link></div></article>; }
 function StaleResume() { const { dispatch } = useControlPlane(); return <article className={styles.errorCard}><p>Resume reference expired</p><h2>Release validation recovery is no longer at this revision</h2><p>Nothing was substituted. Choose how to continue.</p><div><button type="button" onClick={() => dispatch({ type: "SHOW_SCENARIO", phase: "external-fallback" })}>Open latest</button><button type="button" onClick={() => dispatch({ type: "START_NEW" })}>Start new</button><Link href="/alm">Open directly</Link></div></article>; }
 function ExternalFallback() { return <article className={styles.externalCard}><p>ALM · External capability</p><h2>Release validation recovery</h2><p>This capability does not advertise embedded presentation. Continue in ALM and return here when ready.</p><Link href="/alm">Open ALM directly <ChevronRightIcon width={15} height={15} /></Link><span>Conversation return point preserved · no fake embedded canvas</span></article>; }
 function AgentUnavailable() { return <article className={styles.errorCard} role="alert"><p>Agent temporarily unavailable</p><h2>Your deterministic paths still work</h2><p>No conversation or work was lost. Use Work, Projects, capabilities, or the command palette.</p><div><Link href="/build">Build & Setup</Link><Link href="/code">Code</Link><Link href="/govern">Govern & Observe</Link><Link href="/alm">ALM</Link></div></article>; }

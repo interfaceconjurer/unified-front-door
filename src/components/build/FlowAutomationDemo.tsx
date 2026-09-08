@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckIcon, DatabaseIcon, GitBranchIcon, SparklesIcon, WorkflowIcon, type IconComponent } from "@/components/icons";
 import { FLOW_LAUNCH } from "@/components/capabilities/capability-fixtures";
@@ -17,14 +17,29 @@ export function FlowAutomationDemo({ embedded = false, canvasId = "direct-build-
   const [selectedNodeId, setSelectedNodeId] = useState<FlowNodeId>("start");
   const [sampleVisible, setSampleVisible] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const pendingRef = useRef(false);
 
-  if (!embedded) return <SurfaceProjection surfaceId="build" />;
+  useEffect(() => () => {
+    pendingRef.current = false;
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+  }, []);
 
   const selectedNode = FLOW_ARTIFACT.nodes.find((node) => node.id === selectedNodeId) ?? FLOW_ARTIFACT.nodes[0]!;
   const acknowledged = state.acknowledgedCorrelationIds.includes(FLOW_LAUNCH.correlationId);
+  const pending = state.pendingAction?.canvasId === canvasId;
+
+  useEffect(() => {
+    pendingRef.current = pending;
+    if (!pending && timerRef.current) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, [pending]);
+
+  if (!embedded) return <SurfaceProjection surfaceId="build" />;
 
   function showSampleOutcome() {
-    setSampleVisible(true);
+    pendingRef.current = true;
     dispatch({
       type: "CAPABILITY_ACTION_PENDING",
       canvasId,
@@ -34,6 +49,9 @@ export function FlowAutomationDemo({ embedded = false, canvasId = "direct-build-
     });
     if (timerRef.current) window.clearTimeout(timerRef.current);
     timerRef.current = window.setTimeout(() => {
+      timerRef.current = null;
+      if (!pendingRef.current) return;
+      setSampleVisible(true);
       dispatch({
         type: "CAPABILITY_RESULT",
         canvasId,
@@ -54,7 +72,7 @@ export function FlowAutomationDemo({ embedded = false, canvasId = "direct-build-
     <section className={styles.surface} aria-labelledby={`canvas-heading-${canvasId}`}>
       <header className={styles.artifactHeader}>
         <div className={styles.titleGroup}>
-          <p className={styles.eyebrow}>Build & Setup · Trailblazer CRM · UAT</p>
+          <p className={styles.eyebrow}>Build & Setup · {state.context?.label ?? "Sample context"}</p>
           <div className={styles.titleRow}><span className={styles.titleIcon} aria-hidden="true"><WorkflowIcon width={22} height={22} /></span><div><h1 id={`canvas-heading-${canvasId}`} tabIndex={-1}>Flow · {FLOW_ARTIFACT.name}</h1><p>Routes qualified leads to the right owner.</p></div></div>
         </div>
         <div className={styles.statusGroup} aria-label="Artifact status"><span className={styles.draftStatus}>Sample Draft</span>{acknowledged && <span className={styles.validatedStatus}><CheckIcon width={14} height={14} aria-hidden="true" />Result acknowledged</span>}<Link href="/build">Open directly</Link></div>
@@ -72,7 +90,7 @@ export function FlowAutomationDemo({ embedded = false, canvasId = "direct-build-
           {selectedNode.id === "high-value" ? <dl className={styles.details}><div><dt>Resource</dt><dd>Lead.AnnualRevenue</dd></div><div><dt>Operator</dt><dd>Greater than or equal</dd></div><div><dt>Value</dt><dd>$250,000</dd></div><div><dt>Yes path</dt><dd>Enterprise Queue</dd></div></dl> : <p className={styles.inspectorHint}>Build owns this configuration.</p>}
           <div className={styles.preview}><div className={styles.previewHeader}><div><p className={styles.inspectorEyebrow}>Sample data</p><h2 id="flow-preview-heading" tabIndex={-1}>{sampleVisible ? "Sample outcome" : "Try the sample lead"}</h2></div>{sampleVisible && <span className={styles.previewCheck} aria-hidden="true"><CheckIcon width={18} height={18} /></span>}</div>
             {sampleVisible ? <dl className={styles.previewResult}><div><dt>Lead</dt><dd>{FLOW_ARTIFACT.preview.record}</dd></div><div><dt>Annual Revenue</dt><dd>{FLOW_ARTIFACT.preview.annualRevenue}</dd></div><div><dt>Path</dt><dd>{FLOW_ARTIFACT.preview.path}</dd></div><div><dt>Outcome</dt><dd>{FLOW_ARTIFACT.preview.outcome}</dd></div></dl> : <p className={styles.previewHint}>Uses sample data only.</p>}
-            <button id="flow-preview-button" type="button" className={styles.previewButton} onClick={showSampleOutcome}>{sampleVisible ? "Try again" : "Try sample"}</button>
+            <button id="flow-preview-button" type="button" className={styles.previewButton} disabled={pending} onClick={showSampleOutcome}>{pending ? "Checking…" : sampleVisible ? "Try again" : "Try sample"}</button>
             <p className={styles.focusHint}>Prototype · sample data · nothing is saved or run.</p>
           </div>
         </aside>

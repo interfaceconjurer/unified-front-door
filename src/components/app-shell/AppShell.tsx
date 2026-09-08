@@ -46,9 +46,10 @@ function AppShellFrame({ children }: { children: React.ReactNode }) {
   const focusMode = isHome && state.presentation.mode === "focus";
 
   useEffect(() => {
-    const frame = requestAnimationFrame(() => setNarrowPane(canvasVisible ? "canvas" : "agent"));
+    const keepAgentVisible = isNarrow && state.canvasOpenIntent === "automatic";
+    const frame = requestAnimationFrame(() => setNarrowPane(canvasVisible && !keepAgentVisible ? "canvas" : "agent"));
     return () => cancelAnimationFrame(frame);
-  }, [canvasVisible, activeCanvas?.id]);
+  }, [canvasVisible, activeCanvas?.id, isNarrow, state.canvasOpenIntent]);
 
   useEffect(() => {
     const exitedFocus = wasFocusMode.current && !focusMode;
