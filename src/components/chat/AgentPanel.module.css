@@ -1,6 +1,5 @@
 .agent {
   display: flex;
-  width: 100%;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
@@ -46,8 +45,7 @@
   font-weight: 700;
 }
 
-.heading h1,
-.heading h2 {
+.heading h1 {
   margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
   font-size: clamp(1.5rem, 2.4vw, 2.25rem);
@@ -59,8 +57,7 @@
    it must sit clearly below the surface's own <h1> (clamp(1.6rem, 3vw, 2.25rem)
    in SurfaceProjection) in the visual hierarchy. Same specificity as the rule
    above (0,1,1); relies on source order to win, so it must stay after it. */
-.headingCompact h1,
-.headingCompact h2 {
+.headingCompact h1 {
   font-size: var(--slds-g-font-scale-3, 1.25rem);
   letter-spacing: -0.01em;
 }
@@ -69,6 +66,12 @@
   margin: 0.35rem 0 0;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   line-height: 1.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scopeChip {
+    animation: none;
+  }
 }
 
 .transcript {
@@ -219,167 +222,6 @@
   margin: var(--slds-g-spacing-2, 0.5rem) 0 0;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
-}
-
-.planCard,
-.referenceCard,
-.completionCard {
-  display: grid;
-  gap: var(--slds-g-spacing-3, 0.75rem);
-  width: min(29rem, 100%);
-  padding: var(--slds-g-spacing-4, 1rem);
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-surface-1, #fff);
-  box-shadow: 0 6px 20px rgb(3 13 33 / 7%);
-}
-
-.planCard {
-  border-block-start: 3px solid var(--slds-g-color-accent-1, #0176d3);
-}
-
-.referenceCard {
-  border-inline-start: 3px solid var(--slds-g-color-accent-1, #0176d3);
-}
-
-.completionCard {
-  border-inline-start: 3px solid #2e844a;
-}
-
-.planCard h2,
-.referenceCard h3,
-.completionCard h3,
-.planCard p,
-.referenceCard p,
-.completionCard p {
-  margin: 0;
-}
-
-.planCard h2,
-.referenceCard h3,
-.completionCard h3 {
-  color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: var(--slds-g-font-scale-2, 1rem);
-}
-
-.planCard p,
-.referenceCard p,
-.completionCard p {
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  line-height: 1.5;
-}
-
-.cardEyebrow {
-  color: var(--slds-g-color-accent-1, #0176d3) !important;
-  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.planCard ul {
-  display: grid;
-  gap: 0.45rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.planCard li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-}
-
-.planCard li svg {
-  flex: 0 0 auto;
-  color: #2e844a;
-}
-
-.cardActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-}
-
-.primaryAction,
-.secondaryAction {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.8rem;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  font: inherit;
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.primaryAction {
-  border: 1px solid var(--slds-g-color-accent-1, #0176d3);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: var(--slds-g-color-on-accent-1, #fff);
-}
-
-.primaryAction:hover {
-  filter: brightness(0.92);
-}
-
-.secondaryAction {
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  background: var(--slds-g-color-surface-1, #fff);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-}
-
-.agentDock {
-  align-items: stretch;
-  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  background: var(--slds-g-color-surface-1, #fff);
-}
-
-.dockButton {
-  display: flex;
-  width: 100%;
-  min-width: 3.5rem;
-  min-height: 100%;
-  align-items: center;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem 0.35rem;
-  border: 0;
-  background: transparent;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font: inherit;
-  cursor: pointer;
-}
-
-.dockButton:hover {
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-  color: var(--slds-g-color-accent-1, #0176d3);
-}
-
-.dockAvatar {
-  display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: var(--slds-g-radius-border-circle, 50%);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: var(--slds-g-color-on-accent-1, #fff);
-}
-
-.dockLabel {
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  writing-mode: vertical-rl;
 }
 
 .srOnly {
