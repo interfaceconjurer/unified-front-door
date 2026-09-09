@@ -1,5 +1,5 @@
-import { FlowAutomationDemo } from "@/components/build/FlowAutomationDemo";
+import { SurfaceProjection } from "@/components/surfaces/SurfaceProjection";
 
 export default function BuildPage() {
-  return <FlowAutomationDemo />;
+  return <SurfaceProjection surfaceId="build" />;
 }
