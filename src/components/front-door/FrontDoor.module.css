@@ -1,0 +1,255 @@
+.frontDoor {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+/* Hero + surfaces scroll together above the docked composer, so the composer
+   stays reachable no matter how the list grows. */
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-7, 2.5rem);
+  width: min(58rem, 100%);
+  margin-inline: auto;
+  padding: clamp(2rem, 6vh, 4.5rem) var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-4, 1rem);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--slds-g-spacing-4, 1rem);
+  text-align: center;
+}
+
+.heroMark {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: #fff;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 20%, transparent);
+}
+
+.hero h1 {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.surfacesHeading {
+  margin: 0 0 var(--slds-g-spacing-3, 0.75rem);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+  font-weight: 700;
+}
+
+.surfaceList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  overflow: hidden;
+}
+
+.surfaceList li + li .surfaceRow {
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.surfaceRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--slds-g-spacing-4, 1rem);
+  padding: var(--slds-g-spacing-4, 1rem);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  text-decoration: none;
+  transition: background-color 120ms ease;
+}
+
+.surfaceRow:hover,
+.surfaceRow:focus-visible {
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 8%, transparent);
+  outline: none;
+}
+
+.surfaceIcon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: light-dark(rgb(3 35 77 / 6%), rgb(255 255 255 / 8%));
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+.surfaceCopy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.surfaceCopy strong {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-2, 1rem);
+}
+
+.surfaceCopy span {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  line-height: 1.4;
+}
+
+.surfaceChevron {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* Composer stays docked to the bottom of the front door. */
+.composerDock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  width: min(58rem, 100%);
+  margin-inline: auto;
+  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-5, 1.5rem);
+}
+
+.prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.prompts button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.prompts button:hover {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 6%, var(--slds-g-color-surface-1, #fff));
+}
+
+.prompts svg {
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.composer:focus-within {
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  box-shadow: 0 0 0 1px var(--slds-g-color-accent-1, #0176d3);
+}
+
+.composer textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  line-height: 1.5;
+  resize: none;
+}
+
+.composer textarea:focus {
+  outline: none;
+}
+
+.composerTools {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.composerTools button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.composerTools button:hover {
+  background: light-dark(rgb(3 35 77 / 6%), rgb(255 255 255 / 8%));
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* Send sits at the far right of the tool row. */
+.send {
+  margin-inline-start: auto;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: #fff;
+}
+
+.send:disabled {
+  background: light-dark(rgb(3 35 77 / 12%), rgb(255 255 255 / 12%));
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: not-allowed;
+}
+
+.status {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

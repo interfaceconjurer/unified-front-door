@@ -106,10 +106,19 @@ export function useWorkspace(): WorkspaceContextValue {
  * Subscribes to the same store directly via `useSyncExternalStore`, so it's
  * SSR-safe (fixed closed default on the server and first hydration pass) the
  * same way the provider's own selection read is.
+ *
+ * The persisted value is tri-state (`boolean | null`, see `PersistedSelection`):
+ * `null` means the user has never explicitly toggled the panel, so this hook
+ * resolves a route-dependent default — open on the home route (that's where
+ * you browse projects/apps/sessions), closed elsewhere — via `isHome`. Once
+ * the user explicitly toggles (⌘B or the close button), the stored value
+ * becomes `true`/`false` and that choice wins on every route, home included,
+ * until they toggle again. This is what "defaults open on home without
+ * breaking the persisted toggle" comes down to: default only fills the gap
+ * left by "unset," it never overrides an explicit choice.
  */
-export function useWorkspacePanel(): {
+export function useWorkspacePanel(isHome: boolean): {
   panelOpen: boolean;
-  setPanelOpen: (open: boolean) => void;
   togglePanel: () => void;
 } {
   const selection = useSyncExternalStore(
@@ -117,9 +126,9 @@ export function useWorkspacePanel(): {
     workspaceSelectionStore.getSnapshot,
     workspaceSelectionStore.getServerSnapshot,
   );
+  const panelOpen = selection.panelOpen ?? isHome;
   return {
-    panelOpen: selection.panelOpen,
-    setPanelOpen: workspaceSelectionStore.setPanelOpen,
-    togglePanel: workspaceSelectionStore.togglePanel,
+    panelOpen,
+    togglePanel: () => workspaceSelectionStore.setPanelOpen(!panelOpen),
   };
 }

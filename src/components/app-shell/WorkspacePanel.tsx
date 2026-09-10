@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { GitBranchIcon, LayersIcon } from "@/components/icons";
+import { CloseIcon, GitBranchIcon, LayersIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -19,13 +19,14 @@ import styles from "./WorkspacePanel.module.css";
  * context and STAYS on the current surface — this section is ambient
  * wayfinding, not a jump list.
  *
- * Bottom ("Active"): a flat, cross-project triage list — sessions that are
+ * Bottom ("Sessions"): a flat, cross-project triage list — sessions that are
  * `working` or `waiting` only, sorted waiting → working. A project whose only
  * session is idle still shows in the top tree, just not here. Picking a
  * session re-points context AND navigates to the Code surface — unlike the
- * top section, a session is somewhere to jump TO.
+ * top section, a session is somewhere to jump TO. It's lifted to start around
+ * the panel's mid-point rather than pinned to the bottom.
  */
-export function WorkspacePanel() {
+export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
@@ -37,6 +38,18 @@ export function WorkspacePanel() {
 
   return (
     <aside className={styles.panel} aria-label="Workspace">
+      {/* Close affordance only — no panel title, to keep the chrome quiet. */}
+      <header className={styles.header}>
+        <button
+          type="button"
+          className={styles.close}
+          onClick={onClose}
+          aria-label="Close workspace panel"
+        >
+          <CloseIcon width={18} height={18} />
+        </button>
+      </header>
+
       <section className={styles.section} aria-label="Projects">
         <h2 className={styles.heading}>Projects</h2>
         <ul className={styles.tree}>
@@ -105,8 +118,8 @@ export function WorkspacePanel() {
         </ul>
       </section>
 
-      <section className={styles.section} aria-label="Active sessions">
-        <h2 className={styles.heading}>Active</h2>
+      <section className={styles.section} aria-label="Sessions">
+        <h2 className={styles.heading}>Sessions</h2>
         {sessions.length === 0 ? (
           <p className={styles.empty}>No agent needs you right now.</p>
         ) : (

@@ -8,6 +8,36 @@
   background: var(--slds-g-color-surface-1, #fff);
 }
 
+/* Close-only header: a quiet top row with the dismiss control and no title. */
+.header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-surface-2, #f3f3f3) 60%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
 .section {
   display: flex;
   min-height: 0;
@@ -15,20 +45,22 @@
   padding: var(--slds-g-spacing-3, 0.75rem);
 }
 
-/* Top (Projects) takes whatever room the bottom section doesn't need, and
-   scrolls its own content — the tree can outgrow the panel long before the
-   triage list below it does. */
-.section:first-child {
-  flex: 1 1 auto;
+/* Top (Projects) reserves the upper half of the panel. Sizing it to a fixed
+   share (rather than letting it grow to fill) is what lifts the Sessions
+   section up to start around the mid-point, with breathing room between the
+   two, instead of Sessions being pinned to the very bottom. Scrolls if the
+   tree ever outgrows its half. */
+.section:first-of-type {
+  flex: 0 0 50%;
   overflow-y: auto;
 }
 
-/* Bottom (Active) sizes to its content but is capped, so a long triage list
-   can't push the project tree above it out of view; past the cap it scrolls
-   independently. */
-.section:last-child {
+/* Bottom (Sessions) begins right where Projects ends — around mid-panel — and
+   sizes to its content, leaving empty space below rather than hugging the
+   bottom edge. Capped at the lower half so a long list scrolls on its own. */
+.section:last-of-type {
   flex: 0 1 auto;
-  max-height: 45%;
+  max-height: 50%;
   overflow-y: auto;
   border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
