@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { CloseIcon, HomeIcon, PlusIcon } from "@/components/icons";
+import { CloseIcon, PlusIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID, type CanvasSpecInput } from "@/lib/surface-canvas/model";
@@ -43,6 +43,7 @@ export function SurfaceCanvasHost({
   children: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
+  const SurfaceIcon = surface.Icon;
   const { canvases, activeCanvasId, closeCanvas, setActiveCanvas } = useSurfaceCanvases(surfaceId);
   // Imperative focus targets for roving-tabindex keyboard nav. Focusing a tab
   // whose tabindex is still -1 (before the store-driven re-render flips it to 0)
@@ -111,16 +112,17 @@ export function SurfaceCanvasHost({
           return (
             // role=presentation keeps the tab itself a direct semantic child of
             // the tablist while letting the close button ride alongside it.
-            <span key={canvas.id} role="presentation" className={styles.tabWrap}>
+            <span
+              key={canvas.id}
+              role="presentation"
+              className={`${styles.tabWrap} ${isOverview ? styles.tabWrapSurface : ""}`}
+            >
               <button
                 type="button"
                 role="tab"
                 id={tabDomId(surfaceId, canvas.id)}
                 aria-selected={isActive}
                 aria-controls={panelDomId(surfaceId)}
-                // The overview is icon-only, so its accessible name comes from
-                // aria-label rather than text content.
-                aria-label={isOverview ? canvas.title : undefined}
                 tabIndex={isActive ? 0 : -1}
                 ref={(node) => {
                   tabRefs.current.set(canvas.id, node);
@@ -128,7 +130,24 @@ export function SurfaceCanvasHost({
                 className={`${styles.tab} ${isActive ? styles.tabActive : ""}`}
                 onClick={() => setActiveCanvas(surfaceId, canvas.id)}
               >
-                {isOverview ? <HomeIcon width={16} height={16} aria-hidden="true" /> : canvas.title}
+                {isOverview ? (
+                  // The pinned first tab IS the surface: its own icon + name,
+                  // always present and non-closable, so which surface you're in
+                  // stays visible no matter which canvas is active. Its text
+                  // (the surface label) is the tab's accessible name; clicking it
+                  // returns to the surface overview.
+                  <>
+                    <SurfaceIcon
+                      width={15}
+                      height={15}
+                      aria-hidden="true"
+                      className={styles.surfaceTabIcon}
+                    />
+                    {surface.label}
+                  </>
+                ) : (
+                  canvas.title
+                )}
               </button>
               {closable && (
                 <button

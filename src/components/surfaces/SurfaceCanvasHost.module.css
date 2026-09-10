@@ -18,6 +18,11 @@
   top: 0;
   z-index: 2;
   display: flex;
+  /* Never shrink: as a flex child of the column `.host`, the strip defaults to
+     flex-shrink:1, so a tall overview panel (launch pad + full projection) would
+     squeeze it a few px shorter than a short canvas panel does — the row visibly
+     jumps height as you switch tabs. Pinning the basis keeps it constant. */
+  flex: 0 0 auto;
   align-items: stretch;
   gap: var(--slds-g-spacing-1, 0.25rem);
   padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem) 0;
@@ -43,11 +48,22 @@
   border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
 }
 
+/* The pinned first tab IS the surface (its icon + name), so it's set apart from
+   the launched canvases after it by a hairline divider and a little trailing
+   room — a quiet "surface | canvases" seam that keeps the surface identity
+   reading as the container the other tabs live in, not just another tab. */
+.tabWrapSurface {
+  margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
+  padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
+  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
 /* No background plate — a tab is just its label (or the overview home glyph),
    distinguished only by weight/color and, when active, the shared underline. */
 .tab {
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
   max-width: 16rem;
   padding: 0.5rem 0.5rem 0.5rem 0.6rem;
   border: 0;
@@ -64,6 +80,19 @@
 
 .tab:hover {
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* The surface glyph on the pinned tab — fixed size so it never shrinks as the
+   label truncates, and slightly muted so the surface name carries the weight. */
+.surfaceTabIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* When the pinned surface tab is the active one, its glyph joins the label at
+   the strong on-surface ink rather than staying muted. */
+.tabActive .surfaceTabIcon {
+  color: inherit;
 }
 
 .tabActive,
