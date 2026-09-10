@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CloseIcon, GitBranchIcon, LayersIcon, LinkIcon } from "@/components/icons";
+import { BoxIcon, CloseIcon, GitBranchIcon, LayersIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -28,39 +28,48 @@ const FILTER_LABEL: Record<PanelFilter, string> = {
   apps: "Apps",
 };
 
-/** A project's deployed output — visually distinct from a worktree row (a
- *  chain-link glyph instead of a status dot, muted URL instead of a branch
- *  name) since it's an outward-facing running thing, not another branch.
- *  `showProject` surfaces the owning project's name, used only in the flat
- *  "Apps" filter where rows aren't already nested under a project header. */
+/** A project's deployed output, rendered at the SAME hierarchy level as a
+ *  worktree — an app is the project's distribution artifact ("dist folder"),
+ *  not a peer of the project. Same size and, when `nested`, the same tree
+ *  connector as a worktree row; only the glyph differs (a package box instead
+ *  of a worktree's status dot) and the trailing slot carries the app's status
+ *  word instead of a branch name. The live URL isn't shown here — that lives
+ *  in the app's ops canvas. `nested` toggles the tree connector (on under a
+ *  project, off in the flat "Apps" list, which has no parent to connect to);
+ *  `lastChild` draws the └ corner. `showProject` surfaces the owning project's
+ *  name, used only in the flat list where rows aren't under a project header. */
 function AppRow({
   project,
   app,
   showProject,
+  nested,
+  lastChild,
   onSelect,
 }: {
   project: Project;
   app: DeployedApp;
   showProject: boolean;
+  nested: boolean;
+  lastChild: boolean;
   onSelect: () => void;
 }) {
   return (
     <button
       type="button"
-      className={styles.appRow}
+      className={
+        nested
+          ? `${styles.worktreeRow} ${lastChild ? styles.worktreeRowLast : ""}`
+          : styles.appRow
+      }
       onClick={onSelect}
-      aria-label={`${app.label}${showProject ? `, ${project.name}` : ""}, ${app.environment}, ${app.url}, ${APP_STATUS_LABEL[app.status]}`}
+      aria-label={`${app.label}${showProject ? `, ${project.name}` : ""}, ${app.environment}, ${APP_STATUS_LABEL[app.status]}`}
     >
-      <LinkIcon className={styles.appIcon} width={13} height={13} />
+      <BoxIcon className={styles.appIcon} width={14} height={14} />
       <span className={styles.appCopy}>
-        <span className={styles.appHead}>
-          <span className={styles.appLabel}>{app.label}</span>
-          {showProject && <span className={styles.appProject}>{project.name}</span>}
-        </span>
-        <span className={styles.appUrl}>{app.url}</span>
+        <span className={styles.appLabel}>{app.label}</span>
+        {showProject && <span className={styles.appProject}>{project.name}</span>}
       </span>
       <span className={`${styles.appStatus} ${styles[`appStatus-${app.status}`]}`}>
-        <span className={styles.appStatusDot} aria-hidden="true" />
         {APP_STATUS_LABEL[app.status]}
       </span>
     </button>
@@ -167,6 +176,8 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     project={project}
                     app={app}
                     showProject
+                    nested={false}
+                    lastChild={false}
                     onSelect={() => openApp(project.id)}
                   />
                 </li>
@@ -178,6 +189,12 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
             {tree.map(({ project, base, children }) => {
               const isProjectCurrent = project.id === activeProject.id;
               const isBaseCurrent = isProjectCurrent && base.worktree.id === activeWorktree.id;
+              // Apps are tree-connected children too (in "all"), rendered
+              // after the worktrees. When a project has them, the last
+              // worktree must NOT cap the connector with a └ corner — the
+              // guide has to continue down into the apps, whose own last row
+              // draws the corner instead.
+              const nestedApps = filter === "all" ? project.apps : [];
               return (
                 <li key={project.id}>
                   {/* The project and its primary worktree ("main") are ONE node:
@@ -211,7 +228,9 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                             <button
                               type="button"
                               className={`${styles.worktreeRow} ${
-                                lastChild ? styles.worktreeRowLast : ""
+                                lastChild && nestedApps.length === 0
+                                  ? styles.worktreeRowLast
+                                  : ""
                               } ${isCurrent ? styles.rowCurrent : ""}`}
                               aria-current={isCurrent}
                               // Pass project.id explicitly: setActiveProject above
@@ -236,17 +255,20 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                   )}
 
                   {/* Deployed outputs — hidden in "projects" mode (source
-                      tree only), shown nested under their project in "all".
-                      No tree connector: an app is a different KIND of child
-                      than a worktree, not another sibling branch. */}
-                  {filter === "all" && project.apps.length > 0 && (
+                      tree only), shown nested under their project in "all" as
+                      tree-connected children at the same level as worktrees:
+                      an app is the project's distribution artifact, a sibling
+                      of its branches, not a peer of the project. */}
+                  {nestedApps.length > 0 && (
                     <ul className={styles.appList}>
-                      {project.apps.map((app) => (
+                      {nestedApps.map((app, index) => (
                         <li key={app.id}>
                           <AppRow
                             project={project}
                             app={app}
                             showProject={false}
+                            nested
+                            lastChild={index === nestedApps.length - 1}
                             onSelect={() => openApp(project.id)}
                           />
                         </li>

@@ -261,46 +261,55 @@
   white-space: nowrap;
 }
 
-/* Deployed apps — nested under a project (in "all") or flattened at the top
-   of the section (in "apps"), either way styled to read as an OUTPUT, not
-   another branch: a dashed rather than solid guide (worktrees get the solid
-   git tree line), and a chain-link glyph in place of the worktree's status
-   dot. */
+/* Deployed apps — a project's distribution output, rendered at the SAME level
+   as its worktrees rather than as a peer of the project. In "all" they're
+   tree-connected children (the rows reuse `.worktreeRow`, so the solid git
+   guide runs straight through them into a └ on the last app); in the flat
+   "apps" filter they're a plain indented list with no parent to connect to.
+   Either way: no card, no border — an app is a leaf like a branch, just with
+   a package glyph instead of a status dot. */
 .appList {
   display: grid;
+  /* Pin the single column to the available width. Without this the implicit
+     `auto` track sizes to the widest row's max-content (a long "app · project ·
+     status" line), overflowing the narrow panel and clipping the trailing
+     status chip; minmax(0, 1fr) lets the row shrink so its copy truncates
+     instead. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.1rem;
   padding-inline-start: 0.5rem;
 }
 
+/* Flat-list app row (the "apps" filter only): a plain leaf, no tree connector,
+   sized to match a worktree row. Nested app rows reuse `.worktreeRow` for the
+   connector and never come through here. */
 .appRow {
-  position: relative;
-  padding: 0.35rem 0.5rem 0.35rem 0.6rem;
-  border-inline-start: 2px dashed
-    color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 35%, transparent);
+  padding: 0.3rem 0.5rem;
   font-size: var(--slds-g-font-scale-1, 0.8125rem);
 }
 
 .appIcon {
   flex: 0 0 auto;
+  /* Neutral: the box glyph is identity ("this is an app"), not status —
+     status is carried by the trailing word's color. */
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  opacity: 0.75;
 }
 
+/* Label (+ project, in the flat view) share a flex-filling wrapper that
+   truncates as the panel narrows — the same idiom as `.sessionCopy` — so the
+   trailing status word (a fixed-size sibling) is never the thing that gets
+   clipped off the panel's edge. */
 .appCopy {
-  display: grid;
-  min-width: 0;
-  flex: 1 1 auto;
-  gap: 0.05rem;
-}
-
-.appHead {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   align-items: baseline;
   gap: 0.35rem;
 }
 
 .appLabel {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
   font-weight: 500;
@@ -309,8 +318,11 @@
 }
 
 /* Only shown in the flat "apps" filter, where rows aren't already nested
-   under their project's header. */
+   under their project's header. Shrinks (min-width:0) before the label does
+   its share, since the project is the more expendable of the two here. */
 .appProject {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
@@ -318,30 +330,16 @@
   white-space: nowrap;
 }
 
-.appUrl {
-  overflow: hidden;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* Status takes the trailing slot a worktree uses for its branch name: a
+   fixed-size chip at the far edge, small, colored by state. No dot — the
+   color on the word carries the state, keeping the row as quiet as a
+   branch row. */
 .appStatus {
-  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  gap: 0.3rem;
   color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
   font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
-}
-
-.appStatusDot {
-  width: 0.4rem;
-  height: 0.4rem;
-  border-radius: 50%;
-  background: currentColor;
 }
 
 /* Four states, unlike the session dot's three — apps can be up, mid-deploy,
