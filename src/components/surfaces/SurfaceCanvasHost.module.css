@@ -19,7 +19,7 @@
   z-index: 2;
   display: flex;
   /* Never shrink: as a flex child of the column `.host`, the strip defaults to
-     flex-shrink:1, so a tall overview panel (launch pad + full projection) would
+     flex-shrink:1, so a tall overview panel (the full projection) would
      squeeze it a few px shorter than a short canvas panel does — the row visibly
      jumps height as you switch tabs. Pinning the basis keeps it constant. */
   flex: 0 0 auto;
@@ -155,106 +155,4 @@
 .panel:focus-visible {
   outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
   outline-offset: -2px;
-}
-
-/* Launch pad: a banded call-to-action at the top of the overview, above the
-   projection. Sits on the surface background as its own card row. */
-.launchPad {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--slds-g-spacing-4, 1rem);
-  width: min(64rem, 100%);
-  margin: 0 auto;
-  padding: clamp(1.25rem, 3vw, 2.5rem) clamp(1.25rem, 3vw, 2.5rem) 0;
-}
-
-.launchCopy {
-  min-width: 0;
-}
-
-.launchTitle {
-  margin: 0;
-  color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: var(--slds-g-font-scale-3, 1.25rem);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.launchLead {
-  max-width: 34rem;
-  margin: var(--slds-g-spacing-1, 0.25rem) 0 0;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
-  line-height: 1.5;
-}
-
-.launchList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.launchButton {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  padding: 0.5rem 0.85rem;
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-surface-1, #fff);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-
-.launchButton:hover {
-  border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 55%, transparent);
-  box-shadow: 0 1px 6px rgb(1 118 211 / 12%);
-}
-
-.launchButton:focus-visible {
-  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
-  outline-offset: 2px;
-}
-
-.launchIcon {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: rgb(1 118 211 / 12%);
-  color: light-dark(#0176d3, #78b9ff);
-}
-
-.launchButtonCopy {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.2;
-}
-
-.launchLabel {
-  color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
-  font-weight: 600;
-}
-
-.launchHint {
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-}
-
-@media (max-width: 680px) {
-  .launchPad {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }

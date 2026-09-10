@@ -1,7 +1,9 @@
 "use client";
 
-import { BoxIcon, ClipboardIcon, FileIcon, LinkIcon, ListCheckIcon } from "@/components/icons";
+import { BoxIcon, ClipboardIcon, LinkIcon } from "@/components/icons";
+import { surfaceApps } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import type { SurfaceId } from "@/lib/workspace/model";
 import type { CanvasSpec, LaunchableCanvasKind } from "@/lib/surface-canvas/model";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./canvas-registry.module.css";
@@ -22,69 +24,6 @@ import styles from "./canvas-registry.module.css";
  */
 
 type CanvasComponent = (props: { spec: CanvasSpec }) => React.ReactElement;
-
-/** A scratch note — the simplest "empty editor" a launch pad can spawn. Its
- *  params carry a per-note number so several can coexist as distinct tabs. */
-function NotesCanvas({ spec }: { spec: CanvasSpec }) {
-  const { activeProject } = useWorkspace();
-  return (
-    <article className={styles.canvas}>
-      <header className={styles.head}>
-        <span className={styles.headIcon} aria-hidden="true">
-          <FileIcon width={18} height={18} />
-        </span>
-        <div>
-          <h2 className={styles.title}>{spec.title}</h2>
-          <p className={styles.meta}>Scratch note · {activeProject.name}</p>
-        </div>
-      </header>
-      <p className={styles.body}>
-        A throwaway surface for capturing a thought without leaving the workstage.
-        Closing the tab discards it — this is the prototype stand-in for a real,
-        persisted note kind.
-      </p>
-      <textarea
-        className={styles.scratch}
-        aria-label={`${spec.title} scratch area`}
-        placeholder="Jot something…"
-        rows={8}
-      />
-    </article>
-  );
-}
-
-/** A project-scoped activity feed — a singleton launch (no params) so
- *  re-launching it focuses the open tab rather than stacking duplicates. */
-function ActivityCanvas({ spec }: { spec: CanvasSpec }) {
-  const { activeProject, activeWorktree } = useWorkspace();
-  const events = [
-    { tone: "info" as const, when: "just now", text: `Opened activity for ${activeWorktree.label}.` },
-    { tone: "neutral" as const, when: "2m ago", text: "Agent finished a scoped edit." },
-    { tone: "caution" as const, when: "1h ago", text: "Deploy check flagged a permission set." },
-  ];
-  return (
-    <article className={styles.canvas}>
-      <header className={styles.head}>
-        <span className={styles.headIcon} aria-hidden="true">
-          <ListCheckIcon width={18} height={18} />
-        </span>
-        <div>
-          <h2 className={styles.title}>{spec.title}</h2>
-          <p className={styles.meta}>Recent activity · {activeProject.name}</p>
-        </div>
-      </header>
-      <ol className={styles.feed}>
-        {events.map((event) => (
-          <li key={event.text} className={styles.event}>
-            <span className={`${styles.dot} ${styles[event.tone]}`} aria-hidden="true" />
-            <span className={styles.eventText}>{event.text}</span>
-            <span className={styles.eventWhen}>{event.when}</span>
-          </li>
-        ))}
-      </ol>
-    </article>
-  );
-}
 
 /** A single deployed app's ops/observe view — the canvas an app row in the
  *  WorkspacePanel opens. Its params (projectId + appId) resolve the app from the
@@ -138,10 +77,25 @@ function AppCanvas({ spec }: { spec: CanvasSpec }) {
   );
 }
 
+/** A launched surface capability — opened from the overview's launch region.
+ *  Its params carry the owning surface id and the capability name; the surface
+ *  is resolved back to its label for the meta line so the tab reads as "this
+ *  capability, in that surface." Prototype-grade content: it degrades to the
+ *  shared placeholder shape (title + a surface meta line) until a real per-
+ *  capability view lands, so a launch is a real, named tab rather than a stub. */
+function CapabilityCanvas({ spec }: { spec: CanvasSpec }) {
+  const surface = surfaceApps.find((candidate) => candidate.id === (spec.params?.surface as SurfaceId));
+  return (
+    <PlaceholderCanvas
+      title={spec.title}
+      meta={surface ? `Capability · ${surface.label}` : "Capability"}
+    />
+  );
+}
+
 const CANVAS_COMPONENTS: Record<LaunchableCanvasKind, CanvasComponent> = {
-  notes: NotesCanvas,
-  activity: ActivityCanvas,
   app: AppCanvas,
+  capability: CapabilityCanvas,
 };
 
 /** The quiet fallback shape — a header-only canvas whose message sits in the

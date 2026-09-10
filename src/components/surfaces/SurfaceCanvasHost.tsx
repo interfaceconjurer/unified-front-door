@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import { CloseIcon, PlusIcon } from "@/components/icons";
+import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import type { SurfaceId } from "@/lib/workspace/model";
-import { OVERVIEW_CANVAS_ID, type CanvasSpecInput } from "@/lib/surface-canvas/model";
+import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
 import { CanvasContent } from "./canvas-registry";
 import { useSurfaceCanvases } from "./surface-canvas-context";
 import styles from "./SurfaceCanvasHost.module.css";
@@ -22,8 +22,9 @@ function panelDomId(surfaceId: SurfaceId): string {
 /**
  * The surface pane's tab framework — the "workstage" for one surface. Renders a
  * tablist above a single canvas panel: tab 0 is the pinned, non-closable
- * Overview launch pad (the surface's existing projection body, `children`, plus
- * launch affordances), and every launched canvas is a closable tab after it.
+ * Overview (the surface's own projection body, `children`, which carries the
+ * per-surface launch region), and every launched canvas is a closable tab after
+ * it.
  *
  * Lives inside the surface pane (mounted by `AppShell`), but its state comes
  * from the shell-level `SurfaceCanvasProvider` above the router outlet, so the
@@ -175,102 +176,11 @@ export function SurfaceCanvasHost({
         className={styles.panel}
       >
         {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
-          <>
-            <LaunchPad surfaceId={surfaceId} />
-            {children}
-          </>
+          children
         ) : (
           <CanvasContent spec={activeCanvas} />
         )}
       </div>
     </div>
-  );
-}
-
-/** A launch definition: label + the serializable spec it opens. `makeSpec` is
- *  handed the next free note number so a "new each time" launch (notes) always
- *  gets an unused id, while a singleton launch (activity) omits params and thus
- *  dedupes to a single tab. */
-type Launch = {
-  key: string;
-  label: string;
-  hint: string;
-  makeSpec: (nextNoteNumber: number) => CanvasSpecInput;
-};
-
-/** The two prototype launches, chosen to exercise both `openCanvas` dedupe
- *  paths from the UI: `activity` is params-free, so re-launching focuses the one
- *  open tab (singleton), while `notes` carries a per-note number, so each launch
- *  opens a distinct tab. Between them they demonstrate the whole tab lifecycle
- *  the phase requires. */
-const LAUNCHES: readonly Launch[] = [
-  {
-    key: "activity",
-    label: "Open activity log",
-    hint: "One per surface — re-opening focuses it",
-    makeSpec: () => ({ kind: "activity", title: "Activity log" }),
-  },
-  {
-    key: "notes",
-    label: "New scratch note",
-    hint: "Opens a fresh tab each time",
-    makeSpec: (nextNoteNumber) => ({
-      kind: "notes",
-      title: `Scratch note ${nextNoteNumber}`,
-      params: { n: String(nextNoteNumber) },
-    }),
-  },
-];
-
-/**
- * The launch-pad affordances shown on the Overview tab. Each button calls
- * `openCanvas`, which opens+activates a new tab (or focuses the matching one for
- * a params-free singleton). This is the "empty editor as launch pad" made
- * concrete — the minimum needed to exercise the whole tab lifecycle.
- */
-function LaunchPad({ surfaceId }: { surfaceId: SurfaceId }) {
-  const { canvases, openCanvas } = useSurfaceCanvases(surfaceId);
-  // Next free note number = one past the highest `n` currently open, NOT the
-  // count of open notes: deriving from the count re-issues an id after a close
-  // (open 1+2, close 1, "new" would recompute n=2 and merely re-focus the old
-  // tab). Reading the max live `n` always yields an unused id, and — because it
-  // reads the persisted specs rather than a session counter — it also stays
-  // monotonic across a reload.
-  const nextNoteNumber =
-    canvases.reduce((max, c) => {
-      if (c.kind !== "notes") return max;
-      const n = Number(c.params?.n);
-      return Number.isFinite(n) && n > max ? n : max;
-    }, 0) + 1;
-
-  return (
-    <section className={styles.launchPad} aria-label="Launch a canvas">
-      <div className={styles.launchCopy}>
-        <h2 className={styles.launchTitle}>Launch a canvas</h2>
-        <p className={styles.launchLead}>
-          Open a working canvas as its own tab in this surface. Tabs persist across
-          reloads and stay scoped to this surface.
-        </p>
-      </div>
-      <ul className={styles.launchList}>
-        {LAUNCHES.map((launch) => (
-          <li key={launch.key}>
-            <button
-              type="button"
-              className={styles.launchButton}
-              onClick={() => openCanvas(surfaceId, launch.makeSpec(nextNoteNumber))}
-            >
-              <span className={styles.launchIcon} aria-hidden="true">
-                <PlusIcon width={16} height={16} />
-              </span>
-              <span className={styles.launchButtonCopy}>
-                <span className={styles.launchLabel}>{launch.label}</span>
-                <span className={styles.launchHint}>{launch.hint}</span>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }

@@ -41,86 +41,10 @@
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
 }
 
-.body {
-  max-width: 44rem;
-  margin: 0;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
-  line-height: 1.6;
-}
-
-.scratch {
-  width: 100%;
-  padding: var(--slds-g-spacing-3, 0.75rem);
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-surface-1, #fff);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font: inherit;
-  line-height: 1.5;
-  resize: vertical;
-}
-
-.scratch:focus-visible {
-  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
-  outline-offset: 1px;
-}
-
-/* Activity feed: a compact timeline whose leading dot reuses the surface's
-   tone vocabulary (info/neutral/caution) so it reads as one system with the
-   projection's insight rails. */
-.feed {
-  display: grid;
-  gap: var(--slds-g-spacing-1, 0.25rem);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.event {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--slds-g-spacing-3, 0.75rem);
-  padding: var(--slds-g-spacing-3, 0.75rem);
-  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-surface-1, #fff);
-}
-
-.dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--tone, var(--slds-g-color-border-2, #939393));
-}
-
-.neutral {
-  --tone: var(--slds-g-color-border-2, #939393);
-}
-.info {
-  --tone: #0176d3;
-}
-.caution {
-  --tone: #ba0517;
-}
-
-.eventText {
-  min-width: 0;
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-1, 0.8125rem);
-}
-
-.eventWhen {
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  white-space: nowrap;
-}
-
 /* App ops canvas: the live URL as a plain accent link (the one call to action
-   here), then the deploy facts as a single bordered panel — the same card idiom
-   as the activity feed's events, rows divided rather than each boxed, so the
-   two canvases read as one system. */
+   here), then the deploy facts as a single bordered panel — one card with its
+   rows divided by hairlines rather than each fact boxed on its own, so the facts
+   read as one grouped record. */
 .appUrl {
   display: inline-flex;
   align-self: flex-start;
