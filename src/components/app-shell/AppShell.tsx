@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
 import { FrontDoor } from "@/components/front-door/FrontDoor";
+import { surfaceAppForPath } from "@/components/front-door/app-catalog";
+import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
+import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { CommandPalette } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -25,6 +28,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // The front door merges the agent and launcher into one column, so it renders
   // full-width without the separate persistent agent panel.
   const isFrontDoor = pathname === "/";
+  // Which surface (if any) this route belongs to — drives whether the route
+  // content is wrapped in its per-surface canvas/tab host. The front door and
+  // any non-surface route render their content bare.
+  const surface = surfaceAppForPath(pathname);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
@@ -62,6 +69,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkspaceProvider>
+      {/* Peer of the workspace: per-surface canvas ("workstage") state, mounted
+          above the router outlet so a surface's open tabs survive route content
+          swaps (and, via its persisted store, a reload). */}
+      <SurfaceCanvasProvider>
       <div className={styles.shell}>
         <TopBar
           onOpenPalette={() => setPaletteOpen(true)}
@@ -96,7 +107,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-hidden={isFrontDoor}
             >
               <div key={pathname} className={styles.surfaceInner}>
-                {children}
+                {/* On a surface route the route content becomes tab 0 (the
+                    Overview launch pad) of that surface's canvas host; other
+                    routes (the front door) render bare. Keying on pathname is
+                    preserved — the host reads its state from the shell-level
+                    provider, so remounting the UI per route is harmless. */}
+                {surface ? (
+                  <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                ) : (
+                  children
+                )}
               </div>
             </main>
           </div>
@@ -104,6 +124,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <StatusBar />
         {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
       </div>
+      </SurfaceCanvasProvider>
     </WorkspaceProvider>
   );
 }
