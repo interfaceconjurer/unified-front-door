@@ -94,14 +94,6 @@ export function allSessionRows(projects: readonly Project[]): SessionRow[] {
   return rows.sort((a, b) => STATUS_RANK[a.session.status] - STATUS_RANK[b.session.status]);
 }
 
-/** The triage subset: sessions a human might act on right now (working or
- *  waiting), idle dropped entirely. This is what the `WorkspacePanel`'s
- *  bottom section shows — a project whose only session is idle is absent
- *  from this list, though it still appears in `buildProjectTree`'s top tree. */
-export function activeSessionRows(projects: readonly Project[]): SessionRow[] {
-  return allSessionRows(projects).filter((row) => row.session.status !== "idle");
-}
-
 export type AppRow = {
   project: Project;
   app: DeployedApp;

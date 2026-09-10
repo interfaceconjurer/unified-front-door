@@ -261,13 +261,12 @@
   white-space: nowrap;
 }
 
-/* Deployed apps — a project's distribution output, rendered at the SAME level
-   as its worktrees rather than as a peer of the project. In "all" they're
-   tree-connected children (the rows reuse `.worktreeRow`, so the solid git
-   guide runs straight through them into a └ on the last app); in the flat
-   "apps" filter they're a plain indented list with no parent to connect to.
-   Either way: no card, no border — an app is a leaf like a branch, just with
-   a package glyph instead of a status dot. */
+/* Deployed apps — a project's distribution output, listed at the SAME indent as
+   its worktrees but deliberately WITHOUT the git guide lines: those connectors
+   belong to source branches, and drawing them into the apps would imply an app
+   is the same kind of node as a branch. So apps are a plain, un-connected group
+   (nested under a project in "all", flat in the "apps" filter) — no card, no
+   border, no connector; just a package glyph and the app's status word. */
 .appList {
   display: grid;
   /* Pin the single column to the available width. Without this the implicit
@@ -280,12 +279,20 @@
   padding-inline-start: 0.5rem;
 }
 
-/* Flat-list app row (the "apps" filter only): a plain leaf, no tree connector,
-   sized to match a worktree row. Nested app rows reuse `.worktreeRow` for the
-   connector and never come through here. */
+/* App row — a plain leaf with no tree connector, sized to match a worktree row.
+   Used for both the flat "apps" filter and (with `.appNested`) the grouped view;
+   the difference is only indent. */
 .appRow {
   padding: 0.3rem 0.5rem;
   font-size: var(--slds-g-font-scale-1, 0.8125rem);
+}
+
+/* Nested under a project: indent the row so its package glyph lines up with the
+   worktree status dots above it (the worktree's own 1.6rem text inset), so apps
+   sit at the same level as branches — just without the connecting guide lines
+   that would make them read as branches. */
+.appNested {
+  padding-inline-start: 1.6rem;
 }
 
 .appIcon {
@@ -432,12 +439,17 @@
   white-space: nowrap;
 }
 
-/* Only working/waiting ever reach this list (idle is filtered out by
-   `activeSessionRows`), so those are the only two colors this chip needs. */
+/* All three session states reach this list now (it mirrors the palette's full
+   set via `allSessionRows`): working and waiting carry their triage hues, while
+   idle drops to the quiet on-surface gray so it recedes below the active two. */
 .working {
   --status-color: light-dark(#0176d3, #78b9ff);
 }
 
 .waiting {
   --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }

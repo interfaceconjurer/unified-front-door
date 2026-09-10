@@ -6,10 +6,11 @@ import { BoxIcon, CloseIcon, GitBranchIcon, LayersIcon } from "@/components/icon
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { surfaceCanvasStore } from "@/lib/surface-canvas/persistence";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
-  activeSessionRows,
   allAppRows,
+  allSessionRows,
   APP_STATUS_LABEL,
   buildProjectTree,
   STATUS_LABEL,
@@ -28,39 +29,34 @@ const FILTER_LABEL: Record<PanelFilter, string> = {
   apps: "Apps",
 };
 
-/** A project's deployed output, rendered at the SAME hierarchy level as a
- *  worktree — an app is the project's distribution artifact ("dist folder"),
- *  not a peer of the project. Same size and, when `nested`, the same tree
- *  connector as a worktree row; only the glyph differs (a package box instead
- *  of a worktree's status dot) and the trailing slot carries the app's status
- *  word instead of a branch name. The live URL isn't shown here — that lives
- *  in the app's ops canvas. `nested` toggles the tree connector (on under a
- *  project, off in the flat "Apps" list, which has no parent to connect to);
- *  `lastChild` draws the └ corner. `showProject` surfaces the owning project's
- *  name, used only in the flat list where rows aren't under a project header. */
+/** A project's deployed output, listed under the project at the same indent as
+ *  its worktrees — an app is the project's distribution artifact ("dist folder"),
+ *  owned by the project. Deliberately NOT tree-connected: the git guide lines
+ *  belong to source branches, and running them into the apps would imply an app
+ *  is the same kind of node as a branch. Apps instead read as a distinct group —
+ *  a package glyph, no connector lines — that happens to sit at the worktree
+ *  level. The trailing slot carries the app's status word; the live URL isn't
+ *  shown here (that lives in the app's ops canvas). `nested` only adds the deeper
+ *  indent used under a project; the flat "Apps" list drops it. `showProject`
+ *  surfaces the owning project's name, used only in that flat list where rows
+ *  aren't under a project header. */
 function AppRow({
   project,
   app,
   showProject,
   nested,
-  lastChild,
   onSelect,
 }: {
   project: Project;
   app: DeployedApp;
   showProject: boolean;
   nested: boolean;
-  lastChild: boolean;
   onSelect: () => void;
 }) {
   return (
     <button
       type="button"
-      className={
-        nested
-          ? `${styles.worktreeRow} ${lastChild ? styles.worktreeRowLast : ""}`
-          : styles.appRow
-      }
+      className={nested ? `${styles.appRow} ${styles.appNested}` : styles.appRow}
       onClick={onSelect}
       aria-label={`${app.label}${showProject ? `, ${project.name}` : ""}, ${app.environment}, ${APP_STATUS_LABEL[app.status]}`}
     >
@@ -96,9 +92,11 @@ function AppRow({
  * caller below) since an app isn't a place you navigate context within, it's
  * a deployed thing you go look at.
  *
- * Bottom ("Sessions"): a flat, cross-project triage list — sessions that are
- * `working` or `waiting` only, sorted waiting → working. A project whose only
- * session is idle still shows in the top tree, just not here. Picking a
+ * Bottom ("Sessions"): a flat, cross-project list of EVERY agent session,
+ * sorted waiting → working → idle — the same set the ⌘⇧P palette's Sessions
+ * tab shows, over the same `allSessionRows` derivation, so the two never
+ * disagree on the count. Waiting/working float to the top as the triage
+ * priority, with idle sessions listed below rather than hidden. Picking a
  * session re-points context AND navigates to the Code surface — unlike the
  * top section, a session is somewhere to jump TO. It's lifted to start around
  * the panel's mid-point rather than pinned to the bottom. Unaffected by the
@@ -112,18 +110,27 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const [filter, setFilter] = useState<PanelFilter>("all");
 
   const tree = buildProjectTree(projects);
-  const sessions = activeSessionRows(projects);
+  const sessions = allSessionRows(projects);
   const apps = allAppRows(projects);
   const codeHref = surfaceAppById("code").href;
   const buildHref = surfaceAppById("build").href;
 
-  // Placeholder until the ops/observe canvas framework lands: an app row
-  // re-points context (so the surface it lands on knows which project it's
-  // looking at) and jumps to Build & Setup, the surface the less-technical
-  // persona lives in. Once the canvas framework exists this opens the app in
-  // an ops/observe canvas instead of just navigating there.
-  function openApp(projectId: string) {
-    setActiveProject(projectId);
+  // An app row opens the app's ops/observe canvas as a tab in Build & Setup —
+  // the surface the less-technical persona lives in — where the app's live URL
+  // and deploy facts now live (deliberately not on the row itself). Opening is
+  // idempotent by kind+params (projectId+appId), so re-clicking a row focuses
+  // the existing tab instead of stacking duplicates. We re-point context first
+  // so the canvas (and the surface) resolve against the right project, then
+  // navigate to the build surface if we aren't already there. `surfaceCanvasStore`
+  // is a plain module singleton, so calling it directly from this client
+  // component is the intended seam — no React context needed.
+  function openApp(project: Project, app: DeployedApp) {
+    surfaceCanvasStore.openCanvas("build", {
+      kind: "app",
+      title: app.label,
+      params: { projectId: project.id, appId: app.id },
+    });
+    setActiveProject(project.id);
     if (pathname !== buildHref) router.push(buildHref);
   }
 
@@ -177,8 +184,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     app={app}
                     showProject
                     nested={false}
-                    lastChild={false}
-                    onSelect={() => openApp(project.id)}
+                    onSelect={() => openApp(project, app)}
                   />
                 </li>
               ))}
@@ -189,11 +195,9 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
             {tree.map(({ project, base, children }) => {
               const isProjectCurrent = project.id === activeProject.id;
               const isBaseCurrent = isProjectCurrent && base.worktree.id === activeWorktree.id;
-              // Apps are tree-connected children too (in "all"), rendered
-              // after the worktrees. When a project has them, the last
-              // worktree must NOT cap the connector with a └ corner — the
-              // guide has to continue down into the apps, whose own last row
-              // draws the corner instead.
+              // Apps render as a separate, un-connected group after the
+              // worktrees (in "all" only), so the source tree closes normally
+              // with its own └ corner on the last branch.
               const nestedApps = filter === "all" ? project.apps : [];
               return (
                 <li key={project.id}>
@@ -228,9 +232,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                             <button
                               type="button"
                               className={`${styles.worktreeRow} ${
-                                lastChild && nestedApps.length === 0
-                                  ? styles.worktreeRowLast
-                                  : ""
+                                lastChild ? styles.worktreeRowLast : ""
                               } ${isCurrent ? styles.rowCurrent : ""}`}
                               aria-current={isCurrent}
                               // Pass project.id explicitly: setActiveProject above
@@ -254,22 +256,21 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     </ul>
                   )}
 
-                  {/* Deployed outputs — hidden in "projects" mode (source
-                      tree only), shown nested under their project in "all" as
-                      tree-connected children at the same level as worktrees:
-                      an app is the project's distribution artifact, a sibling
-                      of its branches, not a peer of the project. */}
+                  {/* Deployed outputs — hidden in "projects" mode (source tree
+                      only), shown under their project in "all" as a distinct,
+                      un-connected group at the worktree indent: an app is the
+                      project's distribution artifact, owned by it but not a
+                      source branch, so it gets no git guide line. */}
                   {nestedApps.length > 0 && (
                     <ul className={styles.appList}>
-                      {nestedApps.map((app, index) => (
+                      {nestedApps.map((app) => (
                         <li key={app.id}>
                           <AppRow
                             project={project}
                             app={app}
                             showProject={false}
                             nested
-                            lastChild={index === nestedApps.length - 1}
-                            onSelect={() => openApp(project.id)}
+                            onSelect={() => openApp(project, app)}
                           />
                         </li>
                       ))}
@@ -285,7 +286,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
       <section className={styles.section} aria-label="Sessions">
         <h2 className={styles.heading}>Sessions</h2>
         {sessions.length === 0 ? (
-          <p className={styles.empty}>No agent needs you right now.</p>
+          <p className={styles.empty}>No agent sessions yet.</p>
         ) : (
           <ul className={styles.sessionList}>
             {sessions.map(({ project, worktree, session }) => {
