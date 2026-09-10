@@ -8,6 +8,36 @@
   background: var(--slds-g-color-surface-1, #fff);
 }
 
+/* Close-only header: a quiet top row with the dismiss control and no title. */
+.header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-surface-2, #f3f3f3) 60%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
 .section {
   display: flex;
   min-height: 0;
@@ -15,20 +45,22 @@
   padding: var(--slds-g-spacing-3, 0.75rem);
 }
 
-/* Top (Projects) takes whatever room the bottom section doesn't need, and
-   scrolls its own content — the tree can outgrow the panel long before the
-   triage list below it does. */
-.section:first-child {
-  flex: 1 1 auto;
+/* Top (Projects) reserves the upper half of the panel. Sizing it to a fixed
+   share (rather than letting it grow to fill) is what lifts the Sessions
+   section up to start around the mid-point, with breathing room between the
+   two, instead of Sessions being pinned to the very bottom. Scrolls if the
+   tree ever outgrows its half. */
+.section:first-of-type {
+  flex: 0 0 50%;
   overflow-y: auto;
 }
 
-/* Bottom (Active) sizes to its content but is capped, so a long triage list
-   can't push the project tree above it out of view; past the cap it scrolls
-   independently. */
-.section:last-child {
+/* Bottom (Sessions) begins right where Projects ends — around mid-panel — and
+   sizes to its content, leaving empty space below rather than hugging the
+   bottom edge. Capped at the lower half so a long list scrolls on its own. */
+.section:last-of-type {
   flex: 0 1 auto;
-  max-height: 45%;
+  max-height: 50%;
   overflow-y: auto;
   border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
@@ -42,9 +74,45 @@
   letter-spacing: 0.04em;
 }
 
+/* All/Projects/Apps segmented control — a single track with a sliding
+   "current" fill, the same neutral-gray selection idiom as `.rowCurrent`
+   (blue stays reserved for calls to action, not for "which tab am I on"). */
+.filterBar {
+  display: flex;
+  gap: 0.15rem;
+  margin: 0 0 var(--slds-g-spacing-2, 0.5rem);
+  padding: 0.15rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.filterButton {
+  flex: 1 1 auto;
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filterButton:hover {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.filterButtonActive,
+.filterButtonActive:hover {
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
 .tree,
 .worktreeList,
-.sessionList {
+.sessionList,
+.appList {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -57,7 +125,8 @@
 
 .row,
 .worktreeRow,
-.sessionRow {
+.sessionRow,
+.appRow {
   display: flex;
   width: 100%;
   align-items: center;
@@ -84,7 +153,8 @@
    .rowCurrent class so selection can't be overridden by source order. */
 .row:not(.rowCurrent):hover,
 .worktreeRow:not(.rowCurrent):hover,
-.sessionRow:not(.rowCurrent):hover {
+.sessionRow:not(.rowCurrent):hover,
+.appRow:hover {
   background: color-mix(
     in srgb,
     var(--slds-g-color-surface-2, #f3f3f3) 45%,
@@ -191,6 +261,115 @@
   white-space: nowrap;
 }
 
+/* Deployed apps — a project's distribution output, listed at the SAME indent as
+   its worktrees but deliberately WITHOUT the git guide lines: those connectors
+   belong to source branches, and drawing them into the apps would imply an app
+   is the same kind of node as a branch. So apps are a plain, un-connected group
+   (nested under a project in "all", flat in the "apps" filter) — no card, no
+   border, no connector; just a package glyph and the app's status word. */
+.appList {
+  display: grid;
+  /* Pin the single column to the available width. Without this the implicit
+     `auto` track sizes to the widest row's max-content (a long "app · project ·
+     status" line), overflowing the narrow panel and clipping the trailing
+     status chip; minmax(0, 1fr) lets the row shrink so its copy truncates
+     instead. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.1rem;
+  padding-inline-start: 0.5rem;
+}
+
+/* App row — a plain leaf with no tree connector, sized to match a worktree row.
+   Used for both the flat "apps" filter and (with `.appNested`) the grouped view;
+   the difference is only indent. */
+.appRow {
+  padding: 0.3rem 0.5rem;
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+}
+
+/* Nested under a project: indent the row so its package glyph lines up with the
+   worktree status dots above it (the worktree's own 1.6rem text inset), so apps
+   sit at the same level as branches — just without the connecting guide lines
+   that would make them read as branches. */
+.appNested {
+  padding-inline-start: 1.6rem;
+}
+
+.appIcon {
+  flex: 0 0 auto;
+  /* Neutral: the box glyph is identity ("this is an app"), not status —
+     status is carried by the trailing word's color. */
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* Label (+ project, in the flat view) share a flex-filling wrapper that
+   truncates as the panel narrows — the same idiom as `.sessionCopy` — so the
+   trailing status word (a fixed-size sibling) is never the thing that gets
+   clipped off the panel's edge. */
+.appCopy {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.appLabel {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Only shown in the flat "apps" filter, where rows aren't already nested
+   under their project's header. Shrinks (min-width:0) before the label does
+   its share, since the project is the more expendable of the two here. */
+.appProject {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Status takes the trailing slot a worktree uses for its branch name: a
+   fixed-size chip at the far edge, small, colored by state. No dot — the
+   color on the word carries the state, keeping the row as quiet as a
+   branch row. */
+.appStatus {
+  flex: 0 0 auto;
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Four states, unlike the session dot's three — apps can be up, mid-deploy,
+   broken, or intentionally stopped. Live gets a restrained green (the one
+   new hue here); building reuses the session "in flight" blue so the two
+   read consistently as "activity happening"; paused stays neutral gray
+   rather than implying trouble. */
+.appStatus-live {
+  --status-color: light-dark(#056f3e, #45c98a);
+}
+
+.appStatus-building {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.appStatus-error {
+  --status-color: light-dark(#ba0517, #ff8a8a);
+}
+
+.appStatus-paused {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
 .empty {
   margin: 0;
   padding: var(--slds-g-spacing-2, 0.5rem);
@@ -260,12 +439,17 @@
   white-space: nowrap;
 }
 
-/* Only working/waiting ever reach this list (idle is filtered out by
-   `activeSessionRows`), so those are the only two colors this chip needs. */
+/* All three session states reach this list now (it mirrors the palette's full
+   set via `allSessionRows`): working and waiting carry their triage hues, while
+   idle drops to the quiet on-surface gray so it recedes below the active two. */
 .working {
   --status-color: light-dark(#0176d3, #78b9ff);
 }
 
 .waiting {
   --status-color: #dd7a01;
+}
+
+.idle {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }

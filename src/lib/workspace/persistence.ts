@@ -23,10 +23,14 @@ export type PersistedSelection = {
   worktreeByProject: Record<string, string>;
   orgByProject: Record<string, string>;
   /** Whether the persistent workspace panel (the left navigator, as opposed to
-   *  the ephemeral ⌘⇧P palette) is open. Defaults closed so the server render
-   *  and the client's first hydration pass agree — same reasoning as the rest
-   *  of this store. */
-  panelOpen: boolean;
+   *  the ephemeral ⌘⇧P palette) is open — tri-state. `null` means "the user
+   *  has never explicitly toggled it," which lets the consumer (`AppShell`)
+   *  apply a route-dependent default (open on home, closed elsewhere) instead
+   *  of a single fixed one; `true`/`false` means the user explicitly set it
+   *  via ⌘B, and that choice is honored on every route until changed again.
+   *  Starts `null` so the server render and the client's first hydration pass
+   *  agree — same reasoning as the rest of this store. */
+  panelOpen: boolean | null;
 };
 
 const STORAGE_KEY = "ufd.workspace.v1";
@@ -35,7 +39,7 @@ const EMPTY_SELECTION: PersistedSelection = {
   activeProjectId: null,
   worktreeByProject: {},
   orgByProject: {},
-  panelOpen: false,
+  panelOpen: null,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -63,7 +67,7 @@ function parseSelection(raw: string): PersistedSelection {
       activeProjectId: typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
       worktreeByProject: sanitizeStringRecord(parsed.worktreeByProject),
       orgByProject: sanitizeStringRecord(parsed.orgByProject),
-      panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : false,
+      panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : null,
     };
   } catch {
     return EMPTY_SELECTION;
@@ -145,12 +149,12 @@ class WorkspaceSelectionStore {
     }));
   };
 
+  /** Always writes an explicit true/false — there's no toggle method here
+   *  because "toggle" needs the *effective* (route-defaulted) open state,
+   *  which this store doesn't know; the caller (`useWorkspacePanel`) resolves
+   *  that and calls this with the concrete result. */
   setPanelOpen = (panelOpen: boolean): void => {
     this.update((current) => ({ ...current, panelOpen }));
-  };
-
-  togglePanel = (): void => {
-    this.update((current) => ({ ...current, panelOpen: !current.panelOpen }));
   };
 }
 

@@ -22,11 +22,11 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps)
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
-        <Link href="/" className={styles.homeLink} aria-label="Front Door home">
+        <Link href="/" className={styles.homeLink} aria-label="Unified Platform home">
           <span className={styles.logo} aria-hidden="true">
             U
           </span>
-          <span className={styles.brandName}>Front Door</span>
+          <span className={styles.brandName}>Unified Platform</span>
         </Link>
 
         <button

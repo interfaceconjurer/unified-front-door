@@ -7,12 +7,22 @@
  * place. Keep this file free of React; it's pure data shaping.
  */
 import { primaryWorktree } from "./model";
-import type { AgentSession, AgentSessionStatus, Project, Worktree } from "./model";
+import type { AgentSession, AgentSessionStatus, AppStatus, DeployedApp, Project, Worktree } from "./model";
 
 export const STATUS_LABEL: Record<AgentSessionStatus, string> = {
   working: "Working",
   waiting: "Waiting on you",
   idle: "Idle",
+};
+
+/** Same idiom as `STATUS_LABEL` for agent sessions — the one place the
+ *  app-status→copy mapping lives, so the panel's nested and flat app rows
+ *  agree on the same four words. */
+export const APP_STATUS_LABEL: Record<AppStatus, string> = {
+  live: "Live",
+  building: "Building",
+  error: "Error",
+  paused: "Paused",
 };
 
 // Waiting-on-you is the triage priority, then actively-working, then idle.
@@ -84,10 +94,22 @@ export function allSessionRows(projects: readonly Project[]): SessionRow[] {
   return rows.sort((a, b) => STATUS_RANK[a.session.status] - STATUS_RANK[b.session.status]);
 }
 
-/** The triage subset: sessions a human might act on right now (working or
- *  waiting), idle dropped entirely. This is what the `WorkspacePanel`'s
- *  bottom section shows — a project whose only session is idle is absent
- *  from this list, though it still appears in `buildProjectTree`'s top tree. */
-export function activeSessionRows(projects: readonly Project[]): SessionRow[] {
-  return allSessionRows(projects).filter((row) => row.session.status !== "idle");
+export type AppRow = {
+  project: Project;
+  app: DeployedApp;
+};
+
+/** Every deployed app across every project, flattened for the panel's "Apps"
+ *  filter — the cross-project "show me everything running" view. Preserves
+ *  fixture order (project order, then each project's own app order); unlike
+ *  `allSessionRows` there's no triage rank here, since app status isn't a
+ *  human-action queue the way session status is. */
+export function allAppRows(projects: readonly Project[]): AppRow[] {
+  const rows: AppRow[] = [];
+  for (const project of projects) {
+    for (const app of project.apps) {
+      rows.push({ project, app });
+    }
+  }
+  return rows;
 }

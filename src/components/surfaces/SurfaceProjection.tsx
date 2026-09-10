@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  BoxIcon,
   DatabaseIcon,
   FileIcon,
   GitBranchIcon,
   LayersIcon,
   ListCheckIcon,
+  PlusIcon,
   PuzzleIcon,
   ShieldIcon,
   SparklesIcon,
@@ -20,6 +22,7 @@ import {
   type ProjectionInsight,
   type ProjectionMetric,
 } from "@/lib/workspace/projections";
+import { useSurfaceCanvases } from "./surface-canvas-context";
 import styles from "./SurfaceProjection.module.css";
 
 const METRIC_ICON: Record<ProjectionMetric["key"], IconComponent> = {
@@ -63,7 +66,16 @@ type SurfaceProjectionProps = {
 export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProjectionProps) {
   const surface = surfaceAppById(surfaceId);
   const { activeProject, activeOrg } = useWorkspace();
+  const { openCanvas } = useSurfaceCanvases(surfaceId);
   const projection = projectionForSurface(surface.id, activeProject, activeOrg);
+
+  // Deployed apps are a Build-only launch group, and only when the active
+  // project actually has apps — no empty shell otherwise. Every other surface
+  // launches its capabilities alone. When both groups show (Build with apps),
+  // each carries a visible sublabel to tell the two clusters apart; a lone
+  // capabilities group leans on the region heading instead.
+  const deployedApps = surface.id === "build" ? activeProject.apps : [];
+  const showApps = deployedApps.length > 0;
 
   return (
     <div className={styles.surface}>
@@ -122,14 +134,80 @@ export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProje
 
         {children && <div className={styles.extra}>{children}</div>}
 
-        <footer className={styles.actions}>
-          <span className={styles.actionsLabel}>In {surface.label} you can</span>
-          <ul className={styles.actionChips}>
-            {surface.capabilities.map((capability) => (
-              <li key={capability}>{capability}</li>
-            ))}
-          </ul>
-        </footer>
+        {/* Launch region — the surface's own affordances, each opening a real
+            canvas tab in THIS surface (idempotent by kind+params, so re-opening
+            focuses the existing tab). Replaces the old passive capability chips:
+            everything here is actionable and belongs to this surface. */}
+        <section className={styles.launch} aria-labelledby="surface-launch-heading">
+          <h2 id="surface-launch-heading" className={styles.launchHeading}>
+            Launch
+          </h2>
+
+          {showApps && (
+            <div className={styles.launchGroup} role="group" aria-label="Deployed apps">
+              <span className={styles.launchGroupLabel}>Deployed apps</span>
+              <ul className={styles.launchList}>
+                {deployedApps.map((app) => (
+                  <li key={app.id}>
+                    <button
+                      type="button"
+                      className={styles.launchButton}
+                      aria-label={`Open ${app.label}`}
+                      onClick={() =>
+                        openCanvas(surfaceId, {
+                          kind: "app",
+                          title: app.label,
+                          params: { projectId: activeProject.id, appId: app.id },
+                        })
+                      }
+                    >
+                      <span
+                        className={`${styles.launchIcon} ${styles.launchIconApp}`}
+                        aria-hidden="true"
+                      >
+                        <BoxIcon width={16} height={16} />
+                      </span>
+                      <span className={styles.launchButtonCopy}>
+                        <span className={styles.launchLabel}>{app.label}</span>
+                        <span className={styles.launchHint}>{app.environment}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div
+            className={styles.launchGroup}
+            role="group"
+            aria-label={`${surface.label} capabilities`}
+          >
+            {showApps && <span className={styles.launchGroupLabel}>Capabilities</span>}
+            <ul className={styles.launchList}>
+              {surface.capabilities.map((capability) => (
+                <li key={capability}>
+                  <button
+                    type="button"
+                    className={styles.launchButton}
+                    onClick={() =>
+                      openCanvas(surfaceId, {
+                        kind: "capability",
+                        title: capability,
+                        params: { surface: surfaceId, name: capability },
+                      })
+                    }
+                  >
+                    <span className={styles.launchIcon} aria-hidden="true">
+                      <PlusIcon width={16} height={16} />
+                    </span>
+                    <span className={styles.launchLabel}>{capability}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
       </section>
     </div>
   );

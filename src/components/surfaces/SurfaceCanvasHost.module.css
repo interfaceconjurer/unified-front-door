@@ -1,0 +1,158 @@
+/* The workstage host fills the surface pane and stacks the tab strip over a
+   single scrolling panel. min-height:100% lets a short overview still paint the
+   full pane; min-width:0 keeps it from forcing the flex parent wider. */
+.host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 100%;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+/* Editor-style tab strip. Sticky so it stays put while the panel scrolls inside
+   the surface pane; horizontally scrollable when tabs overflow, with the row of
+   tabs never wrapping. */
+.tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  /* Never shrink: as a flex child of the column `.host`, the strip defaults to
+     flex-shrink:1, so a tall overview panel (the full projection) would
+     squeeze it a few px shorter than a short canvas panel does — the row visibly
+     jumps height as you switch tabs. Pinning the basis keeps it constant. */
+  flex: 0 0 auto;
+  align-items: stretch;
+  gap: var(--slds-g-spacing-1, 0.25rem);
+  padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem) 0;
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+/* The tab and its close button share one wrapper so they read as a single unit:
+   no plate, just the accent underline (carried here, on the wrapper) that runs
+   under BOTH the label and the close and visually joins the pair to the panel
+   below. The transparent 2px border on every wrapper keeps heights identical so
+   activating a tab doesn't shift the row. */
+.tabWrap {
+  display: inline-flex;
+  align-items: stretch;
+  flex: 0 0 auto;
+  border-block-end: 2px solid transparent;
+}
+
+.tabWrap:has(.tabActive) {
+  border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
+}
+
+/* The pinned first tab IS the surface (its icon + name), so it's set apart from
+   the launched canvases after it by a hairline divider and a little trailing
+   room — a quiet "surface | canvases" seam that keeps the surface identity
+   reading as the container the other tabs live in, not just another tab. */
+.tabWrapSurface {
+  margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
+  padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
+  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+/* No background plate — a tab is just its label (or the overview home glyph),
+   distinguished only by weight/color and, when active, the shared underline. */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 16rem;
+  padding: 0.5rem 0.5rem 0.5rem 0.6rem;
+  border: 0;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+/* The surface glyph on the pinned tab — fixed size so it never shrinks as the
+   label truncates, and slightly muted so the surface name carries the weight. */
+.surfaceTabIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+/* When the pinned surface tab is the active one, its glyph joins the label at
+   the strong on-surface ink rather than staying muted. */
+.tabActive .surfaceTabIcon {
+  color: inherit;
+}
+
+.tabActive,
+.tabActive:hover {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: -2px;
+}
+
+/* Close affordance sits inside the shared wrapper, so the underline runs under
+   it too. No plate to inherit — it's transparent until hovered. */
+.close {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline: -0.125rem 0.375rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: color-mix(in srgb, #ba0517 14%, transparent);
+  color: #ba0517;
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 1px;
+}
+
+/* The single panel every tab shares (aria-labelledby points at the active tab).
+   It carries the scroll for the surface content. */
+.panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel > * {
+  flex: 0 0 auto;
+}
+
+/* On the overview, the projection body should still fill/scroll like it did as
+   a direct pane child, so let it grow. */
+.panel > :last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.panel:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: -2px;
+}

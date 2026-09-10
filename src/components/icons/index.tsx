@@ -218,3 +218,13 @@ export const ServerIcon: IconComponent = (p) => (
     <path d="M7 7.5h.01M7 16.5h.01" />
   </Svg>
 );
+
+/** A shipped package/cube — the deployed output of a project, i.e. its
+ *  distribution artifact. Used for app rows in the workspace panel. */
+export const BoxIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <path d="M12 3 4 7v10l8 4 8-4V7z" />
+    <path d="M4 7l8 4 8-4" />
+    <path d="M12 11v10" />
+  </Svg>
+);

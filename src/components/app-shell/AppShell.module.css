@@ -7,39 +7,149 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-/* The agent and the active surface split the shell evenly — the agent stays
-   forward everywhere, and only the right half swaps as you move around. */
+/* A flex row: [workspace panel?] [chat column] [surface pane]. The chat column
+   is a persistent element whose width animates; the surface pane takes whatever
+   is left. Keeping it flex (not grid) makes the width transition rock-solid
+   across browsers. */
 .body {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Bound the row to the shell's height so each half scrolls its own content
-     internally, rather than the whole column growing and pushing its header off
-     the top as the agent thread fills up. */
-  grid-template-rows: minmax(0, 1fr);
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }
 
-/* Opening the persistent workspace panel adds a third, fixed-width first
-   column ahead of the existing [agent | main] split, rather than shrinking
-   either of those two evenly. */
-.bodyPanelOpen {
-  grid-template-columns: minmax(15rem, 18rem) repeat(2, minmax(0, 1fr));
+/* The workspace panel (⌘B) is a fixed-width column ahead of everything else. */
+.panelSlot {
+  flex: 0 0 clamp(15rem, 20vw, 18rem);
+  min-width: 0;
+  display: flex;
 }
 
-.main {
-  display: flex;
+.panelSlot > * {
+  flex: 1 1 auto;
   min-width: 0;
-  min-height: 0;
+}
+
+/* The chat + surface split fills only the space left after the workspace panel,
+   so the chat column's percentage widths are relative to what's available
+   rather than the whole viewport. `position: relative` anchors the surface
+   overlay; `overflow: hidden` clips it while it's parked off the right edge. */
+.split {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* The persistent chat column. Default (inside a surface) is 40%; the front door
+   widens it to 100% via .chatColumnFull. Width is the single animated property,
+   so entering or leaving a surface glides between the two. */
+.chatColumn {
+  flex: 0 0 auto;
+  width: 40%;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  transition: width 360ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.chatColumnFull {
+  width: 100%;
+}
+
+.chatInner {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  animation: chatFade 320ms ease;
+}
+
+.chatInner > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The surface "panes in" rather than "grows in": it's an overlay pinned to the
+   right edge at its FINAL width (60% of the split), so its content is laid out
+   once and never reflows. Entering a surface slides it from off-screen-right
+   (translateX 100%) to 0 while the chat column shrinks 100%→40% over the same
+   duration — the chat's right edge and the surface's left edge stay flush the
+   whole way, since 100−60·t (chat width) equals 40+60·(1−t) (surface's left
+   edge). On the front door it's parked off-screen and clipped by .split. */
+.surfacePane {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 60%;
+  display: flex;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform 360ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.surfaceVisible {
+  transform: translateX(0);
+}
+
+.surfaceInner {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
   overflow: auto;
 }
 
+.surfaceInner > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@keyframes chatFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the transform *states* (so the surface still parks off-screen on the
+     front door), just drop the animated transitions and the chat crossfade. */
+  .chatColumn,
+  .surfacePane {
+    transition: none;
+  }
+
+  .chatInner {
+    animation: none;
+  }
+}
+
+/* On narrow viewports the split stacks: the chat sits above the surface. The
+   overlay treatment is dropped — the surface returns to normal flow as a
+   full-width block below the chat. */
 @media (max-width: 900px) {
   .body,
-  .bodyPanelOpen {
-    grid-template-columns: 1fr;
-    grid-auto-rows: minmax(0, 1fr);
+  .split {
+    flex-direction: column;
     overflow-y: auto;
+  }
+
+  .chatColumn,
+  .chatColumnFull {
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .surfacePane {
+    position: static;
+    width: 100%;
+    flex: 1 1 auto;
+    transform: none;
+  }
+
+  .panelSlot {
+    flex-basis: auto;
   }
 }

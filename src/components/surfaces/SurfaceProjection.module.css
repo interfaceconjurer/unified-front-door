@@ -169,18 +169,18 @@
   margin-block-end: var(--slds-g-spacing-6, 2rem);
 }
 
-/* Capability chips — the surface's own action vocabulary, kept as a quiet
-   footer so it identifies the surface without competing with the projection. */
-.actions {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
-  padding-block-start: var(--slds-g-spacing-4, 1rem);
+/* Launch region — the surface's real, per-surface affordances. Each button
+   opens a canvas tab in this surface, so this is the overview's call to action,
+   not a passive footer. It carries the workstage's launch-button idiom (icon
+   chip + label + optional hint) so a launch reads the same on the overview as
+   it does anywhere else, and sits below a thin rule as the projection's close. */
+.launch {
+  padding-block-start: var(--slds-g-spacing-5, 1.5rem);
   border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
 
-.actionsLabel {
+.launchHeading {
+  margin: 0 0 var(--slds-g-spacing-3, 0.75rem);
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
   font-weight: 700;
@@ -188,7 +188,21 @@
   letter-spacing: 0.04em;
 }
 
-.actionChips {
+/* Groups stack; the second one (capabilities, when apps also show) gets air
+   above it so the two clusters read as distinct rows. */
+.launchGroup + .launchGroup {
+  margin-block-start: var(--slds-g-spacing-4, 1rem);
+}
+
+.launchGroupLabel {
+  display: block;
+  margin-block-end: var(--slds-g-spacing-2, 0.5rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+}
+
+.launchList {
   display: flex;
   flex-wrap: wrap;
   gap: var(--slds-g-spacing-2, 0.5rem);
@@ -197,14 +211,65 @@
   list-style: none;
 }
 
-.actionChips li {
-  padding: 0.3rem 0.7rem;
+.launchButton {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: 0.5rem 0.85rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-pill, 999px);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
   background: var(--slds-g-color-surface-1, #fff);
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.launchButton:hover {
+  border-color: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 55%, transparent);
+  box-shadow: 0 1px 6px rgb(1 118 211 / 12%);
+}
+
+.launchButton:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
+.launchIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: rgb(1 118 211 / 12%);
+  color: light-dark(#0176d3, #78b9ff);
+}
+
+/* A deployed-app tile carries the app's identity, not an "open/new" affordance,
+   so its glyph sits in a neutral chip — read distinctly from the accent "+"
+   chip the capability launches use. */
+.launchIconApp {
+  background: color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 12%, transparent);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.launchButtonCopy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.launchLabel {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
   font-weight: 600;
+}
+
+.launchHint {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
 }
 
 @media (max-width: 680px) {
