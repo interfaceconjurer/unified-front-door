@@ -40,6 +40,18 @@ export const PROJECTS: readonly Project[] = [
     agentSessions: [
       { worktreeId: "main", status: "idle", summary: "No active work; last session ended 2h ago." },
     ],
+    // One live app — the simple case: a single deployed output, nothing to
+    // triage.
+    apps: [
+      {
+        id: "storefront-prod",
+        label: "Acme Storefront",
+        url: "https://acme-storefront.example.app",
+        status: "live",
+        environment: "Production",
+        lastDeployed: "2h ago",
+      },
+    ],
   },
   {
     id: "trailblazer-crm",
@@ -69,6 +81,26 @@ export const PROJECTS: readonly Project[] = [
         worktreeId: "hotfix-9821",
         status: "idle",
         summary: "Fix for W-9821 is ready for review; no activity in 25 min.",
+      },
+    ],
+    // Two apps, deliberately mixed status — the case that exercises the
+    // non-live treatment (Support Community is mid-deploy).
+    apps: [
+      {
+        id: "partner-portal",
+        label: "Partner Portal",
+        url: "https://partner-portal.trailblazer.example.app",
+        status: "live",
+        environment: "UAT Sandbox",
+        lastDeployed: "1d ago",
+      },
+      {
+        id: "support-community",
+        label: "Support Community",
+        url: "https://support-community.trailblazer.example.app",
+        status: "building",
+        environment: "Staging",
+        lastDeployed: "6m ago",
       },
     ],
   },

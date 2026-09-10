@@ -72,6 +72,30 @@ export type AgentSession = {
   summary: string;
 };
 
+/**
+ * A deployed app's live state, from the "is it up" angle — live (serving
+ * traffic normally), building (a deploy is in flight), error (serving is
+ * broken), paused (intentionally stopped, not an error).
+ */
+export type AppStatus = "live" | "building" | "error" | "paused";
+
+/**
+ * An outward-facing, running output of a project — as opposed to a worktree
+ * (source) or an agent session (work in flight), an app is something a real
+ * user hits at a URL right now. Standing in for a real deploy/ops query the
+ * same way facets/sessions do.
+ */
+export type DeployedApp = {
+  id: string;
+  label: string;
+  url: string;
+  status: AppStatus;
+  /** Display label, e.g. "Production". */
+  environment: string;
+  /** e.g. "2h ago". */
+  lastDeployed: string;
+};
+
 export type Project = {
   id: string;
   name: string;
@@ -85,6 +109,10 @@ export type Project = {
    *  than a flat global list, since worktree ids are only unique within a
    *  project ("main" exists in more than one project's fixture). */
   agentSessions: readonly AgentSession[];
+  /** The project's deployed outputs — nested here for the same reason sessions
+   *  are: an app is owned by the project it came from, not a peer of it.
+   *  Standing in for a real deploy query. */
+  apps: readonly DeployedApp[];
 };
 
 /** The agent's thread is bound to a {project, worktree} pair — switching worktree

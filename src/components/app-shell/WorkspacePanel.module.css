@@ -74,9 +74,45 @@
   letter-spacing: 0.04em;
 }
 
+/* All/Projects/Apps segmented control — a single track with a sliding
+   "current" fill, the same neutral-gray selection idiom as `.rowCurrent`
+   (blue stays reserved for calls to action, not for "which tab am I on"). */
+.filterBar {
+  display: flex;
+  gap: 0.15rem;
+  margin: 0 0 var(--slds-g-spacing-2, 0.5rem);
+  padding: 0.15rem;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.filterButton {
+  flex: 1 1 auto;
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filterButton:hover {
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+
+.filterButtonActive,
+.filterButtonActive:hover {
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
 .tree,
 .worktreeList,
-.sessionList {
+.sessionList,
+.appList {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -89,7 +125,8 @@
 
 .row,
 .worktreeRow,
-.sessionRow {
+.sessionRow,
+.appRow {
   display: flex;
   width: 100%;
   align-items: center;
@@ -116,7 +153,8 @@
    .rowCurrent class so selection can't be overridden by source order. */
 .row:not(.rowCurrent):hover,
 .worktreeRow:not(.rowCurrent):hover,
-.sessionRow:not(.rowCurrent):hover {
+.sessionRow:not(.rowCurrent):hover,
+.appRow:hover {
   background: color-mix(
     in srgb,
     var(--slds-g-color-surface-2, #f3f3f3) 45%,
@@ -221,6 +259,110 @@
   font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Deployed apps — nested under a project (in "all") or flattened at the top
+   of the section (in "apps"), either way styled to read as an OUTPUT, not
+   another branch: a dashed rather than solid guide (worktrees get the solid
+   git tree line), and a chain-link glyph in place of the worktree's status
+   dot. */
+.appList {
+  display: grid;
+  gap: 0.1rem;
+  padding-inline-start: 0.5rem;
+}
+
+.appRow {
+  position: relative;
+  padding: 0.35rem 0.5rem 0.35rem 0.6rem;
+  border-inline-start: 2px dashed
+    color-mix(in srgb, var(--slds-g-color-on-surface-1, #5c5c5c) 35%, transparent);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+}
+
+.appIcon {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  opacity: 0.75;
+}
+
+.appCopy {
+  display: grid;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 0.05rem;
+}
+
+.appHead {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+
+.appLabel {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Only shown in the flat "apps" filter, where rows aren't already nested
+   under their project's header. */
+.appProject {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appUrl {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appStatus {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.appStatusDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Four states, unlike the session dot's three — apps can be up, mid-deploy,
+   broken, or intentionally stopped. Live gets a restrained green (the one
+   new hue here); building reuses the session "in flight" blue so the two
+   read consistently as "activity happening"; paused stays neutral gray
+   rather than implying trouble. */
+.appStatus-live {
+  --status-color: light-dark(#056f3e, #45c98a);
+}
+
+.appStatus-building {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.appStatus-error {
+  --status-color: light-dark(#ba0517, #ff8a8a);
+}
+
+.appStatus-paused {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
 .empty {
