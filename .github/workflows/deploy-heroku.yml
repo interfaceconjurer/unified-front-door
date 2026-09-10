@@ -1,7 +1,7 @@
 # Continuous deployment to Heroku.
 #
-# This copied project starts with manual deployment only. Re-enable push-based
-# deployment after the new Heroku app and repository secret are configured.
+# Deploys automatically on every push to main (i.e. when a PR merges), and can
+# also be run manually from the Actions tab.
 #
 # The deploy talks to Heroku's source-blob build API directly over HTTPS (curl +
 # jq, no Heroku CLI and no plugins): it creates a source slot, uploads the
@@ -20,6 +20,8 @@
 name: Deploy to Heroku
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch: {}
 
 # Never run two deploys at once; queue a later merge behind an in-flight release
