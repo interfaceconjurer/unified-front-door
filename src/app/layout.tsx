@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/app-shell/AppShell";
+import { ProfileProvider } from "@/components/profile/ProfileProvider";
 
 export const metadata: Metadata = {
   title: "Salesforce Front Door",
@@ -42,7 +43,9 @@ export default function RootLayout({
        * ships `slds-color-scheme_light` / `_dark` for a future manual override.)
        */}
       <body className="slds-color-scheme_system">
-        <AppShell>{children}</AppShell>
+        <ProfileProvider>
+          <AppShell>{children}</AppShell>
+        </ProfileProvider>
       </body>
     </html>
   );

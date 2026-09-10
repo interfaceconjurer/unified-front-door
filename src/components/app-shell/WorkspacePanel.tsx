@@ -2,8 +2,16 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { BoxIcon, CloseIcon, GitBranchIcon, LayersIcon } from "@/components/icons";
+import {
+  BoxIcon,
+  CloseIcon,
+  GitBranchIcon,
+  LayersIcon,
+  PlusIcon,
+  SparklesIcon,
+} from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { surfaceCanvasStore } from "@/lib/surface-canvas/persistence";
@@ -105,6 +113,7 @@ function AppRow({
 export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { profile } = useDemoProfile();
   const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
     useWorkspace();
   const [filter, setFilter] = useState<PanelFilter>("all");
@@ -114,6 +123,59 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const apps = allAppRows(projects);
   const codeHref = surfaceAppById("code").href;
   const buildHref = surfaceAppById("build").href;
+
+  function goToBuild() {
+    onClose();
+    if (pathname !== buildHref) router.push(buildHref);
+  }
+
+  function startConversation() {
+    onClose();
+    if (pathname === "/") {
+      requestAnimationFrame(() => document.getElementById("front-door-composer")?.focus());
+    } else {
+      router.push("/#front-door-composer");
+    }
+  }
+
+  if (!profile) return null;
+
+  if (profile.workspaceExperience === "empty") {
+    return (
+      <aside className={styles.panel} aria-label="Workspace">
+        <header className={styles.header}>
+          <button
+            type="button"
+            className={styles.close}
+            onClick={onClose}
+            aria-label="Close workspace panel"
+          >
+            <CloseIcon width={18} height={18} />
+          </button>
+        </header>
+
+        <section className={styles.section} aria-label="Projects">
+          <h2 className={styles.heading}>Projects</h2>
+          <div className={styles.guidedEmpty}>
+            <button type="button" className={styles.emptyAction} onClick={goToBuild}>
+              <PlusIcon width={15} height={15} aria-hidden="true" />
+              Start your first project
+            </button>
+          </div>
+        </section>
+
+        <section className={styles.section} aria-label="Sessions">
+          <h2 className={styles.heading}>Sessions</h2>
+          <div className={styles.guidedEmpty}>
+            <button type="button" className={styles.emptyAction} onClick={startConversation}>
+              <SparklesIcon width={15} height={15} aria-hidden="true" />
+              Start a conversation
+            </button>
+          </div>
+        </section>
+      </aside>
+    );
+  }
 
   // An app row opens the app's ops/observe canvas as a tab in Build & Setup —
   // the surface the less-technical persona lives in — where the app's live URL

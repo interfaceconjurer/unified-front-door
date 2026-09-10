@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
 import { CanvasContent } from "./canvas-registry";
@@ -45,7 +46,19 @@ export function SurfaceCanvasHost({
 }) {
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
-  const { canvases, activeCanvasId, closeCanvas, setActiveCanvas } = useSurfaceCanvases(surfaceId);
+  const { profile } = useDemoProfile();
+  const stored = useSurfaceCanvases(surfaceId);
+  const emptyWorkspace = profile?.workspaceExperience === "empty";
+  // A new user can launch generic capability canvases, but project-specific app
+  // canvases from another demo user stay out of sight. The stored state itself
+  // is untouched, so Jordan's tabs return when switching back.
+  const canvases = emptyWorkspace
+    ? stored.canvases.filter((canvas) => canvas.kind !== "app")
+    : stored.canvases;
+  const activeCanvasId = canvases.some((canvas) => canvas.id === stored.activeCanvasId)
+    ? stored.activeCanvasId
+    : OVERVIEW_CANVAS_ID;
+  const { closeCanvas, setActiveCanvas } = stored;
   // Imperative focus targets for roving-tabindex keyboard nav. Focusing a tab
   // whose tabindex is still -1 (before the store-driven re-render flips it to 0)
   // is fine — programmatic focus ignores tabindex.

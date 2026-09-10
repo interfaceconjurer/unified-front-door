@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CheckIcon, DatabaseIcon, GitBranchIcon, LayersIcon } from "@/components/icons";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { Org, OrgKind } from "@/lib/workspace/model";
 import styles from "./StatusBar.module.css";
@@ -30,6 +31,7 @@ type OpenPopover = null | "org";
  * pure readout, same as the worktree chip; only the org chip still opens a popover.
  */
 export function StatusBar() {
+  const { profile } = useDemoProfile();
   const { orgs, activeProject, activeWorktree, activeOrg, setActiveOrg } = useWorkspace();
   const [open, setOpen] = useState<OpenPopover>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,6 +54,19 @@ export function StatusBar() {
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
+
+  if (profile?.workspaceExperience === "empty") {
+    return (
+      <footer className={styles.bar}>
+        <div className={styles.cluster}>
+          <span className={`${styles.chip} ${styles.static}`}>
+            <LayersIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
+            <span className={styles.chipLabel}>No project selected</span>
+          </span>
+        </div>
+      </footer>
+    );
+  }
 
   return (
     <footer className={styles.bar} ref={rootRef}>

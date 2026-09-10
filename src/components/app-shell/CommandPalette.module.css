@@ -105,6 +105,46 @@
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
+.guidedEmpty {
+  display: grid;
+  justify-items: start;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  padding: var(--slds-g-spacing-5, 1.5rem);
+}
+
+.guidedEmpty strong {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.guidedEmpty button {
+  display: flex;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-inline-start: -0.5rem;
+  padding: 0.45rem 0.5rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.guidedEmpty button svg {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.guidedEmpty button:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.guidedEmpty button:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
 .result {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

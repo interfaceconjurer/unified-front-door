@@ -8,6 +8,7 @@ type TopBarProps = {
   onOpenPalette: () => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
+  profileMenu: React.ReactNode;
 };
 
 /**
@@ -18,7 +19,7 @@ type TopBarProps = {
  * bar, and the agent stands as its own panel, so the top bar is left to
  * answer just one question — "where do you want to go?"
  */
-export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps) {
+export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, profileMenu }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -61,9 +62,7 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel }: TopBarProps)
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>
-        <button type="button" className={styles.avatar} aria-label="User profile">
-          JW
-        </button>
+        {profileMenu}
       </div>
     </header>
   );

@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRightIcon, SendIcon, SparklesIcon } from "@/components/icons";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import {
   surfaceAppForPath,
   surfaceApps,
   type SurfaceApp,
 } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { canAccessSurface, type DemoProfile } from "@/lib/demo-profiles";
 import styles from "./AgentPanel.module.css";
 
 type Message =
@@ -65,12 +67,17 @@ function scopeForPath(pathname: string): Scope {
   return surface ? scopeForSurface(surface) : HOME_SCOPE;
 }
 
-function recommendApp(text: string): SurfaceApp {
+function recommendApp(text: string, profile: DemoProfile): SurfaceApp {
   const normalized = text.toLowerCase();
-  if (/deploy|release|pipeline|work item|lifecycle/.test(normalized)) return surfaceApps[3]!;
-  if (/code|apex|lwc|test|debug|source/.test(normalized)) return surfaceApps[1]!;
-  if (/security|permission|monitor|observe|health|trust|govern/.test(normalized)) return surfaceApps[2]!;
-  return surfaceApps[0]!;
+  const preferredId = /deploy|release|pipeline|work item|lifecycle/.test(normalized)
+    ? "alm"
+    : /code|apex|lwc|test|debug|source/.test(normalized)
+      ? "code"
+      : /security|permission|monitor|observe|health|trust|govern/.test(normalized)
+        ? "govern"
+        : "build";
+  const available = surfaceApps.filter((surface) => canAccessSurface(profile, surface.id));
+  return available.find((surface) => surface.id === preferredId) ?? available[0]!;
 }
 
 // The greeting that seeds a brand-new thread. Fixed id so it's stable across a
@@ -95,6 +102,7 @@ function seedThread(scope: Scope): Message[] {
  */
 export function AgentPanel() {
   const pathname = usePathname();
+  const { profile } = useDemoProfile();
   const scope = scopeForPath(pathname);
   const isHome = scope.key === HOME_SCOPE.key;
 
@@ -158,11 +166,15 @@ export function AgentPanel() {
     const value = text.trim();
     if (!value) return;
 
+    if (!profile) return;
+
     const reply = isHome
-      ? `I’d start this in ${recommendApp(value).label}. I’ll carry your goal and the context we establish here into that workspace.`
-      : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
-          showWorktree ? ` · ${activeWorktree.label}` : ""
-        } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
+      ? `I’d start this in ${recommendApp(value, profile).label}. I’ll carry your goal and the context we establish here into that workspace.`
+      : profile.workspaceExperience === "empty"
+        ? `This is a wireframe response scoped to ${scope.label}. In the full experience I’d help you establish the project context as we begin.`
+        : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
+            showWorktree ? ` · ${activeWorktree.label}` : ""
+          } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
 
     setSessions((current) => {
       const existing = current[sessionKey] ?? seedThread(scope);
@@ -175,7 +187,7 @@ export function AgentPanel() {
         ],
       };
     });
-    if (isHome) setRecommendation(recommendApp(value));
+    if (isHome) setRecommendation(recommendApp(value, profile));
     setDraft("");
   }
 

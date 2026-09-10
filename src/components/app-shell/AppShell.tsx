@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
 import { FrontDoor } from "@/components/front-door/FrontDoor";
 import { surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
+import { ProfileMenu } from "@/components/profile/ProfileMenu";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { canAccessSurface } from "@/lib/demo-profiles";
 import { CommandPalette } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
@@ -25,6 +28,9 @@ import styles from "./AppShell.module.css";
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { profile } = useDemoProfile();
+  const isLogin = pathname === "/login";
   // The front door merges the agent and launcher into one column, so it renders
   // full-width without the separate persistent agent panel.
   const isFrontDoor = pathname === "/";
@@ -44,6 +50,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // point that choice is persisted and wins on every route.
   const { panelOpen, togglePanel } = useWorkspacePanel(isFrontDoor);
 
+  // Demo identity is deliberately a client-side product concept, not an auth
+  // boundary. Keep signed-out users on the login screen and prevent a profile
+  // from remaining on a surface it doesn't expose.
+  useEffect(() => {
+    if (isLogin) {
+      if (profile) router.replace("/");
+      return;
+    }
+    if (!profile) {
+      router.replace("/login");
+      return;
+    }
+    if (surface && !canAccessSurface(profile, surface.id)) router.replace("/");
+  }, [isLogin, profile, router, surface]);
+
   // Global shortcuts: ⌘⇧P (⌃⇧P off Mac) toggles the palette, ⌘B (⌃B off Mac)
   // toggles the left workspace panel. Unlike the old store-level `togglePanel`,
   // this one closes over the route-resolved `panelOpen` (so it flips the
@@ -52,6 +73,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // always sees the current value instead of a stale closure. Shift
   // distinguishes the two — plain ⌘B must not also fire when ⌘⇧P is pressed.
   useEffect(() => {
+    if (isLogin || !profile) return;
+
     function onKeyDown(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
@@ -65,7 +88,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePanel]);
+  }, [isLogin, profile, togglePanel]);
+
+  if (isLogin) return children;
+  if (!profile || (surface && !canAccessSurface(profile, surface.id))) return null;
 
   return (
     <WorkspaceProvider>
@@ -78,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenPalette={() => setPaletteOpen(true)}
           panelOpen={panelOpen}
           onTogglePanel={togglePanel}
+          profileMenu={<ProfileMenu />}
         />
         <div className={styles.body}>
           {panelOpen && (

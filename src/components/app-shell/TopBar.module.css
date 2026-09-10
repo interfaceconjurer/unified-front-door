@@ -80,10 +80,11 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-.panelToggleActive {
-  border-color: var(--slds-g-color-accent-1, #0176d3);
-  background: var(--slds-g-color-accent-container-1, #eef4ff);
-  color: var(--slds-g-color-accent-1, #0176d3);
+.panelToggleActive,
+.panelToggleActive:hover {
+  border-color: var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-3, #03234d);
 }
 
 /* The command-palette trigger reads like a search field, but its real job is
@@ -156,8 +157,7 @@
   flex: 0 0 auto;
 }
 
-.helpButton,
-.avatar {
+.helpButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -170,13 +170,6 @@
   font: inherit;
   font-weight: 700;
   cursor: pointer;
-}
-
-.avatar {
-  border-color: var(--slds-g-color-accent-1, #0176d3);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: var(--slds-g-color-on-accent-1, #fff);
-  font-size: 0.7rem;
 }
 
 
