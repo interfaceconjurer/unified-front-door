@@ -29,7 +29,7 @@ import styles from "./AppShell.module.css";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useDemoProfile();
+  const { profile, resolved } = useDemoProfile();
   const isLogin = pathname === "/login";
   // The front door merges the agent and launcher into one column, so it renders
   // full-width without the separate persistent agent panel.
@@ -54,6 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // boundary. Keep signed-out users on the login screen and prevent a profile
   // from remaining on a surface it doesn't expose.
   useEffect(() => {
+    if (!resolved) return;
     if (isLogin) {
       if (profile) router.replace("/");
       return;
@@ -63,7 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     if (surface && !canAccessSurface(profile, surface.id)) router.replace("/");
-  }, [isLogin, profile, router, surface]);
+  }, [isLogin, profile, resolved, router, surface]);
 
   // Global shortcuts: ⌘⇧P (⌃⇧P off Mac) toggles the palette, ⌘B (⌃B off Mac)
   // toggles the left workspace panel. Unlike the old store-level `togglePanel`,
@@ -90,6 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isLogin, profile, togglePanel]);
 
+  if (!resolved) return null;
   if (isLogin) return children;
   if (!profile || (surface && !canAccessSurface(profile, surface.id))) return null;
 

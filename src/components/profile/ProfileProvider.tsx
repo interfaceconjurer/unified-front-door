@@ -27,9 +27,12 @@ class DemoProfileStore {
     return () => this.listeners.delete(onStoreChange);
   };
 
-  getServerSnapshot = (): DemoProfileId | null => null;
+  // `undefined` is intentionally distinct from `null`: the server and first
+  // hydration pass have not read browser storage yet, while `null` means that
+  // storage was read and no demo user is signed in.
+  getServerSnapshot = (): DemoProfileId | null | undefined => undefined;
 
-  getSnapshot = (): DemoProfileId | null => {
+  getSnapshot = (): DemoProfileId | null | undefined => {
     if (typeof window === "undefined") return null;
     if (this.storageUnavailable) return this.cached;
 
@@ -70,6 +73,7 @@ const demoProfileStore = new DemoProfileStore();
 
 type ProfileContextValue = {
   profile: DemoProfile | null;
+  resolved: boolean;
   signIn: (profileId: DemoProfileId) => void;
   signOut: () => void;
 };
@@ -86,6 +90,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ProfileContextValue>(
     () => ({
       profile: profileId ? demoProfileById(profileId) : null,
+      resolved: profileId !== undefined,
       signIn: demoProfileStore.setProfile,
       signOut: () => demoProfileStore.setProfile(null),
     }),
