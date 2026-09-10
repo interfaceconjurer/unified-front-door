@@ -1,0 +1,129 @@
+.root {
+  position: relative;
+}
+
+.avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid var(--avatar-color);
+  border-radius: var(--slds-g-radius-border-circle, 50%);
+  background: var(--avatar-color);
+  color: #fff;
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.avatar[data-profile="jw"] {
+  --avatar-color: #52647f;
+}
+
+.avatar[data-profile="kf"] {
+  --avatar-color: #735677;
+}
+
+.avatar:hover,
+.avatar[aria-expanded="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--avatar-color) 28%, transparent);
+}
+
+.avatar:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
+.menu {
+  position: absolute;
+  z-index: 120;
+  inset-block-start: calc(100% + 0.5rem);
+  inset-inline-end: 0;
+  width: min(17rem, calc(100vw - 1.5rem));
+  overflow: hidden;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 18%);
+}
+
+.profile {
+  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-4, 1rem)
+    var(--slds-g-spacing-2, 0.5rem);
+}
+
+.profileCopy,
+.personCopy {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+}
+
+.profileCopy strong,
+.personCopy strong {
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileCopy small,
+.personCopy small {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.people {
+  padding: var(--slds-g-spacing-2, 0.5rem);
+}
+
+.people button {
+  width: 100%;
+  padding: var(--slds-g-spacing-3, 0.75rem);
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.people button:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+.people button:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 1px;
+}
+
+.logout {
+  padding: 0.15rem 0.55rem 0.55rem;
+}
+
+.logout button {
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.logout button:hover,
+.logout button:focus-visible {
+  background: color-mix(in srgb, var(--slds-g-color-error-1, #ba0517) 8%, transparent);
+  color: var(--slds-g-color-error-1, #ba0517);
+}
+
+.logout button:focus-visible {
+  outline: 2px solid var(--slds-g-color-error-1, #ba0517);
+  outline-offset: 1px;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,6 +10,8 @@ import {
   SendIcon,
   SparklesIcon,
 } from "@/components/icons";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { canAccessSurface } from "@/lib/demo-profiles";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
 import styles from "./FrontDoor.module.css";
 
@@ -37,25 +39,37 @@ const SAMPLE_PROMPTS = [
 
 // Same intent heuristic the agent panel uses inside surfaces, kept local so the
 // front door can point you at the right room without pulling in the panel.
-function recommendSurface(text: string): SurfaceApp {
+function recommendSurface(text: string, availableSurfaces: readonly SurfaceApp[]): SurfaceApp {
   const normalized = text.toLowerCase();
-  if (/deploy|release|pipeline|work item|lifecycle/.test(normalized)) return surfaceApps[3]!;
-  if (/code|apex|lwc|test|debug|source/.test(normalized)) return surfaceApps[1]!;
-  if (/security|permission|monitor|observe|health|trust|govern/.test(normalized)) return surfaceApps[2]!;
-  return surfaceApps[0]!;
+  const preferredId = /deploy|release|pipeline|work item|lifecycle/.test(normalized)
+    ? "alm"
+    : /code|apex|lwc|test|debug|source/.test(normalized)
+      ? "code"
+      : /security|permission|monitor|observe|health|trust|govern/.test(normalized)
+        ? "govern"
+        : "build";
+  return availableSurfaces.find((surface) => surface.id === preferredId) ?? availableSurfaces[0]!;
 }
 
 export function FrontDoor() {
   const router = useRouter();
+  const { profile } = useDemoProfile();
   const [draft, setDraft] = useState("");
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const availableSurfaces = profile
+    ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
+    : [];
+
+  useEffect(() => {
+    if (window.location.hash === "#front-door-composer") composerRef.current?.focus();
+  }, []);
 
   function submit() {
     const intent = draft.trim();
     if (!intent) return;
     // Carry the goal into the surface that can act on it. In the full
     // experience the agent would open there already holding this context.
-    router.push(recommendSurface(intent).href);
+    router.push(recommendSurface(intent, availableSurfaces).href);
   }
 
   function seedPrompt(prompt: (typeof SAMPLE_PROMPTS)[number]) {
@@ -70,7 +84,9 @@ export function FrontDoor() {
           <span className={styles.heroMark} aria-hidden="true">
             <SparklesIcon width={24} height={24} />
           </span>
-          <h1 id="front-door-heading">What can I help you accomplish?</h1>
+          <h1 id="front-door-heading">
+            {profile?.experience === "new" ? "What would you like to build?" : "What can I help you accomplish?"}
+          </h1>
         </div>
 
         <section className={styles.surfaces} aria-labelledby="surfaces-heading">
@@ -78,7 +94,7 @@ export function FrontDoor() {
             Explore surfaces
           </h2>
           <ul className={styles.surfaceList}>
-            {surfaceApps.map((surface) => (
+            {availableSurfaces.map((surface) => (
               <li key={surface.id}>
                 <Link href={surface.href} className={styles.surfaceRow}>
                   <span className={styles.surfaceIcon} aria-hidden="true">

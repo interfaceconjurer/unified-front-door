@@ -377,6 +377,47 @@
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
 }
 
+.guidedEmpty {
+  display: grid;
+  justify-items: start;
+}
+
+.emptyAction {
+  display: flex;
+  width: calc(100% + 1rem);
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-inline-start: -0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+}
+
+.emptyAction svg {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.emptyAction:hover {
+  background: color-mix(
+    in srgb,
+    var(--slds-g-color-surface-2, #f3f3f3) 45%,
+    var(--slds-g-color-surface-1, #fff)
+  );
+}
+
+.emptyAction:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
 .sessionList {
   display: grid;
   gap: 0.35rem;

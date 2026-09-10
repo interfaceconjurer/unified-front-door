@@ -2,10 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { HomeIcon, LayersIcon, SearchIcon, type IconComponent } from "@/components/icons";
+import {
+  HomeIcon,
+  LayersIcon,
+  PlusIcon,
+  SearchIcon,
+  SparklesIcon,
+  type IconComponent,
+} from "@/components/icons";
 import { surfaceAppById, surfaceApps } from "@/components/front-door/app-catalog";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { canAccessSurface } from "@/lib/demo-profiles";
 import type { AgentSessionStatus } from "@/lib/workspace/model";
 import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./CommandPalette.module.css";
@@ -20,22 +29,13 @@ type Destination = {
 
 // The front door plus every surface, as jump targets. This is the same set the
 // old top-bar <select> offered, now reachable from a Spotlight-style palette.
-const DESTINATIONS: readonly Destination[] = [
-  {
-    id: "home",
-    label: "Front Door",
-    description: "Start from an outcome and let the agent route you.",
-    href: "/",
-    Icon: HomeIcon,
-  },
-  ...surfaceApps.map((surface) => ({
-    id: surface.id,
-    label: surface.label,
-    description: surface.description,
-    href: surface.href,
-    Icon: surface.Icon,
-  })),
-];
+const HOME_DESTINATION: Destination = {
+  id: "home",
+  label: "Front Door",
+  description: "Start from an outcome and let the agent route you.",
+  href: "/",
+  Icon: HomeIcon,
+};
 
 type Tab = "surfaces" | "projects" | "sessions";
 
@@ -101,6 +101,7 @@ type PaletteItem = {
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { profile } = useDemoProfile();
   const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
     useWorkspace();
   const [tab, setTab] = useState<Tab>("surfaces");
@@ -113,7 +114,19 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       !q || parts.some((part) => part.toLowerCase().includes(q));
 
     if (tab === "surfaces") {
-      return DESTINATIONS.filter((d) => matchesQuery(d.label, d.description)).map((d) => ({
+      const destinations = [
+        HOME_DESTINATION,
+        ...surfaceApps
+          .filter((surface) => profile && canAccessSurface(profile, surface.id))
+          .map((surface) => ({
+            id: surface.id,
+            label: surface.label,
+            description: surface.description,
+            href: surface.href,
+            Icon: surface.Icon,
+          })),
+      ];
+      return destinations.filter((d) => matchesQuery(d.label, d.description)).map((d) => ({
         id: d.id,
         label: d.label,
         description: d.description,
@@ -125,6 +138,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         },
       }));
     }
+
+    if (profile?.workspaceExperience === "empty") return [];
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
@@ -222,6 +237,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     tab,
     query,
     pathname,
+    profile,
     projects,
     activeProject.id,
     activeWorktree.id,
@@ -264,6 +280,22 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
+    }
+  }
+
+  const showGuidedEmpty = profile?.workspaceExperience === "empty" && tab !== "surfaces";
+
+  function goToBuild() {
+    onClose();
+    router.push(surfaceAppById("build").href);
+  }
+
+  function startConversation() {
+    onClose();
+    if (pathname === "/") {
+      requestAnimationFrame(() => document.getElementById("front-door-composer")?.focus());
+    } else {
+      router.push("/#front-door-composer");
     }
   }
 
@@ -311,9 +343,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             type="text"
             placeholder={TAB_PLACEHOLDER[tab]}
             value={query}
-            role="combobox"
-            aria-expanded="true"
-            aria-controls="command-palette-results"
+            role={showGuidedEmpty ? "searchbox" : "combobox"}
+            aria-expanded={showGuidedEmpty ? undefined : true}
+            aria-controls={showGuidedEmpty ? undefined : "command-palette-results"}
             aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={onKeyDown}
@@ -321,7 +353,26 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           <kbd className={styles.escHint}>esc</kbd>
         </div>
 
-        <ul className={styles.results} id="command-palette-results" role="listbox">
+        {showGuidedEmpty && (
+          <div className={styles.guidedEmpty} id="command-palette-results" role="status">
+            <strong>No {tab} yet</strong>
+            <button type="button" onClick={tab === "projects" ? goToBuild : startConversation}>
+              {tab === "projects" ? (
+                <>
+                  <PlusIcon width={15} height={15} aria-hidden="true" />
+                  Start your first project
+                </>
+              ) : (
+                <>
+                  <SparklesIcon width={15} height={15} aria-hidden="true" />
+                  Start a conversation
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {!showGuidedEmpty && <ul className={styles.results} id="command-palette-results" role="listbox">
           {items.length === 0 && (
             <li className={styles.empty}>
               No {tab} match “{query}”.
@@ -372,7 +423,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               </li>
             );
           })}
-        </ul>
+        </ul>}
 
         <div className={styles.footer}>
           <span>

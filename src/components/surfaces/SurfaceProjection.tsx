@@ -15,6 +15,7 @@ import {
   type IconComponent,
 } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
@@ -65,16 +66,20 @@ type SurfaceProjectionProps = {
  */
 export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProjectionProps) {
   const surface = surfaceAppById(surfaceId);
+  const { profile } = useDemoProfile();
   const { activeProject, activeOrg } = useWorkspace();
   const { openCanvas } = useSurfaceCanvases(surfaceId);
-  const projection = projectionForSurface(surface.id, activeProject, activeOrg);
+  const emptyWorkspace = profile?.workspaceExperience === "empty";
+  const projection = emptyWorkspace
+    ? { lead: surface.workspaceDescription, metrics: [], insights: [] }
+    : projectionForSurface(surface.id, activeProject, activeOrg);
 
   // Deployed apps are a Build-only launch group, and only when the active
   // project actually has apps — no empty shell otherwise. Every other surface
   // launches its capabilities alone. When both groups show (Build with apps),
   // each carries a visible sublabel to tell the two clusters apart; a lone
   // capabilities group leans on the region heading instead.
-  const deployedApps = surface.id === "build" ? activeProject.apps : [];
+  const deployedApps = !emptyWorkspace && surface.id === "build" ? activeProject.apps : [];
   const showApps = deployedApps.length > 0;
 
   return (
