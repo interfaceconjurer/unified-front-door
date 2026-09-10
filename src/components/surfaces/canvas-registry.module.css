@@ -116,3 +116,99 @@
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
   white-space: nowrap;
 }
+
+/* App ops canvas: the live URL as a plain accent link (the one call to action
+   here), then the deploy facts as a single bordered panel — the same card idiom
+   as the activity feed's events, rows divided rather than each boxed, so the
+   two canvases read as one system. */
+.appUrl {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  max-width: 100%;
+  color: light-dark(#0176d3, #78b9ff);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.appUrl:hover {
+  text-decoration: underline;
+}
+
+.appUrl:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+}
+
+.appUrl svg {
+  flex: 0 0 auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+
+.appUrlText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appFacts {
+  margin: 0;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+}
+
+.appFact {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  padding: var(--slds-g-spacing-3, 0.75rem);
+}
+
+/* Divider between rows only — the panel's own border caps the top and bottom. */
+.appFact + .appFact {
+  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+}
+
+.appFactLabel {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.appFactValue {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  text-overflow: ellipsis;
+}
+
+/* The status word carries its state in color — the same restrained live/
+   building/error/paused hues WorkspacePanel's app rows use (see its
+   `.appStatus-*`), so a status reads identically in the navigator and here. */
+.appStatus {
+  color: var(--status-color, var(--slds-g-color-on-surface-1, #5c5c5c));
+  font-weight: 600;
+}
+
+.appStatus-live {
+  --status-color: light-dark(#056f3e, #45c98a);
+}
+
+.appStatus-building {
+  --status-color: light-dark(#0176d3, #78b9ff);
+}
+
+.appStatus-error {
+  --status-color: light-dark(#ba0517, #ff8a8a);
+}
+
+.appStatus-paused {
+  --status-color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}

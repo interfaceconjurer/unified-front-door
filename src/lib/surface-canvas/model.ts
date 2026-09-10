@@ -15,18 +15,19 @@
  * The kinds a canvas can be. `"overview"` is special: it's the pinned launch-pad
  * tab every surface always has at index 0, synthesized by the provider rather
  * than stored (so it can't be closed, reordered, or corrupted in persistence).
- * The rest are the launchable kinds a launch-pad affordance can `openCanvas`.
+ * The rest are the launchable kinds any affordance can `openCanvas` — the launch
+ * pad opens `notes`/`activity`; the workspace panel's app rows open `app`.
  */
-export type CanvasKind = "overview" | "notes" | "activity";
+export type CanvasKind = "overview" | "notes" | "activity" | "app";
 
 /** The reserved id/kind of the pinned launch-pad tab. Never persisted; the
  *  provider prepends it to every surface's list at index 0. */
 export const OVERVIEW_CANVAS_ID = "overview";
 
-/** Kinds a launch-pad affordance may open. Excludes `"overview"`, which is not
- *  launchable — it always exists. Drives both the registry's exhaustiveness and
- *  the parser's "drop specs of an unknown kind" sanitization. */
-export const LAUNCHABLE_KINDS = ["notes", "activity"] as const;
+/** Openable (persistable) kinds. Excludes `"overview"`, which is not launchable
+ *  — it always exists. Drives both the registry's exhaustiveness and the
+ *  parser's "drop specs of an unknown kind" sanitization. */
+export const LAUNCHABLE_KINDS = ["notes", "activity", "app"] as const;
 
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 
