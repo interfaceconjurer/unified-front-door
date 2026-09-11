@@ -20,11 +20,11 @@ export function ReturningHome() {
     <header className={styles.hero}>
       <p>Welcome back, {profile?.firstName}</p>
       <h1 id="front-door-heading">Pick up where you left off.</h1>
-      <div className={styles.context} aria-label="Current project and worktree">
+      <div className={styles.context} role="group" aria-label="Current project and worktree">
         <span>{activeProject.name}</span>
         <span className={styles.branch}><GitBranchIcon width={14} height={14} aria-hidden="true" />{activeWorktree.branch}</span>
       </div>
-      <div className={styles.summary}><SparklesIcon width={15} height={15} aria-hidden="true" />
+      <div className={styles.summary} role="status"><SparklesIcon width={15} height={15} aria-hidden="true" />
         {working} {working === 1 ? "agent" : "agents"} working <span aria-hidden="true">·</span> {attention.length} {attention.length === 1 ? "item needs" : "items need"} your attention
       </div>
     </header>
@@ -44,7 +44,7 @@ export function ReturningHome() {
       <div className={styles.sectionHeading}>
         <h2 id="recent-work-heading">Recent work <span className={styles.count}>{recent.length}</span></h2>
       </div>
-      {recent.length ? <RecentWorkList items={recent} showProject /> : <p className={styles.empty}>No recent work in this worktree yet.</p>}
+      {recent.length ? <RecentWorkList items={recent} /> : <p className={styles.empty}>No recent work in this worktree yet.</p>}
     </section>
   </div>;
 }

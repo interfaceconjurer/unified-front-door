@@ -26,9 +26,8 @@ export function WorkStatusBadge({ work }: { work: ReturningWork }) {
   </span>;
 }
 
-export function RecentWorkList({ items, showProject = false }: {
+export function RecentWorkList({ items }: {
   items: readonly ReturningWork[];
-  showProject?: boolean;
 }) {
   const { projects } = useWorkspace();
   const openWork = useOpenWork();
@@ -42,7 +41,7 @@ export function RecentWorkList({ items, showProject = false }: {
             <span className={styles.icon} data-surface={work.surfaceId} aria-hidden="true"><surface.Icon width={18} height={18} /></span>
             <span className={styles.copy}>
               <strong>{work.title}</strong>
-              <span>{showProject ? `${project?.name} · ${surface.label}` : `${work.kind} · ${project?.worktrees.find((tree) => tree.id === work.worktreeId)?.branch ?? work.worktreeId}`}</span>
+              <span>{work.kind} · {project?.worktrees.find((tree) => tree.id === work.worktreeId)?.branch ?? work.worktreeId}</span>
             </span>
             <span className={styles.meta}><WorkStatusBadge work={work} /><span className={styles.updated}>{work.updated}</span></span>
             <ChevronRightIcon className={styles.arrow} width={15} height={15} aria-hidden="true" />
