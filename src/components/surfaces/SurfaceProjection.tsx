@@ -96,7 +96,7 @@ export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProje
             </h1>
             <p className={styles.lead}>{projection.lead}</p>
           </div>
-          {toolbar}
+          {!emptyWorkspace && toolbar}
         </header>
 
         <ul className={styles.metrics} aria-label="Project facets in this lens">
@@ -137,7 +137,7 @@ export function SurfaceProjection({ surfaceId, toolbar, children }: SurfaceProje
           })}
         </div>
 
-        {children && <div className={styles.extra}>{children}</div>}
+        {!emptyWorkspace && children && <div className={styles.extra}>{children}</div>}
 
         {/* Launch region — the surface's own affordances, each opening a real
             canvas tab in THIS surface (idempotent by kind+params, so re-opening

@@ -1,57 +1,69 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronRightIcon,
-  LinkIcon,
-  PlusIcon,
+  GitBranchIcon,
+  PuzzleIcon,
   SendIcon,
   SparklesIcon,
+  type IconComponent,
 } from "@/components/icons";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
+import { SurfaceNav } from "./SurfaceNav";
 import styles from "./FrontDoor.module.css";
 
-/**
- * The front door as one harmonized workstage: the agent and the surface
- * launcher, merged. Rather than splitting the screen into an agent pane and a
- * separate app grid, this is a single centered column — a greeting, the
- * surfaces to explore, and one composer that is the agent's entry point.
- *
- * The composer routes by intent: describing an outcome takes you into the
- * surface best suited to carry it. Surface navigation still lives in the top
- * bar's ⌘⇧P palette, so this view deliberately omits a redundant toolkit link.
- */
+type Starter = {
+  title: string;
+  description: string;
+  surfaceId: SurfaceApp["id"];
+  Icon: IconComponent;
+  prompt: string;
+};
 
-const SAMPLE_PROMPTS = [
+const STARTERS: readonly Starter[] = [
   {
-    label: "Build an agent to qualify and route leads",
-    prompt: "Help me build an agent that qualifies and routes high-value leads.",
+    title: "Build your first agent",
+    description: "Give an agent a job to do, connect your data, and try it out.",
+    surfaceId: "build",
+    Icon: SparklesIcon,
+    prompt: "Help me build an agent that qualifies and routes leads. Walk me through defining its instructions, connecting data, and trying it out.",
   },
   {
-    label: "Diagnose a failed deployment",
-    prompt: "Help me understand why this deployment failed and how to recover.",
+    title: "Build a React app",
+    description: "Create a custom app with React, connected to your Salesforce data.",
+    surfaceId: "code",
+    Icon: PuzzleIcon,
+    prompt: "Help me build a React app for browsing and searching Salesforce accounts. Walk me through the app structure, connecting Salesforce data, and adding tests.",
   },
-] as const;
+  {
+    title: "Set up a release pipeline",
+    description: "Explore how to take your first change from a sandbox to production.",
+    surfaceId: "alm",
+    Icon: GitBranchIcon,
+    prompt: "Help me set up my first release pipeline. Walk me through connecting a repository, validating changes in a sandbox, and adding a production approval step.",
+  },
+];
 
-// Same intent heuristic the agent panel uses inside surfaces, kept local so the
-// front door can point you at the right room without pulling in the panel.
-function recommendSurface(text: string, availableSurfaces: readonly SurfaceApp[]): SurfaceApp {
+const EXISTING_PROJECT_PROMPT =
+  "Help me get started with an existing Salesforce source project. Walk me through connecting my repository and a development org, then exploring the codebase.";
+
+function recommendSurface(text: string, availableSurfaces: readonly SurfaceApp[]) {
   const normalized = text.toLowerCase();
   const preferredId = /deploy|release|pipeline|work item|lifecycle/.test(normalized)
     ? "alm"
-    : /code|apex|lwc|test|debug|source/.test(normalized)
+    : /code|react|apex|lwc|test|debug|source/.test(normalized)
       ? "code"
       : /security|permission|monitor|observe|health|trust|govern/.test(normalized)
         ? "govern"
         : "build";
-  return availableSurfaces.find((surface) => surface.id === preferredId) ?? availableSurfaces[0]!;
+  return availableSurfaces.find((surface) => surface.id === preferredId) ?? availableSurfaces[0];
 }
 
-export function FrontDoor() {
+export function FrontDoor({ onStartConversation }: { onStartConversation: (message: string) => void }) {
   const router = useRouter();
   const { profile } = useDemoProfile();
   const [draft, setDraft] = useState("");
@@ -59,6 +71,8 @@ export function FrontDoor() {
   const availableSurfaces = profile
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
+  const starters = STARTERS.filter((starter) => availableSurfaces.some((surface) => surface.id === starter.surfaceId));
+  const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
   useEffect(() => {
     if (window.location.hash === "#front-door-composer") composerRef.current?.focus();
@@ -66,62 +80,92 @@ export function FrontDoor() {
 
   function submit() {
     const intent = draft.trim();
-    if (!intent) return;
-    // Carry the goal into the surface that can act on it. In the full
-    // experience the agent would open there already holding this context.
-    router.push(recommendSurface(intent, availableSurfaces).href);
+    const surface = recommendSurface(intent, availableSurfaces);
+    if (!intent || !surface) return;
+    onStartConversation(intent);
+    router.push(surface.href);
   }
 
-  function seedPrompt(prompt: (typeof SAMPLE_PROMPTS)[number]) {
-    setDraft((current) => (current.trim() ? `${current.trim()}\n\n${prompt.prompt}` : prompt.prompt));
+  function seedPrompt(prompt: string) {
+    setDraft((current) => {
+      // Switching starters replaces an untouched suggestion, while preserving
+      // anything the user has written themselves.
+      const isSuggestion = STARTERS.some((starter) => starter.prompt === current) || current === EXISTING_PROJECT_PROMPT;
+      return current.trim() && !isSuggestion ? `${current.trim()}\n\n${prompt}` : prompt;
+    });
     requestAnimationFrame(() => composerRef.current?.focus());
   }
 
   return (
-    <section className={styles.frontDoor} aria-labelledby="front-door-heading">
+    <main className={styles.frontDoor} aria-labelledby="front-door-heading">
       <div className={styles.scroll}>
-        <div className={styles.hero}>
-          <span className={styles.heroMark} aria-hidden="true">
-            <SparklesIcon width={24} height={24} />
-          </span>
-          <h1 id="front-door-heading">
-            {profile?.experience === "new" ? "What would you like to build?" : "What can I help you accomplish?"}
-          </h1>
-        </div>
+        <div className={styles.content}>
+          <header className={styles.hero}>
+            <p className={styles.welcome}>
+              {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
+            </p>
+            <h1 id="front-door-heading">What will you build first?</h1>
+            <p className={styles.intro}>
+              Your tools, your ideas, and an agent to help you bring them to life.
+            </p>
+          </header>
 
-        <section className={styles.surfaces} aria-labelledby="surfaces-heading">
-          <h2 id="surfaces-heading" className={styles.surfacesHeading}>
-            Explore surfaces
-          </h2>
-          <ul className={styles.surfaceList}>
-            {availableSurfaces.map((surface) => (
-              <li key={surface.id}>
-                <Link href={surface.href} className={styles.surfaceRow}>
-                  <span className={styles.surfaceIcon} aria-hidden="true">
-                    <surface.Icon width={20} height={20} />
-                  </span>
-                  <span className={styles.surfaceCopy}>
-                    <strong>{surface.label}</strong>
-                    <span>{surface.description}</span>
-                  </span>
-                  <ChevronRightIcon className={styles.surfaceChevron} width={18} height={18} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+          <SurfaceNav />
+
+          <section className={styles.starters} aria-labelledby="starters-heading">
+            <div className={styles.sectionHeading}>
+              <h2 id="starters-heading">A few ways to get started</h2>
+              <p>Pick an idea and make it yours.</p>
+            </div>
+            <ul className={styles.starterGrid}>
+              {starters.map((starter) => (
+                <li key={starter.title}>
+                  <button
+                    type="button"
+                    className={styles.starterCard}
+                    data-surface={starter.surfaceId}
+                    onClick={() => seedPrompt(starter.prompt)}
+                  >
+                    <span className={styles.cardTop}>
+                      <span className={styles.starterIcon} aria-hidden="true">
+                        <starter.Icon width={22} height={22} />
+                      </span>
+                      <span className={styles.surfaceLabel}>
+                        {availableSurfaces.find((surface) => surface.id === starter.surfaceId)?.label}
+                      </span>
+                    </span>
+                    <strong className={styles.starterTitle}>{starter.title}</strong>
+                    <span className={styles.starterDescription}>{starter.description}</span>
+                    <span className={styles.starterAction}>
+                      Try with the agent
+                      <ChevronRightIcon width={15} height={15} aria-hidden="true" />
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {canUseCode && (
+            <div className={styles.existingProject}>
+              <GitBranchIcon className={styles.existingIcon} width={20} height={20} aria-hidden="true" />
+              <div className={styles.existingCopy}>
+                <h2>Have a project already?</h2>
+                <p>Start with your codebase and get to know what you can do here.</p>
+              </div>
+              <button type="button" onClick={() => seedPrompt(EXISTING_PROJECT_PROMPT)}>
+                Bring your project
+                <ChevronRightIcon width={15} height={15} aria-hidden="true" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={styles.composerDock}>
-        <div className={styles.prompts} aria-label="Suggested prompts">
-          {SAMPLE_PROMPTS.map((prompt) => (
-            <button key={prompt.label} type="button" onClick={() => seedPrompt(prompt)}>
-              <SparklesIcon width={15} height={15} aria-hidden="true" />
-              {prompt.label}
-            </button>
-          ))}
+        <div className={styles.conversationHeading}>
+          <span>Or start with a conversation</span>
         </div>
-
         <form
           className={styles.composer}
           onSubmit={(event) => {
@@ -137,7 +181,8 @@ export function FrontDoor() {
             ref={composerRef}
             rows={3}
             value={draft}
-            placeholder="Describe what you want to do…"
+            placeholder="Describe an idea, ask a question, or tell me what you want to build…"
+            aria-describedby="front-door-composer-hint"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -147,18 +192,17 @@ export function FrontDoor() {
             }}
           />
           <div className={styles.composerTools}>
-            <button type="button">
-              <PlusIcon width={16} height={16} aria-hidden="true" />
-              Add context
-            </button>
-            <button type="button">
-              <LinkIcon width={16} height={16} aria-hidden="true" />
-              Attach
-            </button>
+            <span className={styles.agentLabel}>
+              <SparklesIcon width={16} height={16} aria-hidden="true" />
+              Agent
+            </span>
+            <span id="front-door-composer-hint" className={styles.composerHint}>
+              Enter to send · Shift + Enter for a new line
+            </span>
             <button
               type="submit"
               className={styles.send}
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || !availableSurfaces.length}
               aria-label="Send message"
             >
               <SendIcon width={18} height={18} />
@@ -166,6 +210,6 @@ export function FrontDoor() {
           </div>
         </form>
       </div>
-    </section>
+    </main>
   );
 }

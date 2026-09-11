@@ -20,8 +20,8 @@ export const DEMO_PROFILES: readonly DemoProfile[] = [
     firstName: "Jordan",
     initials: "JW",
     role: "Developer",
-    experience: "returning",
-    workspaceExperience: "established",
+    experience: "new",
+    workspaceExperience: "empty",
     surfaceAccess: ["build", "code", "govern", "alm"],
   },
   {
