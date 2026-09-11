@@ -8,15 +8,14 @@ import { ReturningSurface } from "./ReturningSurface";
 import styles from "./SurfaceProjection.module.css";
 
 /** First visits introduce the tools; established workspaces center current work. */
-export function SurfaceProjection({ surfaceId, toolbar, children }: {
+export function SurfaceProjection({ surfaceId, children }: {
   surfaceId: SurfaceId;
-  toolbar?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
   const { profile } = useDemoProfile();
   if (profile?.workspaceExperience === "established") {
-    return <ReturningSurface surfaceId={surfaceId} toolbar={toolbar}>{children}</ReturningSurface>;
+    return <ReturningSurface surfaceId={surfaceId}>{children}</ReturningSurface>;
   }
   return <div className={styles.surface}>
     <section className={styles.workspace} aria-labelledby="surface-heading">

@@ -22,7 +22,8 @@ const STATUS_LABEL: Record<AgentSessionStatus, string> = {
  *
  * Progressive disclosure: a project with a single worktree has nothing to
  * parallelize, so this renders null and a simple user never meets session
- * machinery — same rule the toolbar's WorktreeSwitcher already follows.
+ * machinery. Project and worktree navigation lives in the workspace panel
+ * and command palette.
  */
 export function AgentSessionsRail() {
   const { activeProject, activeWorktree, agentSessions, setActiveWorktree } = useWorkspace();
