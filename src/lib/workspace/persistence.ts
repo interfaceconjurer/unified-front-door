@@ -1,3 +1,5 @@
+import type { DemoProfileId } from "@/lib/demo-profiles";
+
 /**
  * Persisted slice of workspace *selection* state — the three records that used
  * to be plain `useState` in the provider (`activeProjectId`, `worktreeByProject`,
@@ -75,6 +77,8 @@ function parseSelection(raw: string): PersistedSelection {
 }
 
 class WorkspaceSelectionStore {
+  constructor(private storageKey: string, private initialSelection: PersistedSelection) {}
+
   private listeners = new Set<() => void>();
   // Cache keyed by the raw string we last read/wrote, so `getSnapshot` returns
   // a referentially stable object when nothing has changed (required by
@@ -89,14 +93,14 @@ class WorkspaceSelectionStore {
 
   /** Fixed default, same reference every call — this is what SSR and the
    *  client's first hydration render both see, so they can't diverge. */
-  getServerSnapshot = (): PersistedSelection => EMPTY_SELECTION;
+  getServerSnapshot = (): PersistedSelection => this.initialSelection;
 
   getSnapshot = (): PersistedSelection => {
-    if (typeof window === "undefined") return EMPTY_SELECTION;
+    if (typeof window === "undefined") return this.initialSelection;
 
     let raw: string | null;
     try {
-      raw = window.localStorage.getItem(STORAGE_KEY);
+      raw = window.localStorage.getItem(this.storageKey);
     } catch {
       // Storage disabled/throwing (private mode, etc.) — behave as if empty.
       raw = null;
@@ -104,7 +108,7 @@ class WorkspaceSelectionStore {
 
     if (raw === this.cachedRaw && this.cached) return this.cached;
     this.cachedRaw = raw;
-    this.cached = raw === null ? EMPTY_SELECTION : parseSelection(raw);
+    this.cached = raw === null ? this.initialSelection : parseSelection(raw);
     return this.cached;
   };
 
@@ -119,7 +123,7 @@ class WorkspaceSelectionStore {
     if (typeof window !== "undefined") {
       try {
         const raw = JSON.stringify(next);
-        window.localStorage.setItem(STORAGE_KEY, raw);
+        window.localStorage.setItem(this.storageKey, raw);
         this.cachedRaw = raw;
       } catch {
         // Quota exceeded / private mode / storage disabled — keep the new
@@ -158,6 +162,16 @@ class WorkspaceSelectionStore {
   };
 }
 
-/** Singleton — one workspace selection per tab, same as the module-level
- *  fixtures it sits alongside. */
-export const workspaceSelectionStore = new WorkspaceSelectionStore();
+const stores = new Map<DemoProfileId, WorkspaceSelectionStore>();
+
+export function getWorkspaceSelectionStore(profileId: DemoProfileId): WorkspaceSelectionStore {
+  let store = stores.get(profileId);
+  if (!store) {
+    const initialSelection: PersistedSelection = profileId === "am"
+      ? { activeProjectId: "trailblazer-crm", worktreeByProject: { "trailblazer-crm": "main" }, orgByProject: { "trailblazer-crm": "uat" }, panelOpen: null }
+      : EMPTY_SELECTION;
+    store = new WorkspaceSelectionStore(profileId === "jw" ? STORAGE_KEY : `${STORAGE_KEY}.${profileId}`, initialSelection);
+    stores.set(profileId, store);
+  }
+  return store;
+}

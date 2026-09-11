@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
@@ -47,13 +48,12 @@ export function SurfaceCanvasHost({
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
   const { profile } = useDemoProfile();
+  const { activeProject, activeWorktree, setActiveProject, setActiveWorktree } = useWorkspace();
   const stored = useSurfaceCanvases(surfaceId);
   const emptyWorkspace = profile?.workspaceExperience === "empty";
-  // A new user can launch generic capability canvases, but project-specific app
-  // canvases from another demo user stay out of sight. The stored state itself
-  // is untouched, so Jordan's tabs return when switching back.
+  // Hide project-backed canvases from profiles with an empty workspace.
   const canvases = emptyWorkspace
-    ? stored.canvases.filter((canvas) => canvas.kind !== "app")
+    ? stored.canvases.filter((canvas) => canvas.kind !== "app" && canvas.kind !== "work")
     : stored.canvases;
   const activeCanvasId = canvases.some((canvas) => canvas.id === stored.activeCanvasId)
     ? stored.activeCanvasId
@@ -63,6 +63,25 @@ export function SurfaceCanvasHost({
   // whose tabindex is still -1 (before the store-driven re-render flips it to 0)
   // is fine — programmatic focus ignores tabindex.
   const tabRefs = useRef(new Map<string, HTMLButtonElement | null>());
+  const tabListRef = useRef<HTMLDivElement>(null);
+
+  // Reveal a newly opened canvas without scrolling the content or letting it
+  // hide behind the pinned surface tab.
+  useEffect(() => {
+    const list = tabListRef.current;
+    const tab = tabRefs.current.get(activeCanvasId)?.parentElement;
+    if (!list || !tab) return;
+    if (activeCanvasId === OVERVIEW_CANVAS_ID) {
+      list.scrollLeft = 0;
+      return;
+    }
+    const pinned = tabRefs.current.get(OVERVIEW_CANVAS_ID)?.parentElement;
+    const viewport = list.getBoundingClientRect();
+    const bounds = tab.getBoundingClientRect();
+    const leftEdge = viewport.left + (pinned?.getBoundingClientRect().width ?? 0) + 8;
+    if (bounds.left < leftEdge) list.scrollLeft -= leftEdge - bounds.left;
+    else if (bounds.right > viewport.right) list.scrollLeft += bounds.right - viewport.right + 8;
+  }, [activeCanvasId]);
 
   // `activeCanvasId` is guaranteed by the store/parser to be either the overview
   // or a live launched tab, so the lookup normally hits; the `?? canvases[0]!`
@@ -71,9 +90,37 @@ export function SurfaceCanvasHost({
   // Arrow/Home/End roving-tabindex math to that resolved tab.
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId) ?? canvases[0]!;
   const activeIndex = canvases.findIndex((c) => c.id === activeCanvas.id);
+  const canvasProjectId = activeCanvas.params?.projectId;
+  const canvasWorktreeId = activeCanvas.params?.worktreeId;
+
+  // Returning to a surface restores the selected work tab and its agent context.
+  useEffect(() => {
+    if (!canvasProjectId) return;
+    if (activeProject.id !== canvasProjectId) setActiveProject(canvasProjectId);
+    if (canvasWorktreeId && (activeProject.id !== canvasProjectId || activeWorktree.id !== canvasWorktreeId)) {
+      setActiveWorktree(canvasWorktreeId, canvasProjectId);
+    }
+  }, [canvasProjectId, canvasWorktreeId, activeProject.id, activeWorktree.id, setActiveProject, setActiveWorktree]);
+
+
+  function selectTab(canvasId: string): void {
+    const canvas = canvases.find((candidate) => candidate.id === canvasId);
+    if (canvas?.params?.projectId) {
+      setActiveProject(canvas.params.projectId);
+      if (canvas.params.worktreeId) setActiveWorktree(canvas.params.worktreeId, canvas.params.projectId);
+    }
+    setActiveCanvas(surfaceId, canvasId);
+  }
+
+  function dismissTab(canvasId: string): void {
+    const index = canvases.findIndex((canvas) => canvas.id === canvasId);
+    const neighborId = canvases[index + 1]?.id ?? canvases[index - 1]?.id;
+    closeCanvas(surfaceId, canvasId);
+    if (canvasId === activeCanvasId && neighborId) selectTab(neighborId);
+  }
 
   function focusTab(canvasId: string): void {
-    setActiveCanvas(surfaceId, canvasId);
+    selectTab(canvasId);
     tabRefs.current.get(canvasId)?.focus();
   }
 
@@ -102,7 +149,7 @@ export function SurfaceCanvasHost({
       if (activeCanvas.id === OVERVIEW_CANVAS_ID) return;
       event.preventDefault();
       const neighborId = canvases[activeIndex + 1]?.id ?? canvases[activeIndex - 1]!.id;
-      closeCanvas(surfaceId, activeCanvas.id);
+      dismissTab(activeCanvas.id);
       tabRefs.current.get(neighborId)?.focus();
     }
   }
@@ -110,6 +157,7 @@ export function SurfaceCanvasHost({
   return (
     <div className={styles.host}>
       <div
+        ref={tabListRef}
         role="tablist"
         aria-label={`${surface.label} canvases`}
         aria-orientation="horizontal"
@@ -142,7 +190,7 @@ export function SurfaceCanvasHost({
                   tabRefs.current.set(canvas.id, node);
                 }}
                 className={`${styles.tab} ${isActive ? styles.tabActive : ""}`}
-                onClick={() => setActiveCanvas(surfaceId, canvas.id)}
+                onClick={() => selectTab(canvas.id)}
               >
                 {isOverview ? (
                   // The pinned first tab IS the surface: its own icon + name,
@@ -171,7 +219,7 @@ export function SurfaceCanvasHost({
                   tabIndex={-1}
                   aria-label={`Close ${canvas.title}`}
                   className={styles.close}
-                  onClick={() => closeCanvas(surfaceId, canvas.id)}
+                  onClick={() => dismissTab(canvas.id)}
                 >
                   <CloseIcon width={13} height={13} aria-hidden="true" />
                 </button>
@@ -191,7 +239,7 @@ export function SurfaceCanvasHost({
         {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
           children
         ) : (
-          <CanvasContent spec={activeCanvas} />
+          <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
         )}
       </div>
     </div>

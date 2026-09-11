@@ -1,0 +1,109 @@
+.launcher {
+  color-scheme: light dark;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-block-end: 1rem;
+}
+
+.heading h2 {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.heading > span {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr));
+  gap: 0.875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  width: 100%;
+  height: 100%;
+  padding: 1.125rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.card:hover {
+  border-color: var(--slds-g-color-accent-2, #0176d3);
+  box-shadow: 0 2px 8px light-dark(rgb(3 35 77 / 6%), rgb(0 0 0 / 15%));
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.625rem;
+  background: light-dark(#eaf2ff, #203652);
+  color: var(--slds-g-color-accent-2, #0176d3);
+}
+
+.copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.copy strong {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.copy > span {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.arrow {
+  flex: 0 0 auto;
+  margin-block-start: 0.2rem;
+  color: var(--slds-g-color-accent-2, #0176d3);
+}
+
+.toolkit {
+  height: auto;
+  margin-block-start: 1.5rem;
+  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 3%, var(--slds-g-color-surface-1, #fff));
+}
+
+.toolkit .icon {
+  background: light-dark(#f0ecfb, #352b4c);
+  color: light-dark(#7556b7, #c3a7fa);
+}
+
+.copy .toolkitAction {
+  color: var(--slds-g-color-accent-2, #0176d3);
+  font-weight: 600;
+}

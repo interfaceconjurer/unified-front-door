@@ -1,0 +1,20 @@
+.home { color-scheme: light dark; }
+.hero { margin-bottom: 1.75rem; }
+.hero > p { margin: 0 0 0.625rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.8125rem; }
+.hero h1 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(1.5rem, 2.5vw, 2rem); font-weight: 500; letter-spacing: -0.025em; line-height: 1.3; }
+.summary { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.875rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.75rem; }
+.summary svg { color: var(--slds-g-color-accent-2, #0176d3); }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.875rem; }
+.sectionHeading h2 { display: flex; align-items: center; gap: 0.5rem; margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.875rem; font-weight: 600; }
+.count { display: inline-grid; place-items: center; min-width: 1.375rem; height: 1.375rem; border-radius: 0.375rem; background: light-dark(#e7ebef, #2b3542); color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; font-weight: 400; }
+.attention { margin-bottom: 1.75rem; }
+.attentionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.875rem; }
+.attentionCard { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1.125rem; border: 1px solid light-dark(#e1cda6, #625238); border-radius: 0.75rem; background: light-dark(#fffdf8, #22262c); color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; text-align: start; cursor: pointer; }
+.attentionCard:hover { border-color: light-dark(#a87523, #e4b65d); }
+.attentionLabel { color: light-dark(#895700, #f4c67a); font-size: 0.6875rem; }
+.attentionCard > strong { color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.875rem; font-weight: 600; }
+.attentionDescription { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.75rem; line-height: 1.6; }
+.attentionAction { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; width: 100%; margin-top: auto; padding-top: 0.5rem; color: var(--slds-g-color-accent-2, #0176d3); font-size: 0.6875rem; font-weight: 600; }
+.filter { display: flex; align-items: center; gap: 0.5rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+.filter select { max-width: 12rem; padding: 0.375rem 0.5rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 0.375rem; background: var(--slds-g-color-surface-1, #fff); color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; }
+@media (max-width: 600px) { .attentionGrid { grid-template-columns: 1fr; } }

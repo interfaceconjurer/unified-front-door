@@ -71,7 +71,7 @@ function recommendApp(text: string, profile: DemoProfile): SurfaceApp {
   const normalized = text.toLowerCase();
   const preferredId = /deploy|release|pipeline|work item|lifecycle/.test(normalized)
     ? "alm"
-    : /code|apex|lwc|test|debug|source/.test(normalized)
+    : /code|react|apex|lwc|test|debug|source/.test(normalized)
       ? "code"
       : /security|permission|monitor|observe|health|trust|govern/.test(normalized)
         ? "govern"
@@ -82,7 +82,13 @@ function recommendApp(text: string, profile: DemoProfile): SurfaceApp {
 
 // The greeting that seeds a brand-new thread. Fixed id so it's stable across a
 // session; appended messages take ids from the running counter (>= 1).
-function seedThread(scope: Scope): Message[] {
+function seedThread(scope: Scope, initialMessage?: string | null): Message[] {
+  if (initialMessage) {
+    return [
+      { id: 1, role: "user", text: initialMessage },
+      { id: 2, role: "agent", text: scope.greeting },
+    ];
+  }
   return [{ id: 0, role: "agent", text: scope.greeting }];
 }
 
@@ -100,25 +106,46 @@ function seedThread(scope: Scope): Message[] {
  * Interaction is a wireframe: sending appends the message and a scope-aware
  * canned reply. On the front door it also recommends a surface to jump into.
  */
-export function AgentPanel() {
+export function AgentPanel({ initialMessage, onMessageReceived }: {
+  initialMessage?: string | null;
+  onMessageReceived?: () => void;
+}) {
   const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const scope = scopeForPath(pathname);
-  const isHome = scope.key === HOME_SCOPE.key;
+  const baseScope = scopeForPath(pathname);
+  const isHome = baseScope.key === HOME_SCOPE.key;
 
   const { activeProject, activeWorktree, activeOrg, sessionKey } = useWorkspace();
+  const returningSession = profile?.workspaceExperience === "established"
+    ? activeProject.agentSessions.find((session) => session.worktreeId === activeWorktree.id)
+    : undefined;
+  const scope: Scope = returningSession ? {
+    ...baseScope,
+    heading: "Let’s pick it up.",
+    intro: "Your agent session follows the project and branch you’re working in.",
+    greeting: returningSession.summary,
+    suggestions: returningSession.status === "waiting"
+      ? ["Summarize the pending approval", "Walk through the release plan", "What should I review first?"]
+      : ["Summarize the current changes", "What still needs review?", "Plan the next step"],
+  } : baseScope;
   const showWorktree = activeProject.worktrees.length > 1;
 
   const [draft, setDraft] = useState("");
   // One thread per {project, worktree} session, seeded from the mount scope.
   const [sessions, setSessions] = useState<Record<string, Message[]>>(() => ({
-    [sessionKey]: seedThread(scope),
+    [sessionKey]: seedThread(scope, initialMessage),
   }));
   const [recommendation, setRecommendation] = useState<SurfaceApp | null>(null);
-  const nextId = useRef(1);
+  const nextId = useRef(3);
   const transcriptRef = useRef<HTMLDivElement>(null);
 
   const thread = sessions[sessionKey] ?? seedThread(scope);
+
+  // Acknowledge the front-door handoff once it is held in this thread, so a
+  // later visit through a navigation link cannot replay an old message.
+  useEffect(() => {
+    if (initialMessage) onMessageReceived?.();
+  }, [initialMessage, onMessageReceived]);
 
   // Two transitions to handle, both guarded on refs so they fire on change only:
   // switching session (project/worktree) swaps threads — nothing appended, just

@@ -10,7 +10,8 @@ import {
   type Worktree,
 } from "@/lib/workspace/model";
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
-import { workspaceSelectionStore } from "@/lib/workspace/persistence";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { getWorkspaceSelectionStore } from "@/lib/workspace/persistence";
 
 type WorkspaceContextValue = {
   projects: readonly Project[];
@@ -58,6 +59,8 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const projects = PROJECTS;
   const orgs = ORGS;
+  const { profile } = useDemoProfile();
+  const workspaceSelectionStore = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(
     workspaceSelectionStore.subscribe,
     workspaceSelectionStore.getSnapshot,
@@ -88,7 +91,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
       setActiveOrg: (id) => workspaceSelectionStore.setOrgForProject(activeProject.id, id),
     };
-  }, [projects, orgs, selection]);
+  }, [projects, orgs, selection, workspaceSelectionStore]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
@@ -121,6 +124,8 @@ export function useWorkspacePanel(isHome: boolean): {
   panelOpen: boolean;
   togglePanel: () => void;
 } {
+  const { profile } = useDemoProfile();
+  const workspaceSelectionStore = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(
     workspaceSelectionStore.subscribe,
     workspaceSelectionStore.getSnapshot,

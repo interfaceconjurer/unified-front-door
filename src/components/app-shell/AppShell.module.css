@@ -149,6 +149,10 @@
     transform: none;
   }
 
+  .surfacePane[aria-hidden="true"] {
+    display: none;
+  }
+
   .panelSlot {
     flex-basis: auto;
   }

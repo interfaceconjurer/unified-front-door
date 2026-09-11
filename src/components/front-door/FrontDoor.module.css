@@ -1,4 +1,7 @@
 .frontDoor {
+  /* Declare the scheme in this compiled stylesheet too: SLDS's external CSS
+     cannot supply the variables generated when light-dark() is transformed. */
+  color-scheme: light dark;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -7,184 +10,268 @@
   background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
-/* Hero + surfaces scroll together above the docked composer, so the composer
-   stays reachable no matter how the list grows. */
 .scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--slds-g-spacing-7, 2.5rem);
-  width: min(58rem, 100%);
+}
+
+.content {
+  width: min(62rem, 100%);
   margin-inline: auto;
-  padding: clamp(2rem, 6vh, 4.5rem) var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-4, 1rem);
+  padding: clamp(2rem, 4vh, 3.5rem) 2rem 1.5rem;
 }
 
 .hero {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--slds-g-spacing-4, 1rem);
+  margin-block-end: clamp(1.75rem, 3vh, 2.5rem);
   text-align: center;
 }
 
-.heroMark {
-  display: grid;
-  place-items: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: var(--slds-g-radius-border-circle, 50%);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: #fff;
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 20%, transparent);
+.welcome {
+  margin: 0 0 0.75rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.875rem;
 }
 
 .hero h1 {
   margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  font-weight: 400;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
+  font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
 }
 
-.surfacesHeading {
-  margin: 0 0 var(--slds-g-spacing-3, 0.75rem);
+.intro {
+  margin: 1rem 0 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  text-wrap: balance;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-block-end: 1rem;
+}
+
+.sectionHeading h2 {
+  margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: var(--slds-g-font-scale-2, 1rem);
-  font-weight: 700;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
-.surfaceList {
+.sectionHeading p {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.8125rem;
+}
+
+.starterGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.starterCard {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  align-items: stretch;
+  width: 100%;
+  height: 100%;
+  padding: 1.25rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-3, 0.75rem);
   background: var(--slds-g-color-surface-1, #fff);
-  overflow: hidden;
-}
-
-.surfaceList li + li .surfaceRow {
-  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-}
-
-.surfaceRow {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--slds-g-spacing-4, 1rem);
-  padding: var(--slds-g-spacing-4, 1rem);
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  text-decoration: none;
-  transition: background-color 120ms ease;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
 }
 
-.surfaceRow:hover,
-.surfaceRow:focus-visible {
-  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 8%, transparent);
-  outline: none;
+.starterCard:hover {
+  border-color: var(--slds-g-color-accent-2, #0176d3);
+  box-shadow: 0 3px 12px light-dark(rgb(3 35 77 / 7%), rgb(0 0 0 / 18%));
 }
 
-.surfaceIcon {
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-block-end: 1.25rem;
+}
+
+.starterIcon {
   display: grid;
   place-items: center;
+  flex: 0 0 auto;
   width: 2.75rem;
   height: 2.75rem;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: light-dark(rgb(3 35 77 / 6%), rgb(255 255 255 / 8%));
-  color: light-dark(#0176d3, #78b9ff);
+  border-radius: 0.75rem;
+  background: light-dark(#eaf2ff, #203652);
+  color: light-dark(#0668dc, #8dbbff);
 }
 
-.surfaceCopy {
-  display: grid;
-  gap: 0.2rem;
-  min-width: 0;
+.starterCard[data-surface="code"] .starterIcon {
+  background: light-dark(#e8f5f2, #193e37);
+  color: light-dark(#117866, #82d6c6);
 }
 
-.surfaceCopy strong {
-  color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: var(--slds-g-font-scale-2, 1rem);
+.starterCard[data-surface="alm"] .starterIcon {
+  background: light-dark(#f0ecfb, #352b4c);
+  color: light-dark(#7556b7, #c3a7fa);
 }
 
-.surfaceCopy span {
+.surfaceLabel {
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
+.starterTitle {
+  margin-block-end: 0.5rem;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: 1rem;
+  font-weight: 600;
   line-height: 1.4;
 }
 
-.surfaceChevron {
+.starterDescription {
+  margin-block-end: 1.5rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.starterAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-block-start: auto;
+  color: var(--slds-g-color-accent-2, #0176d3);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.existingProject {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block-start: 1.25rem;
+  padding: 1.25rem 0.25rem;
+}
+
+.existingIcon {
+  flex: 0 0 auto;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
-/* Composer stays docked to the bottom of the front door. */
-.composerDock {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--slds-g-spacing-3, 0.75rem);
-  width: min(58rem, 100%);
-  margin-inline: auto;
-  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) var(--slds-g-spacing-5, 1.5rem);
+.existingCopy {
+  flex: 1;
 }
 
-.prompts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--slds-g-spacing-2, 0.5rem);
+.existingCopy h2 {
+  margin: 0 0 0.25rem;
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
-.prompts button {
+.existingCopy p {
+  margin: 0;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.existingProject button {
   display: inline-flex;
   align-items: center;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  padding: 0.5rem 0.9rem;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-pill, 999px);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-surface-1, #fff);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  color: var(--slds-g-color-accent-2, #0176d3);
   font: inherit;
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+  font-size: 0.75rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
-.prompts button:hover {
-  border-color: var(--slds-g-color-accent-1, #0176d3);
-  background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 6%, var(--slds-g-color-surface-1, #fff));
+.existingProject button:hover {
+  border-color: var(--slds-g-color-accent-2, #0176d3);
 }
 
-.prompts svg {
-  color: light-dark(#0176d3, #78b9ff);
+.composerDock {
+  flex: 0 0 auto;
+  width: min(62rem, 100%);
+  margin-inline: auto;
+  padding: 0.5rem 2rem 2rem;
+}
+
+.conversationHeading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 1.25rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+}
+
+.conversationHeading::before,
+.conversationHeading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--slds-g-color-border-1, #c9c9c9);
 }
 
 .composer {
   display: flex;
   flex-direction: column;
-  gap: var(--slds-g-spacing-2, 0.5rem);
-  padding: var(--slds-g-spacing-3, 0.75rem);
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 0.75rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-3, 0.75rem);
   background: var(--slds-g-color-surface-1, #fff);
+  box-shadow: 0 2px 8px light-dark(rgb(3 35 77 / 3%), rgb(0 0 0 / 10%));
 }
 
 .composer:focus-within {
-  border-color: var(--slds-g-color-accent-1, #0176d3);
-  box-shadow: 0 0 0 1px var(--slds-g-color-accent-1, #0176d3);
+  border-color: var(--slds-g-color-accent-2, #0176d3);
+  box-shadow: 0 0 0 1px var(--slds-g-color-accent-2, #0176d3);
 }
 
 .composer textarea {
   width: 100%;
+  min-height: 4.5rem;
+  padding: 0;
   border: none;
   background: transparent;
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
   font: inherit;
-  line-height: 1.5;
+  line-height: 1.6;
   resize: none;
+}
+
+.composer textarea::placeholder {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  opacity: 1;
 }
 
 .composer textarea:focus {
@@ -194,52 +281,51 @@
 .composerTools {
   display: flex;
   align-items: center;
-  gap: var(--slds-g-spacing-2, 0.5rem);
+  gap: 1rem;
 }
 
-.composerTools button {
+.agentLabel {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 0.6rem;
+  gap: 0.5rem;
+  color: var(--slds-g-color-accent-2, #0176d3);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.composerHint {
+  margin-inline-start: auto;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.6875rem;
+}
+
+.send {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-inline-start: auto;
+  padding: 0;
   border: none;
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: transparent;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font: inherit;
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
-  font-weight: 600;
+  background: var(--slds-g-color-accent-2, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
   cursor: pointer;
 }
 
-.composerTools button:hover {
-  background: light-dark(rgb(3 35 77 / 6%), rgb(255 255 255 / 8%));
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+.composerHint + .send {
+  margin-inline-start: 0;
 }
 
-/* Send sits at the far right of the tool row. */
-.send {
-  margin-inline-start: auto;
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: #fff;
+.send:hover:not(:disabled) {
+  filter: brightness(0.9);
 }
 
 .send:disabled {
-  background: light-dark(rgb(3 35 77 / 12%), rgb(255 255 255 / 12%));
+  background: light-dark(rgb(3 35 77 / 8%), rgb(255 255 255 / 10%));
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   cursor: not-allowed;
-}
-
-.status {
-  margin: 0;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
 }
 
 .srOnly {
@@ -253,3 +339,65 @@
   white-space: nowrap;
   border: 0;
 }
+
+@media (max-width: 700px) {
+  .content {
+    padding: 2rem 1.25rem 1rem;
+  }
+
+  .starterGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .starterCard {
+    padding: 1rem;
+  }
+
+  .cardTop {
+    margin-block-end: 0.75rem;
+  }
+
+  .starterDescription {
+    margin-block-end: 1rem;
+  }
+
+  .existingProject {
+    flex-wrap: wrap;
+  }
+
+  .existingProject button {
+    margin-inline-start: 2.25rem;
+  }
+
+  .composerDock {
+    padding: 1rem 1.25rem 1.25rem;
+  }
+
+  .composerHint {
+    display: none;
+  }
+
+  .composerHint + .send {
+    margin-inline-start: auto;
+  }
+}
+
+@media (max-height: 700px) {
+  .content {
+    padding-block-start: 1.75rem;
+  }
+
+  .hero {
+    margin-block-end: 1.75rem;
+  }
+
+  .composerDock {
+    padding-block-end: 1rem;
+  }
+}
+
+.returning .content { padding-block-start: 1.75rem; }
+.returning .composerDock { padding-block-end: 1.25rem; }
+.returning .composer { gap: 0.5rem; padding-top: 1rem; }
+.returning .composer textarea { min-height: 3rem; font-size: 0.875rem; }
+.returning .conversationHeading { margin-block-end: 0.75rem; }

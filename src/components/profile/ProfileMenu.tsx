@@ -37,10 +37,8 @@ export function ProfileMenu() {
 
   if (!profile) return null;
 
-  const alternateProfile = DEMO_PROFILES.find((candidate) => candidate.id !== profile.id)!;
+  const alternateProfiles = DEMO_PROFILES.filter((candidate) => candidate.id !== profile.id);
   const experienceLabel = profile.experience === "returning" ? "Returning user" : "New user";
-  const alternateExperienceLabel =
-    alternateProfile.experience === "returning" ? "Returning user" : "New user";
 
   function switchUser(profileId: DemoProfileId) {
     signIn(profileId);
@@ -81,14 +79,14 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.people}>
-            <button type="button" onClick={() => switchUser(alternateProfile.id)}>
+            {alternateProfiles.map((alternateProfile) => <button key={alternateProfile.id} type="button" onClick={() => switchUser(alternateProfile.id)}>
               <span className={styles.personCopy}>
                 <strong>Switch to {alternateProfile.name}</strong>
                 <small>
-                  {alternateProfile.role} · {alternateExperienceLabel}
+                  {alternateProfile.role} · {alternateProfile.experience === "returning" ? "Returning user" : "New user"}
                 </small>
               </span>
-            </button>
+            </button>)}
           </div>
 
           <div className={styles.logout}>

@@ -39,16 +39,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [entryMessage, setEntryMessage] = useState<string | null>(null);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
-  // panel survives a reload — see `useWorkspacePanel`. This has to happen
-  // above `<WorkspaceProvider>` since AppShell is the component that mounts
-  // it, so it can't consume that context itself. Passing `isFrontDoor` is what
-  // lets the hook default the panel OPEN on the home route (browsing
-  // projects/apps/sessions is the point of home) while staying closed
-  // elsewhere — but only until the user explicitly toggles it, at which
-  // point that choice is persisted and wins on every route.
-  const { panelOpen, togglePanel } = useWorkspacePanel(isFrontDoor);
+  // panel survives a reload. New workspaces start collapsed; established ones
+  // default open on home. An explicit user preference still takes precedence.
+  const { panelOpen, togglePanel } = useWorkspacePanel(
+    isFrontDoor && profile?.workspaceExperience === "established",
+  );
 
   // Demo identity is deliberately a client-side product concept, not an auth
   // boundary. Keep signed-out users on the login screen and prevent a profile
@@ -96,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!profile || (surface && !canAccessSurface(profile, surface.id))) return null;
 
   return (
-    <WorkspaceProvider>
+    <WorkspaceProvider key={profile.id}>
       {/* Peer of the workspace: per-surface canvas ("workstage") state, mounted
           above the router outlet so a surface's open tabs survive route content
           swaps (and, via its persisted store, a reload). */}
@@ -125,7 +123,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   AgentPanel (and its thread) persists as you move between
                   surfaces, and only the merged front-door swap crossfades. */}
               <div key={isFrontDoor ? "home" : "surface"} className={styles.chatInner}>
-                {isFrontDoor ? <FrontDoor /> : <AgentPanel />}
+                {isFrontDoor ? (
+                  <FrontDoor onStartConversation={setEntryMessage} />
+                ) : (
+                  <AgentPanel initialMessage={entryMessage} onMessageReceived={() => setEntryMessage(null)} />
+                )}
               </div>
             </div>
             {/* The surface is an overlay pinned at its final 60% width: adding

@@ -10,11 +10,12 @@ import {
   PlusIcon,
   SparklesIcon,
 } from "@/components/icons";
-import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
+import { surfaceAppById, surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { surfaceCanvasStore } from "@/lib/surface-canvas/persistence";
+import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
   allAppRows,
@@ -114,6 +115,8 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
+  const { openCanvas, setActiveCanvas } = useSurfaceCanvases("build");
+  const currentSurface = surfaceAppForPath(pathname);
   const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
     useWorkspace();
   const [filter, setFilter] = useState<PanelFilter>("all");
@@ -177,17 +180,9 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     );
   }
 
-  // An app row opens the app's ops/observe canvas as a tab in Build & Setup —
-  // the surface the less-technical persona lives in — where the app's live URL
-  // and deploy facts now live (deliberately not on the row itself). Opening is
-  // idempotent by kind+params (projectId+appId), so re-clicking a row focuses
-  // the existing tab instead of stacking duplicates. We re-point context first
-  // so the canvas (and the surface) resolve against the right project, then
-  // navigate to the build surface if we aren't already there. `surfaceCanvasStore`
-  // is a plain module singleton, so calling it directly from this client
-  // component is the intended seam — no React context needed.
+  // Open the app in this profile’s Build canvas and focus its project.
   function openApp(project: Project, app: DeployedApp) {
-    surfaceCanvasStore.openCanvas("build", {
+    openCanvas("build", {
       kind: "app",
       title: app.label,
       params: { projectId: project.id, appId: app.id },
@@ -276,6 +271,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     onClick={() => {
                       setActiveProject(project.id);
                       setActiveWorktree(base.worktree.id, project.id);
+                      if (currentSurface) setActiveCanvas(currentSurface.id, OVERVIEW_CANVAS_ID);
                     }}
                   >
                     <LayersIcon className={styles.rowIcon} width={16} height={16} />
@@ -306,6 +302,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                               onClick={() => {
                                 setActiveProject(project.id);
                                 setActiveWorktree(worktree.id, project.id);
+                                if (currentSurface) setActiveCanvas(currentSurface.id, OVERVIEW_CANVAS_ID);
                               }}
                             >
                               <StatusDot status={status} />
@@ -365,6 +362,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     onClick={() => {
                       setActiveProject(project.id);
                       setActiveWorktree(worktree.id, project.id);
+                      setActiveCanvas("code", OVERVIEW_CANVAS_ID);
                       if (pathname !== codeHref) router.push(codeHref);
                     }}
                   >

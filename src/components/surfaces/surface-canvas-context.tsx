@@ -3,7 +3,8 @@
 import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS, type CanvasSpec, type CanvasSpecInput } from "@/lib/surface-canvas/model";
-import { surfaceCanvasStore } from "@/lib/surface-canvas/persistence";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { getSurfaceCanvasStore } from "@/lib/surface-canvas/persistence";
 
 type SurfaceCanvasContextValue = {
   /** The full tab list for a surface, overview synthesized at index 0. */
@@ -14,6 +15,7 @@ type SurfaceCanvasContextValue = {
   openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
   closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
   setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
+  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
 };
 
 const SurfaceCanvasContext = createContext<SurfaceCanvasContextValue | null>(null);
@@ -34,6 +36,8 @@ const SurfaceCanvasContext = createContext<SurfaceCanvasContextValue | null>(nul
  * `WorkspaceProvider` exactly — see `@/lib/surface-canvas/persistence`.
  */
 export function SurfaceCanvasProvider({ children }: { children: React.ReactNode }) {
+  const { profile } = useDemoProfile();
+  const surfaceCanvasStore = getSurfaceCanvasStore(profile?.id ?? "jw");
   const state = useSyncExternalStore(
     surfaceCanvasStore.subscribe,
     surfaceCanvasStore.getSnapshot,
@@ -49,8 +53,9 @@ export function SurfaceCanvasProvider({ children }: { children: React.ReactNode 
       openCanvas: surfaceCanvasStore.openCanvas,
       closeCanvas: surfaceCanvasStore.closeCanvas,
       setActiveCanvas: surfaceCanvasStore.setActiveCanvas,
+      updateDraft: surfaceCanvasStore.updateDraft,
     }),
-    [state],
+    [state, surfaceCanvasStore],
   );
 
   return <SurfaceCanvasContext.Provider value={value}>{children}</SurfaceCanvasContext.Provider>;
@@ -74,6 +79,7 @@ export function useSurfaceCanvases(surfaceId: SurfaceId): {
   openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
   closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
   setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
+  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
 } {
   const ctx = useSurfaceCanvasContext();
   return {
@@ -82,5 +88,6 @@ export function useSurfaceCanvases(surfaceId: SurfaceId): {
     openCanvas: ctx.openCanvas,
     closeCanvas: ctx.closeCanvas,
     setActiveCanvas: ctx.setActiveCanvas,
+    updateDraft: ctx.updateDraft,
   };
 }

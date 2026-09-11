@@ -15,6 +15,8 @@
  * or corrupted here. Everything stored is a plain, serializable `CanvasSpec`.
  */
 
+import type { DemoProfileId } from "@/lib/demo-profiles";
+import { RETURNING_WORK, workCanvasInput } from "@/lib/workspace/returning-work";
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
   canvasId,
@@ -34,6 +36,8 @@ const SURFACE_IDS: readonly SurfaceId[] = ["build", "code", "govern", "alm"];
 export type SurfaceCanvasSlice = {
   canvases: CanvasSpec[];
   activeCanvasId: string;
+  /** Closing a tab dismisses its view; it doesn't delete an edited draft. */
+  closedDrafts?: Record<string, Record<string, string>>;
 };
 
 /** The whole persisted store: one slice per surface. Always fully populated
@@ -79,7 +83,8 @@ function parseCanvas(value: unknown): CanvasSpec | null {
   if (!isLaunchableKind(value.kind)) return null;
   if (typeof value.title !== "string") return null;
   const params = value.params === undefined ? undefined : sanitizeStringRecord(value.params);
-  return { kind: value.kind, title: value.title, params, id: canvasId(value.kind, params) };
+  const draft = value.draft === undefined ? undefined : sanitizeStringRecord(value.draft);
+  return { kind: value.kind, title: value.title, params, draft, id: canvasId(value.kind, params) };
 }
 
 function parseSlice(value: unknown): SurfaceCanvasSlice {
@@ -95,7 +100,12 @@ function parseSlice(value: unknown): SurfaceCanvasSlice {
       canvases.some((c) => c.id === value.activeCanvasId))
       ? value.activeCanvasId
       : OVERVIEW_CANVAS_ID;
-  return { canvases, activeCanvasId };
+  const closedDrafts = isRecord(value.closedDrafts)
+    ? Object.fromEntries(Object.entries(value.closedDrafts)
+        .filter(([, draft]) => isRecord(draft))
+        .map(([id, draft]) => [id, sanitizeStringRecord(draft)]))
+    : undefined;
+  return { canvases, activeCanvasId, closedDrafts };
 }
 
 /** A corrupt/unparseable/wrong-shape blob is treated as "no saved state." The
@@ -114,6 +124,8 @@ function parseState(raw: string): PersistedCanvases {
 }
 
 class SurfaceCanvasStore {
+  constructor(private storageKey: string, private initialState: PersistedCanvases) {}
+
   private listeners = new Set<() => void>();
   // Cache keyed by the raw string last read/written, so `getSnapshot` returns a
   // referentially stable object when nothing changed — required by
@@ -128,14 +140,14 @@ class SurfaceCanvasStore {
 
   /** Fixed default, same reference every call — SSR and first hydration both
    *  see this, so they can't diverge. */
-  getServerSnapshot = (): PersistedCanvases => EMPTY_STATE;
+  getServerSnapshot = (): PersistedCanvases => this.initialState;
 
   getSnapshot = (): PersistedCanvases => {
-    if (typeof window === "undefined") return EMPTY_STATE;
+    if (typeof window === "undefined") return this.initialState;
 
     let raw: string | null;
     try {
-      raw = window.localStorage.getItem(STORAGE_KEY);
+      raw = window.localStorage.getItem(this.storageKey);
     } catch {
       // Storage disabled/throwing (private mode, etc.) — behave as if empty.
       raw = null;
@@ -143,7 +155,7 @@ class SurfaceCanvasStore {
 
     if (raw === this.cachedRaw && this.cached) return this.cached;
     this.cachedRaw = raw;
-    this.cached = raw === null ? EMPTY_STATE : parseState(raw);
+    this.cached = raw === null ? this.initialState : parseState(raw);
     return this.cached;
   };
 
@@ -158,7 +170,7 @@ class SurfaceCanvasStore {
     if (typeof window !== "undefined") {
       try {
         const raw = JSON.stringify(next);
-        window.localStorage.setItem(STORAGE_KEY, raw);
+        window.localStorage.setItem(this.storageKey, raw);
         this.cachedRaw = raw;
       } catch {
         // Quota exceeded / private mode / storage disabled — keep the new value
@@ -185,10 +197,20 @@ class SurfaceCanvasStore {
     this.updateSlice(surfaceId, (slice) => {
       const existing = slice.canvases.some((c) => c.id === id);
       return {
-        canvases: existing ? slice.canvases : [...slice.canvases, { ...input, id }],
+        ...slice,
+        canvases: existing ? slice.canvases : [...slice.canvases, { ...input, id, draft: slice.closedDrafts?.[id] }],
         activeCanvasId: id,
       };
     });
+  };
+
+  updateDraft = (surfaceId: SurfaceId, id: string, fields: Record<string, string>): void => {
+    this.updateSlice(surfaceId, (slice) => ({
+      ...slice,
+      canvases: slice.canvases.map((canvas) => canvas.id === id
+        ? { ...canvas, draft: { ...canvas.draft, ...fields } }
+        : canvas),
+    }));
   };
 
   /** Close a launched canvas. The pinned overview is not closable, so a request
@@ -201,13 +223,19 @@ class SurfaceCanvasStore {
       const index = slice.canvases.findIndex((c) => c.id === id);
       if (index === -1) return slice;
 
+      const draft = slice.canvases[index]?.draft;
       const canvases = slice.canvases.filter((c) => c.id !== id);
       let activeCanvasId = slice.activeCanvasId;
       if (activeCanvasId === id) {
         const neighbor = canvases[index] ?? canvases[index - 1];
         activeCanvasId = neighbor?.id ?? OVERVIEW_CANVAS_ID;
       }
-      return { canvases, activeCanvasId };
+      return {
+        ...slice,
+        canvases,
+        activeCanvasId,
+        closedDrafts: draft ? { ...slice.closedDrafts, [id]: draft } : slice.closedDrafts,
+      };
     });
   };
 
@@ -221,6 +249,22 @@ class SurfaceCanvasStore {
   };
 }
 
-/** Singleton — one open-tab set per tab (browser tab), same lifetime as the
- *  workspace selection store it sits beside. */
-export const surfaceCanvasStore = new SurfaceCanvasStore();
+/** Profile stores keep a newcomer's workspace separate from the returning demo. */
+const stores = new Map<DemoProfileId, SurfaceCanvasStore>();
+
+export function getSurfaceCanvasStore(profileId: DemoProfileId): SurfaceCanvasStore {
+  let store = stores.get(profileId);
+  if (!store) {
+    const initialState = emptyState();
+    if (profileId === "am") {
+      for (const work of RETURNING_WORK) {
+        const input = workCanvasInput(work);
+        initialState[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) });
+      }
+    }
+    // Preserve Jordan's existing drafts at the original storage key.
+    store = new SurfaceCanvasStore(profileId === "jw" ? STORAGE_KEY : `${STORAGE_KEY}.${profileId}`, initialState);
+    stores.set(profileId, store);
+  }
+  return store;
+}

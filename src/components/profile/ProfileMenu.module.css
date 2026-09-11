@@ -25,6 +25,10 @@
   --avatar-color: #735677;
 }
 
+.avatar[data-profile="am"] {
+  --avatar-color: #24786c;
+}
+
 .avatar:hover,
 .avatar[aria-expanded="true"] {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--avatar-color) 28%, transparent);
@@ -76,6 +80,8 @@
 }
 
 .people {
+  display: grid;
+  gap: 0.5rem;
   padding: var(--slds-g-spacing-2, 0.5rem);
 }
 

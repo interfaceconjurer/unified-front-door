@@ -1,4 +1,5 @@
 .surface {
+  color-scheme: light dark;
   display: flex;
   width: 100%;
   min-height: 100%;
@@ -175,6 +176,7 @@
    chip + label + optional hint) so a launch reads the same on the overview as
    it does anywhere else, and sits below a thin rule as the projection's close. */
 .launch {
+  margin-block-start: var(--slds-g-spacing-5, 1.5rem);
   padding-block-start: var(--slds-g-spacing-5, 1.5rem);
   border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
