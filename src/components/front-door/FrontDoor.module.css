@@ -395,3 +395,9 @@
     padding-block-end: 1rem;
   }
 }
+
+.returning .content { padding-block-start: 1.75rem; }
+.returning .composerDock { padding-block-end: 1.25rem; }
+.returning .composer { gap: 0.5rem; padding-top: 1rem; }
+.returning .composer textarea { min-height: 3rem; font-size: 0.875rem; }
+.returning .conversationHeading { margin-block-end: 0.75rem; }

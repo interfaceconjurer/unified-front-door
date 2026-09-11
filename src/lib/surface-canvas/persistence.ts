@@ -15,6 +15,8 @@
  * or corrupted here. Everything stored is a plain, serializable `CanvasSpec`.
  */
 
+import type { DemoProfileId } from "@/lib/demo-profiles";
+import { RETURNING_WORK, workCanvasInput } from "@/lib/workspace/returning-work";
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
   canvasId,
@@ -122,6 +124,8 @@ function parseState(raw: string): PersistedCanvases {
 }
 
 class SurfaceCanvasStore {
+  constructor(private storageKey: string, private initialState: PersistedCanvases) {}
+
   private listeners = new Set<() => void>();
   // Cache keyed by the raw string last read/written, so `getSnapshot` returns a
   // referentially stable object when nothing changed — required by
@@ -136,14 +140,14 @@ class SurfaceCanvasStore {
 
   /** Fixed default, same reference every call — SSR and first hydration both
    *  see this, so they can't diverge. */
-  getServerSnapshot = (): PersistedCanvases => EMPTY_STATE;
+  getServerSnapshot = (): PersistedCanvases => this.initialState;
 
   getSnapshot = (): PersistedCanvases => {
-    if (typeof window === "undefined") return EMPTY_STATE;
+    if (typeof window === "undefined") return this.initialState;
 
     let raw: string | null;
     try {
-      raw = window.localStorage.getItem(STORAGE_KEY);
+      raw = window.localStorage.getItem(this.storageKey);
     } catch {
       // Storage disabled/throwing (private mode, etc.) — behave as if empty.
       raw = null;
@@ -151,7 +155,7 @@ class SurfaceCanvasStore {
 
     if (raw === this.cachedRaw && this.cached) return this.cached;
     this.cachedRaw = raw;
-    this.cached = raw === null ? EMPTY_STATE : parseState(raw);
+    this.cached = raw === null ? this.initialState : parseState(raw);
     return this.cached;
   };
 
@@ -166,7 +170,7 @@ class SurfaceCanvasStore {
     if (typeof window !== "undefined") {
       try {
         const raw = JSON.stringify(next);
-        window.localStorage.setItem(STORAGE_KEY, raw);
+        window.localStorage.setItem(this.storageKey, raw);
         this.cachedRaw = raw;
       } catch {
         // Quota exceeded / private mode / storage disabled — keep the new value
@@ -245,6 +249,22 @@ class SurfaceCanvasStore {
   };
 }
 
-/** Singleton — one open-tab set per tab (browser tab), same lifetime as the
- *  workspace selection store it sits beside. */
-export const surfaceCanvasStore = new SurfaceCanvasStore();
+/** Profile stores keep a newcomer's workspace separate from the returning demo. */
+const stores = new Map<DemoProfileId, SurfaceCanvasStore>();
+
+export function getSurfaceCanvasStore(profileId: DemoProfileId): SurfaceCanvasStore {
+  let store = stores.get(profileId);
+  if (!store) {
+    const initialState = emptyState();
+    if (profileId === "am") {
+      for (const work of RETURNING_WORK) {
+        const input = workCanvasInput(work);
+        initialState[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) });
+      }
+    }
+    // Preserve Jordan's existing drafts at the original storage key.
+    store = new SurfaceCanvasStore(profileId === "jw" ? STORAGE_KEY : `${STORAGE_KEY}.${profileId}`, initialState);
+    stores.set(profileId, store);
+  }
+  return store;
+}

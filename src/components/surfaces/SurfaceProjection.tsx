@@ -1,17 +1,23 @@
 "use client";
 
 import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { SurfaceLauncher } from "./SurfaceLauncher";
+import { ReturningSurface } from "./ReturningSurface";
 import styles from "./SurfaceProjection.module.css";
 
-/** Introduce each surface through tools that open editable canvas drafts. */
-export function SurfaceProjection({ surfaceId }: {
+/** First visits introduce the tools; established workspaces center current work. */
+export function SurfaceProjection({ surfaceId, toolbar, children }: {
   surfaceId: SurfaceId;
   toolbar?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
+  const { profile } = useDemoProfile();
+  if (profile?.workspaceExperience === "established") {
+    return <ReturningSurface surfaceId={surfaceId} toolbar={toolbar}>{children}</ReturningSurface>;
+  }
   return <div className={styles.surface}>
     <section className={styles.workspace} aria-labelledby="surface-heading">
       <header className={styles.header}>

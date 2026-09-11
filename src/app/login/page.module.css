@@ -92,6 +92,10 @@
   --avatar-color: #735677;
 }
 
+.avatar[data-profile="am"] {
+  --avatar-color: #24786c;
+}
+
 .accountCopy {
   display: grid;
   min-width: 0;

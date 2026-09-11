@@ -10,7 +10,9 @@ import {
   SparklesIcon,
   type IconComponent,
 } from "@/components/icons";
-import { surfaceAppById, surfaceApps } from "@/components/front-door/app-catalog";
+import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
+import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
+import { surfaceAppById, surfaceAppForPath, surfaceApps } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -102,6 +104,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
+  const { setActiveCanvas } = useSurfaceCanvases("code");
+  const currentSurfaceId = surfaceAppForPath(pathname)?.id;
   const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
     useWorkspace();
   const [tab, setTab] = useState<Tab>("surfaces");
@@ -185,6 +189,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           select: () => {
             setActiveProject(project.id);
             setActiveWorktree(base.worktree.id, project.id);
+            if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
             onClose();
           },
         });
@@ -201,6 +206,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             select: () => {
               setActiveProject(project.id);
               setActiveWorktree(worktree.id, project.id);
+              if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
               onClose();
             },
           });
@@ -229,6 +235,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         select: () => {
           setActiveProject(project.id);
           setActiveWorktree(worktree.id, project.id);
+          setActiveCanvas("code", OVERVIEW_CANVAS_ID);
           onClose();
           if (pathname !== codeHref) router.push(codeHref);
         },
@@ -245,6 +252,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     onClose,
     setActiveProject,
     setActiveWorktree,
+    setActiveCanvas,
+    currentSurfaceId,
   ]);
 
   // Derived, not stored: `active` can point past the end after filtering or a

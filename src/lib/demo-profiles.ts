@@ -1,6 +1,6 @@
 import type { SurfaceId } from "@/lib/workspace/model";
 
-export type DemoProfileId = "jw" | "kf";
+export type DemoProfileId = "jw" | "kf" | "am";
 
 export type DemoProfile = {
   id: DemoProfileId;
@@ -22,6 +22,16 @@ export const DEMO_PROFILES: readonly DemoProfile[] = [
     role: "Developer",
     experience: "new",
     workspaceExperience: "empty",
+    surfaceAccess: ["build", "code", "govern", "alm"],
+  },
+  {
+    id: "am",
+    name: "Alex Morgan",
+    firstName: "Alex",
+    initials: "AM",
+    role: "Developer",
+    experience: "returning",
+    workspaceExperience: "established",
     surfaceAccess: ["build", "code", "govern", "alm"],
   },
   {

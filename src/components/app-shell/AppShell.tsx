@@ -94,7 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (!profile || (surface && !canAccessSurface(profile, surface.id))) return null;
 
   return (
-    <WorkspaceProvider>
+    <WorkspaceProvider key={profile.id}>
       {/* Peer of the workspace: per-surface canvas ("workstage") state, mounted
           above the router outlet so a surface's open tabs survive route content
           swaps (and, via its persisted store, a reload). */}

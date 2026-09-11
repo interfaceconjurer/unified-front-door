@@ -112,10 +112,22 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
 }) {
   const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const scope = scopeForPath(pathname);
-  const isHome = scope.key === HOME_SCOPE.key;
+  const baseScope = scopeForPath(pathname);
+  const isHome = baseScope.key === HOME_SCOPE.key;
 
   const { activeProject, activeWorktree, activeOrg, sessionKey } = useWorkspace();
+  const returningSession = profile?.workspaceExperience === "established"
+    ? activeProject.agentSessions.find((session) => session.worktreeId === activeWorktree.id)
+    : undefined;
+  const scope: Scope = returningSession ? {
+    ...baseScope,
+    heading: "Let’s pick it up.",
+    intro: "Your agent session follows the project and branch you’re working in.",
+    greeting: returningSession.summary,
+    suggestions: returningSession.status === "waiting"
+      ? ["Summarize the pending approval", "Walk through the release plan", "What should I review first?"]
+      : ["Summarize the current changes", "What still needs review?", "Plan the next step"],
+  } : baseScope;
   const showWorktree = activeProject.worktrees.length > 1;
 
   const [draft, setDraft] = useState("");

@@ -13,6 +13,7 @@ import {
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
+import { ReturningHome } from "./ReturningHome";
 import { SurfaceNav } from "./SurfaceNav";
 import styles from "./FrontDoor.module.css";
 
@@ -72,6 +73,7 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
   const starters = STARTERS.filter((starter) => availableSurfaces.some((surface) => surface.id === starter.surfaceId));
+  const returning = profile?.workspaceExperience === "established";
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
   useEffect(() => {
@@ -97,9 +99,10 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
   }
 
   return (
-    <main className={styles.frontDoor} aria-labelledby="front-door-heading">
+    <main className={`${styles.frontDoor} ${returning ? styles.returning : ""}`} aria-labelledby="front-door-heading">
       <div className={styles.scroll}>
         <div className={styles.content}>
+          {returning ? <ReturningHome /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -159,12 +162,13 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
               </button>
             </div>
           )}
+          </>}
         </div>
       </div>
 
       <div className={styles.composerDock}>
         <div className={styles.conversationHeading}>
-          <span>Or start with a conversation</span>
+          <span>{returning ? "What would you like to work on?" : "Or start with a conversation"}</span>
         </div>
         <form
           className={styles.composer}
@@ -179,9 +183,9 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
           <textarea
             id="front-door-composer"
             ref={composerRef}
-            rows={3}
+            rows={returning ? 2 : 3}
             value={draft}
-            placeholder="Describe an idea, ask a question, or tell me what you want to build…"
+            placeholder={returning ? "Ask about your work, plan a change, or start something new…" : "Describe an idea, ask a question, or tell me what you want to build…"}
             aria-describedby="front-door-composer-hint"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
