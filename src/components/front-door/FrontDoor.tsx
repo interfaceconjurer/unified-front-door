@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ChevronRightIcon,
   GitBranchIcon,
+  ListCheckIcon,
   PuzzleIcon,
   SendIcon,
   SparklesIcon,
@@ -21,11 +22,19 @@ type Starter = {
   title: string;
   description: string;
   surfaceId: SurfaceApp["id"];
+  fallbackSurfaceId?: SurfaceApp["id"];
   Icon: IconComponent;
   prompt: string;
 };
 
 const STARTERS: readonly Starter[] = [
+  {
+    title: "Start your first project",
+    description: "Define your goal, set up work items, and plan your first steps.",
+    surfaceId: "alm",
+    Icon: ListCheckIcon,
+    prompt: "Help me start my first project. Walk me through defining its goal, creating and prioritizing work items, and choosing the first task to work on.",
+  },
   {
     title: "Build your first agent",
     description: "Give an agent a job to do, connect your data, and try it out.",
@@ -37,6 +46,7 @@ const STARTERS: readonly Starter[] = [
     title: "Build a React app",
     description: "Create a custom app with React, connected to your Salesforce data.",
     surfaceId: "code",
+    fallbackSurfaceId: "build",
     Icon: PuzzleIcon,
     prompt: "Help me build a React app for browsing and searching Salesforce accounts. Walk me through the app structure, connecting Salesforce data, and adding tests.",
   },
@@ -72,7 +82,13 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
   const availableSurfaces = profile
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
-  const starters = STARTERS.filter((starter) => availableSurfaces.some((surface) => surface.id === starter.surfaceId));
+  const starters = STARTERS.flatMap((starter) => {
+    if (availableSurfaces.some((surface) => surface.id === starter.surfaceId)) return [starter];
+    if (starter.fallbackSurfaceId && availableSurfaces.some((surface) => surface.id === starter.fallbackSurfaceId)) {
+      return [{ ...starter, surfaceId: starter.fallbackSurfaceId }];
+    }
+    return [];
+  });
   const returning = profile?.workspaceExperience === "established";
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
