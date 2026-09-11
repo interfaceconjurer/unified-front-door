@@ -34,6 +34,8 @@ const SURFACE_IDS: readonly SurfaceId[] = ["build", "code", "govern", "alm"];
 export type SurfaceCanvasSlice = {
   canvases: CanvasSpec[];
   activeCanvasId: string;
+  /** Closing a tab dismisses its view; it doesn't delete an edited draft. */
+  closedDrafts?: Record<string, Record<string, string>>;
 };
 
 /** The whole persisted store: one slice per surface. Always fully populated
@@ -79,7 +81,8 @@ function parseCanvas(value: unknown): CanvasSpec | null {
   if (!isLaunchableKind(value.kind)) return null;
   if (typeof value.title !== "string") return null;
   const params = value.params === undefined ? undefined : sanitizeStringRecord(value.params);
-  return { kind: value.kind, title: value.title, params, id: canvasId(value.kind, params) };
+  const draft = value.draft === undefined ? undefined : sanitizeStringRecord(value.draft);
+  return { kind: value.kind, title: value.title, params, draft, id: canvasId(value.kind, params) };
 }
 
 function parseSlice(value: unknown): SurfaceCanvasSlice {
@@ -95,7 +98,12 @@ function parseSlice(value: unknown): SurfaceCanvasSlice {
       canvases.some((c) => c.id === value.activeCanvasId))
       ? value.activeCanvasId
       : OVERVIEW_CANVAS_ID;
-  return { canvases, activeCanvasId };
+  const closedDrafts = isRecord(value.closedDrafts)
+    ? Object.fromEntries(Object.entries(value.closedDrafts)
+        .filter(([, draft]) => isRecord(draft))
+        .map(([id, draft]) => [id, sanitizeStringRecord(draft)]))
+    : undefined;
+  return { canvases, activeCanvasId, closedDrafts };
 }
 
 /** A corrupt/unparseable/wrong-shape blob is treated as "no saved state." The
@@ -185,10 +193,20 @@ class SurfaceCanvasStore {
     this.updateSlice(surfaceId, (slice) => {
       const existing = slice.canvases.some((c) => c.id === id);
       return {
-        canvases: existing ? slice.canvases : [...slice.canvases, { ...input, id }],
+        ...slice,
+        canvases: existing ? slice.canvases : [...slice.canvases, { ...input, id, draft: slice.closedDrafts?.[id] }],
         activeCanvasId: id,
       };
     });
+  };
+
+  updateDraft = (surfaceId: SurfaceId, id: string, fields: Record<string, string>): void => {
+    this.updateSlice(surfaceId, (slice) => ({
+      ...slice,
+      canvases: slice.canvases.map((canvas) => canvas.id === id
+        ? { ...canvas, draft: { ...canvas.draft, ...fields } }
+        : canvas),
+    }));
   };
 
   /** Close a launched canvas. The pinned overview is not closable, so a request
@@ -201,13 +219,19 @@ class SurfaceCanvasStore {
       const index = slice.canvases.findIndex((c) => c.id === id);
       if (index === -1) return slice;
 
+      const draft = slice.canvases[index]?.draft;
       const canvases = slice.canvases.filter((c) => c.id !== id);
       let activeCanvasId = slice.activeCanvasId;
       if (activeCanvasId === id) {
         const neighbor = canvases[index] ?? canvases[index - 1];
         activeCanvasId = neighbor?.id ?? OVERVIEW_CANVAS_ID;
       }
-      return { canvases, activeCanvasId };
+      return {
+        ...slice,
+        canvases,
+        activeCanvasId,
+        closedDrafts: draft ? { ...slice.closedDrafts, [id]: draft } : slice.closedDrafts,
+      };
     });
   };
 

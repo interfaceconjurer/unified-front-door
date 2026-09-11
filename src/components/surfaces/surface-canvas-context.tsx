@@ -14,6 +14,7 @@ type SurfaceCanvasContextValue = {
   openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
   closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
   setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
+  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
 };
 
 const SurfaceCanvasContext = createContext<SurfaceCanvasContextValue | null>(null);
@@ -49,6 +50,7 @@ export function SurfaceCanvasProvider({ children }: { children: React.ReactNode 
       openCanvas: surfaceCanvasStore.openCanvas,
       closeCanvas: surfaceCanvasStore.closeCanvas,
       setActiveCanvas: surfaceCanvasStore.setActiveCanvas,
+      updateDraft: surfaceCanvasStore.updateDraft,
     }),
     [state],
   );
@@ -74,6 +76,7 @@ export function useSurfaceCanvases(surfaceId: SurfaceId): {
   openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
   closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
   setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
+  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
 } {
   const ctx = useSurfaceCanvasContext();
   return {
@@ -82,5 +85,6 @@ export function useSurfaceCanvases(surfaceId: SurfaceId): {
     openCanvas: ctx.openCanvas,
     closeCanvas: ctx.closeCanvas,
     setActiveCanvas: ctx.setActiveCanvas,
+    updateDraft: ctx.updateDraft,
   };
 }

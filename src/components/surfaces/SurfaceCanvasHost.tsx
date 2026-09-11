@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
@@ -49,9 +49,7 @@ export function SurfaceCanvasHost({
   const { profile } = useDemoProfile();
   const stored = useSurfaceCanvases(surfaceId);
   const emptyWorkspace = profile?.workspaceExperience === "empty";
-  // A new user can launch generic capability canvases, but project-specific app
-  // canvases from another demo user stay out of sight. The stored state itself
-  // is untouched, so Jordan's tabs return when switching back.
+  // Hide project-backed canvases from profiles with an empty workspace.
   const canvases = emptyWorkspace
     ? stored.canvases.filter((canvas) => canvas.kind !== "app")
     : stored.canvases;
@@ -63,6 +61,25 @@ export function SurfaceCanvasHost({
   // whose tabindex is still -1 (before the store-driven re-render flips it to 0)
   // is fine — programmatic focus ignores tabindex.
   const tabRefs = useRef(new Map<string, HTMLButtonElement | null>());
+  const tabListRef = useRef<HTMLDivElement>(null);
+
+  // Reveal a newly opened canvas without scrolling the content or letting it
+  // hide behind the pinned surface tab.
+  useEffect(() => {
+    const list = tabListRef.current;
+    const tab = tabRefs.current.get(activeCanvasId)?.parentElement;
+    if (!list || !tab) return;
+    if (activeCanvasId === OVERVIEW_CANVAS_ID) {
+      list.scrollLeft = 0;
+      return;
+    }
+    const pinned = tabRefs.current.get(OVERVIEW_CANVAS_ID)?.parentElement;
+    const viewport = list.getBoundingClientRect();
+    const bounds = tab.getBoundingClientRect();
+    const leftEdge = viewport.left + (pinned?.getBoundingClientRect().width ?? 0) + 8;
+    if (bounds.left < leftEdge) list.scrollLeft -= leftEdge - bounds.left;
+    else if (bounds.right > viewport.right) list.scrollLeft += bounds.right - viewport.right + 8;
+  }, [activeCanvasId]);
 
   // `activeCanvasId` is guaranteed by the store/parser to be either the overview
   // or a live launched tab, so the lookup normally hits; the `?? canvases[0]!`
@@ -71,7 +88,6 @@ export function SurfaceCanvasHost({
   // Arrow/Home/End roving-tabindex math to that resolved tab.
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId) ?? canvases[0]!;
   const activeIndex = canvases.findIndex((c) => c.id === activeCanvas.id);
-
   function focusTab(canvasId: string): void {
     setActiveCanvas(surfaceId, canvasId);
     tabRefs.current.get(canvasId)?.focus();
@@ -110,6 +126,7 @@ export function SurfaceCanvasHost({
   return (
     <div className={styles.host}>
       <div
+        ref={tabListRef}
         role="tablist"
         aria-label={`${surface.label} canvases`}
         aria-orientation="horizontal"
@@ -191,7 +208,7 @@ export function SurfaceCanvasHost({
         {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
           children
         ) : (
-          <CanvasContent spec={activeCanvas} />
+          <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
         )}
       </div>
     </div>

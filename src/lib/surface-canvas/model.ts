@@ -57,6 +57,8 @@ export type CanvasSpec = {
   kind: CanvasKind;
   title: string;
   params?: Record<string, string>;
+  /** Editable values are separate from params, so editing keeps the same tab. */
+  draft?: Record<string, string>;
 };
 
 /** The synthetic overview spec — its `title` is what the tab reads. Not stored;

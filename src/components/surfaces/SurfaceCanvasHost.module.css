@@ -53,6 +53,11 @@
    room — a quiet "surface | canvases" seam that keeps the surface identity
    reading as the container the other tabs live in, not just another tab. */
 .tabWrapSurface {
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 1;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  box-shadow: -0.5rem 0 var(--slds-g-color-surface-2, #f3f3f3);
   margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
   padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
   border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);

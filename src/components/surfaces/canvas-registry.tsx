@@ -6,6 +6,8 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { SurfaceId } from "@/lib/workspace/model";
 import type { CanvasSpec, LaunchableCanvasKind } from "@/lib/surface-canvas/model";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
+import { CapabilityDraftCanvas } from "./CapabilityDraftCanvas";
+import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
 
 /**
@@ -77,14 +79,14 @@ function AppCanvas({ spec }: { spec: CanvasSpec }) {
   );
 }
 
-/** A launched surface capability — opened from the overview's launch region.
- *  Its params carry the owning surface id and the capability name; the surface
- *  is resolved back to its label for the meta line so the tab reads as "this
- *  capability, in that surface." Prototype-grade content: it degrades to the
- *  shared placeholder shape (title + a surface meta line) until a real per-
- *  capability view lands, so a launch is a real, named tab rather than a stub. */
+/** Resolve the launcher's stable capability id to its editable starting screen.
+ *  Older tabs with a name param keep a readable fallback. */
 function CapabilityCanvas({ spec }: { spec: CanvasSpec }) {
   const surface = surfaceApps.find((candidate) => candidate.id === (spec.params?.surface as SurfaceId));
+  const capability = surface && capabilityForCanvas(surface.id, spec.params?.capability, spec.params?.name);
+  if (surface && capability) {
+    return <CapabilityDraftCanvas surfaceId={surface.id} capability={capability} spec={spec} />;
+  }
   return (
     <PlaceholderCanvas
       title={spec.title}

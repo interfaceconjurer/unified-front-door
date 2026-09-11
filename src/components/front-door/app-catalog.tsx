@@ -24,7 +24,7 @@ export const surfaceApps: readonly SurfaceApp[] = [
     label: "Build & Setup",
     description: "Configure data, automation, agents, and experiences.",
     workspaceDescription:
-      "A guided workspace for configuring the platform and assembling new capabilities.",
+      "Bring your data, automation, agents, and app experiences together.",
     Icon: GridIcon,
     capabilities: ["Guided setup", "Visual builders", "Configuration"],
   },
@@ -34,9 +34,9 @@ export const surfaceApps: readonly SurfaceApp[] = [
     label: "Code",
     description: "Develop, test, debug, and extend the platform.",
     workspaceDescription:
-      "A developer workspace designed around source, tests, diagnostics, and deployment readiness.",
+      "Start a project, write code, and give your agents the tools to build with you.",
     Icon: FileIcon,
-    capabilities: ["Source workspace", "Test results", "Diagnostics"],
+    capabilities: ["Start an SFDX project", "Write Apex", "Build a SOQL query", "Create tests"],
   },
   {
     id: "govern",
@@ -44,7 +44,7 @@ export const surfaceApps: readonly SurfaceApp[] = [
     label: "Govern & Observe",
     description: "Secure, monitor, and understand platform health.",
     workspaceDescription:
-      "A trust workspace for policy, security posture, telemetry, and operational health.",
+      "Understand your platform, manage access, and set guardrails for your apps and agents.",
     Icon: ChartIcon,
     capabilities: ["Security posture", "Platform health", "Policy controls"],
   },
@@ -54,7 +54,7 @@ export const surfaceApps: readonly SurfaceApp[] = [
     label: "ALM",
     description: "Plan, validate, release, and operate change.",
     workspaceDescription:
-      "A lifecycle workspace that carries work from planning through release and operation.",
+      "Plan your work, validate changes, and build a path to release.",
     Icon: GitBranchIcon,
     capabilities: ["Work planning", "Delivery pipelines", "Release health"],
   },
