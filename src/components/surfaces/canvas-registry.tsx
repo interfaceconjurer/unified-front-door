@@ -7,6 +7,7 @@ import type { SurfaceId } from "@/lib/workspace/model";
 import type { CanvasSpec, LaunchableCanvasKind } from "@/lib/surface-canvas/model";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import { WorkCanvas } from "./WorkCanvas";
+import { ImprovementProjectCanvas } from "@/components/onboarding/ImprovementProject";
 import { CapabilityDraftCanvas } from "./CapabilityDraftCanvas";
 import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
@@ -100,6 +101,7 @@ const CANVAS_COMPONENTS: Record<LaunchableCanvasKind, CanvasComponent> = {
   app: AppCanvas,
   capability: CapabilityCanvas,
   work: WorkCanvas,
+  "improvement-project": ImprovementProjectCanvas,
 };
 
 /** The quiet fallback shape — a header-only canvas whose message sits in the

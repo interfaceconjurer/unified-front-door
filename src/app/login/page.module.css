@@ -96,6 +96,10 @@
   --avatar-color: #24786c;
 }
 
+.avatar[data-profile="sp"] {
+  --avatar-color: #4765aa;
+}
+
 .accountCopy {
   display: grid;
   min-width: 0;

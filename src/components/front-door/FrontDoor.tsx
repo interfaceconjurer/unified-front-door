@@ -15,6 +15,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
 import { ReturningHome } from "./ReturningHome";
+import { DayZeroHome } from "@/components/onboarding/DayZeroHome";
 import { SurfaceNav } from "./SurfaceNav";
 import styles from "./FrontDoor.module.css";
 
@@ -90,6 +91,7 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
     return [];
   });
   const returning = profile?.workspaceExperience === "established";
+  const dayZero = profile?.onboarding === "org-assessment";
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
   useEffect(() => {
@@ -115,10 +117,10 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
   }
 
   return (
-    <main className={`${styles.frontDoor} ${returning ? styles.returning : ""}`} aria-labelledby="front-door-heading">
+    <main className={`${styles.frontDoor} ${returning ? styles.returning : ""} ${dayZero ? styles.dayZero : ""}`} aria-labelledby="front-door-heading">
       <div className={styles.scroll}>
         <div className={styles.content}>
-          {returning ? <ReturningHome /> : <>
+          {dayZero ? <DayZeroHome /> : returning ? <ReturningHome /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -199,9 +201,9 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
           <textarea
             id="front-door-composer"
             ref={composerRef}
-            rows={returning ? 2 : 3}
+            rows={returning || dayZero ? 2 : 3}
             value={draft}
-            placeholder={returning ? "Ask about your work, plan a change, or start something new…" : "Describe an idea, ask a question, or tell me what you want to build…"}
+            placeholder={dayZero ? "Ask about an opportunity, explore a plan, or start something new…" : returning ? "Ask about your work, plan a change, or start something new…" : "Describe an idea, ask a question, or tell me what you want to build…"}
             aria-describedby="front-door-composer-hint"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {

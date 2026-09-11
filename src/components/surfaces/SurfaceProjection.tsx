@@ -5,6 +5,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { SurfaceLauncher } from "./SurfaceLauncher";
 import { ReturningSurface } from "./ReturningSurface";
+import { ImprovementProjectsOverview } from "@/components/onboarding/ImprovementProject";
 import styles from "./SurfaceProjection.module.css";
 
 /** First visits introduce the tools; established workspaces center current work. */
@@ -14,6 +15,9 @@ export function SurfaceProjection({ surfaceId, children }: {
 }) {
   const surface = surfaceAppById(surfaceId);
   const { profile } = useDemoProfile();
+  if (profile?.onboarding === "org-assessment" && surfaceId === "alm") {
+    return <ImprovementProjectsOverview />;
+  }
   if (profile?.workspaceExperience === "established") {
     return <ReturningSurface surfaceId={surfaceId}>{children}</ReturningSurface>;
   }

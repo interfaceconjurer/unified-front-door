@@ -29,6 +29,10 @@
   --avatar-color: #24786c;
 }
 
+.avatar[data-profile="sp"] {
+  --avatar-color: #4765aa;
+}
+
 .avatar:hover,
 .avatar[aria-expanded="true"] {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--avatar-color) 28%, transparent);

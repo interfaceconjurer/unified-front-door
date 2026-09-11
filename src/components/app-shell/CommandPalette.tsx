@@ -104,9 +104,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const { setActiveCanvas } = useSurfaceCanvases("code");
+  const { setActiveCanvas, openCanvas } = useSurfaceCanvases("code");
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
+  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects } =
     useWorkspace();
   const [tab, setTab] = useState<Tab>("surfaces");
   const [query, setQuery] = useState("");
@@ -143,7 +143,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       }));
     }
 
-    if (profile?.workspaceExperience === "empty") return [];
+    if (!hasProjects) return [];
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
@@ -189,6 +189,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           select: () => {
             setActiveProject(project.id);
             setActiveWorktree(base.worktree.id, project.id);
+            if (profile?.onboarding) {
+              openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
+              router.push("/alm");
+              onClose();
+              return;
+            }
             if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
             onClose();
           },
@@ -246,6 +252,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     pathname,
     profile,
     projects,
+    hasProjects,
+    openCanvas,
     activeProject.id,
     activeWorktree.id,
     router,
@@ -292,11 +300,11 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const showGuidedEmpty = profile?.workspaceExperience === "empty" && tab !== "surfaces";
+  const showGuidedEmpty = !hasProjects && tab !== "surfaces";
 
   function goToBuild() {
     onClose();
-    router.push(surfaceAppById("build").href);
+    router.push(profile?.onboarding ? "/" : surfaceAppById("build").href);
   }
 
   function startConversation() {

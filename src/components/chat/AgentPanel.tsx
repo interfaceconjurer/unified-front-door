@@ -12,6 +12,8 @@ import {
 } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface, type DemoProfile } from "@/lib/demo-profiles";
+import { useAssessment } from "@/components/onboarding/use-assessment";
+import { ASSESSMENT_FINDINGS, findingsForScope } from "@/lib/onboarding/assessment";
 import styles from "./AgentPanel.module.css";
 
 type Message =
@@ -115,11 +117,25 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
   const baseScope = scopeForPath(pathname);
   const isHome = baseScope.key === HOME_SCOPE.key;
 
-  const { activeProject, activeWorktree, activeOrg, sessionKey } = useWorkspace();
+  const { activeProject, activeWorktree, activeOrg, sessionKey, hasProjects } = useWorkspace();
+  const { state: assessment } = useAssessment();
+  const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject.id) : undefined;
   const returningSession = profile?.workspaceExperience === "established"
     ? activeProject.agentSessions.find((session) => session.worktreeId === activeWorktree.id)
     : undefined;
-  const scope: Scope = returningSession ? {
+  const scope: Scope = improvement ? {
+    ...baseScope,
+    heading: "Let’s put the plan to work.",
+    intro: "Your assessment, evidence, and next steps stay with this project.",
+    greeting: `“${improvement.name}” has ${improvement.workItems.length} planned work items. Each includes the source finding, implementation steps, and acceptance criteria. Start by reviewing a plan and confirming the baseline in a sandbox.`,
+    suggestions: ["What should I work on first?", "Walk through the project plan", "How will we validate the improvements?"],
+  } : profile?.onboarding ? {
+    ...baseScope,
+    heading: "Let’s find your first improvement.",
+    intro: "Your org assessment is the starting point for a practical plan.",
+    greeting: assessment.status === "complete" ? `Your demo assessment found ${findingsForScope(assessment.scopeOrgIds).length} opportunities. Return home to review the evidence and turn selected findings into a project.` : "Your demo assessment is underway. It reviews the selected accessible orgs for capacity, process friction, and release readiness. You can follow its progress on the home screen.",
+    suggestions: ["What does the assessment cover?", "How do I create a project?"],
+  } : returningSession ? {
     ...baseScope,
     heading: "Let’s pick it up.",
     intro: "Your agent session follows the project and branch you’re working in.",
@@ -195,9 +211,24 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
 
     if (!profile) return;
 
-    const reply = isHome
+    const projectFindings = improvement?.workItems.flatMap((item) => {
+      const finding = ASSESSMENT_FINDINGS.find((finding) => finding.id === item.findingId);
+      return finding ? [{ item, finding }] : [];
+    }) ?? [];
+    const first = projectFindings.find(({ item }) => item.status !== "done");
+    const reply = improvement
+      ? /validat|success|test|acceptance/i.test(value)
+        ? projectFindings.map(({ finding }) => `${finding.title}: ${finding.validation}`).join("\n\n")
+        : /plan|steps/i.test(value)
+          ? projectFindings.map(({ finding }) => `${finding.title}\n${finding.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`).join("\n\n")
+          : first ? `Start with “${first.item.title}” (${first.item.priority.toLowerCase()} priority). ${first.finding.steps[0]} Open its work item plan to review the remaining steps. This demo tracks the plan; it does not execute org changes.`
+            : "All work items are marked complete. Review the acceptance criteria and the sandbox validation evidence before planning a release."
+      : profile.onboarding
+        ? /project/i.test(value) ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, sandbox, and work item plans, then choose Create project."
+          : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Each finding includes sample evidence and an approach to investigate. Review the scope and findings on the home screen."
+      : isHome
       ? `I’d start this in ${recommendApp(value, profile).label}. I’ll carry your goal and the context we establish here into that workspace.`
-      : profile.workspaceExperience === "empty"
+      : !hasProjects
         ? `This is a wireframe response scoped to ${scope.label}. In the full experience I’d help you establish the project context as we begin.`
         : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
             showWorktree ? ` · ${activeWorktree.label}` : ""

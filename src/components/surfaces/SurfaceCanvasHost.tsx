@@ -48,7 +48,7 @@ export function SurfaceCanvasHost({
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
   const { profile } = useDemoProfile();
-  const { activeProject, activeWorktree, setActiveProject, setActiveWorktree } = useWorkspace();
+  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } = useWorkspace();
   const stored = useSurfaceCanvases(surfaceId);
   const emptyWorkspace = profile?.workspaceExperience === "empty";
   // Hide project-backed canvases from profiles with an empty workspace.
@@ -95,17 +95,17 @@ export function SurfaceCanvasHost({
 
   // Returning to a surface restores the selected work tab and its agent context.
   useEffect(() => {
-    if (!canvasProjectId) return;
+    if (!canvasProjectId || !projects.some((project) => project.id === canvasProjectId)) return;
     if (activeProject.id !== canvasProjectId) setActiveProject(canvasProjectId);
     if (canvasWorktreeId && (activeProject.id !== canvasProjectId || activeWorktree.id !== canvasWorktreeId)) {
       setActiveWorktree(canvasWorktreeId, canvasProjectId);
     }
-  }, [canvasProjectId, canvasWorktreeId, activeProject.id, activeWorktree.id, setActiveProject, setActiveWorktree]);
+  }, [canvasProjectId, canvasWorktreeId, activeProject.id, activeWorktree.id, projects, setActiveProject, setActiveWorktree]);
 
 
   function selectTab(canvasId: string): void {
     const canvas = canvases.find((candidate) => candidate.id === canvasId);
-    if (canvas?.params?.projectId) {
+    if (canvas?.params?.projectId && projects.some((project) => project.id === canvas.params?.projectId)) {
       setActiveProject(canvas.params.projectId);
       if (canvas.params.worktreeId) setActiveWorktree(canvas.params.worktreeId, canvas.params.projectId);
     }
