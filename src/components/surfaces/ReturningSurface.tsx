@@ -12,15 +12,14 @@ import { SurfaceLauncher } from "./SurfaceLauncher";
 import styles from "./ReturningSurface.module.css";
 
 const COPY: Record<SurfaceId, { heading: string; description: string; workHeading: string }> = {
-  code: { heading: "Back to your code.", description: "Resume your changes, check on your agents, or open another tool.", workHeading: "Continue working" },
+  code: { heading: "Back to your code.", description: "Check on your agents, resume your changes, or open another tool.", workHeading: "Continue working" },
   build: { heading: "Keep your ideas moving.", description: "Pick up your agents and experiences, and see what’s running.", workHeading: "Your builds" },
   govern: { heading: "Keep your workspace in view.", description: "Follow up on access reviews and revisit the signals you’re watching.", workHeading: "Reviews & monitors" },
   alm: { heading: "Move your next change forward.", description: "Review what’s waiting on you and pick up your release plans.", workHeading: "Releases in progress" },
 };
 
-export function ReturningSurface({ surfaceId, toolbar, children }: {
+export function ReturningSurface({ surfaceId, children }: {
   surfaceId: SurfaceId;
-  toolbar?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
@@ -33,18 +32,22 @@ export function ReturningSurface({ surfaceId, toolbar, children }: {
 
   return <div className={styles.surface}>
     <header className={styles.header}>
-      <p className={styles.eyebrow}><surface.Icon width={17} height={17} aria-hidden="true" />{surface.label}</p>
+      <p className={styles.identity}>
+        <span className={styles.identityIcon}><surface.Icon width={26} height={26} aria-hidden="true" /></span>
+        {surface.label}
+      </p>
       <h1 id="surface-heading">{copy.heading}</h1>
       <p className={styles.description}>{copy.description}</p>
-      <div className={styles.context}>
+      {surfaceId !== "code" && <div className={styles.context}>
         <label>Project
           <select value={activeProject.id} onChange={(event) => setActiveProject(event.target.value)}>
             {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
         </label>
-        {toolbar}
-      </div>
+      </div>}
     </header>
+
+    {children}
 
     <section aria-labelledby="surface-work-heading">
       <div className={styles.sectionHeading}><h2 id="surface-work-heading">{copy.workHeading}</h2>
@@ -52,8 +55,6 @@ export function ReturningSurface({ surfaceId, toolbar, children }: {
       </div>
       {work.length ? <RecentWorkList items={work} /> : <p className={styles.empty}>Your work in this surface will appear here. Start something new below.</p>}
     </section>
-
-    {children}
 
     {surfaceId === "govern" && <section aria-labelledby="environments-heading">
       <div className={styles.sectionHeading}><h2 id="environments-heading">Connected environments</h2><span>Select a target org</span></div>

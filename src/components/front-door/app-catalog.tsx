@@ -1,6 +1,6 @@
 import {
   ChartIcon,
-  FileIcon,
+  CodeIcon,
   GridIcon,
   GitBranchIcon,
   type IconComponent,
@@ -35,7 +35,7 @@ export const surfaceApps: readonly SurfaceApp[] = [
     description: "Develop, test, debug, and extend the platform.",
     workspaceDescription:
       "Start a project, write code, and give your agents the tools to build with you.",
-    Icon: FileIcon,
+    Icon: CodeIcon,
     capabilities: ["Start an SFDX project", "Write Apex", "Build a SOQL query", "Create tests"],
   },
   {

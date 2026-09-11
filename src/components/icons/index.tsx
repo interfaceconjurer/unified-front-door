@@ -164,6 +164,14 @@ export const FileIcon: IconComponent = (p) => (
   </Svg>
 );
 
+export const CodeIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <path d="m7 7-5 5 5 5" />
+    <path d="m17 7 5 5-5 5" />
+    <path d="m14 4-4 16" />
+  </Svg>
+);
+
 export const ClipboardIcon: IconComponent = (p) => (
   <Svg {...p}>
     <path d="M9 4H7a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2" />
