@@ -30,6 +30,7 @@ Once through that gate, choose a demo profile on the sign-in screen.
 Choose **Sam Patel — Day zero · Org assessment** on sign-in, or switch to Sam
 from the avatar menu. The agent automatically starts a simulated read-only
 assessment of the connected orgs in Sam's demo workspace.
+Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
 - Use the bottom-right status-bar org switcher from first login to choose among all connected orgs, independently of the assessment scope. The selected org persists across reloads.
