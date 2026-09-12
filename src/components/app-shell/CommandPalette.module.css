@@ -14,7 +14,8 @@
   inset: 0;
   pointer-events: none;
   background: rgb(3 13 33 / 45%);
-  backdrop-filter: blur(3px);
+  /* A dimming layer avoids sampling and blurring the entire app while the
+     palette itself dissolves. Keep the strong blur on that bounded panel. */
   opacity: 1;
   transition: opacity var(--shell-motion-duration) var(--shell-motion-easing);
 }
@@ -35,6 +36,8 @@
     0 24px 60px -12px rgb(3 13 33 / 55%);
   opacity: 1;
   filter: blur(0px);
+  contain: layout style;
+  will-change: opacity, filter;
   transition:
     opacity var(--shell-motion-duration) var(--shell-motion-easing),
     filter var(--shell-motion-duration) var(--shell-motion-easing);

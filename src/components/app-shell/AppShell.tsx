@@ -14,6 +14,7 @@ import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
+import { useDockedPanelMotion } from "./use-docked-panel-motion";
 import styles from "./AppShell.module.css";
 import "@/components/surfaces/surface-transitions.css";
 
@@ -75,6 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     isFrontDoor && profile?.workspaceExperience === "established",
   );
   const panelSlot = useRef<HTMLDivElement>(null);
+  const workspaceRef = useDockedPanelMotion(panelOpen, resolved && !isLogin && !!profile);
   const toggleWorkspacePanel = useCallback(() => {
     if (panelOpen && panelSlot.current?.contains(document.activeElement)) {
       document.getElementById("workspace-panel-toggle")?.focus();
@@ -150,35 +152,37 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               front-door width is 100% *of what's available*, not the whole
               screen — opening the panel shrinks the chat to fit instead of
               pushing it off the right edge. */}
-          <div className={styles.split}>
-            <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
-              {/* Keep the agent, its conversation state, and its composer mounted
-                  across the home/surface boundary. Only the stream dissolves. */}
-              <div className={styles.chatInner}>
-                <AgentPanel />
+          <div ref={workspaceRef} className={styles.workspaceMotion}>
+            <div className={styles.split}>
+              <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
+                {/* Keep the agent, its conversation state, and its composer mounted
+                    across the home/surface boundary. Only the stream dissolves. */}
+                <div className={styles.chatInner}>
+                  <AgentPanel />
+                </div>
               </div>
+              {/* The surface is an overlay pinned at its final 60% width: adding
+                  .surfaceVisible slides it in from the right (and the front door
+                  parks it off-screen) so its content never reflows as it enters. */}
+              <main
+                className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
+                aria-hidden={isFrontDoor}
+                inert={isFrontDoor}
+              >
+                {surface ? (
+                  // Matching names retain the outgoing canvas image across a
+                  // surface swap. Only shared transitions animate: entering or
+                  // leaving home keeps the existing agent/panel sequence.
+                  <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
+                    <div className={styles.surfaceInner}>
+                      <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                    </div>
+                  </ViewTransition>
+                ) : (
+                  <div className={styles.surfaceInner}>{children}</div>
+                )}
+              </main>
             </div>
-            {/* The surface is an overlay pinned at its final 60% width: adding
-                .surfaceVisible slides it in from the right (and the front door
-                parks it off-screen) so its content never reflows as it enters. */}
-            <main
-              className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
-              aria-hidden={isFrontDoor}
-              inert={isFrontDoor}
-            >
-              {surface ? (
-                // Matching names retain the outgoing canvas image across a
-                // surface swap. Only shared transitions animate: entering or
-                // leaving home keeps the existing agent/panel sequence.
-                <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
-                  <div className={styles.surfaceInner}>
-                    <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
-                  </div>
-                </ViewTransition>
-              ) : (
-                <div className={styles.surfaceInner}>{children}</div>
-              )}
-            </main>
           </div>
         </div>
         <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />

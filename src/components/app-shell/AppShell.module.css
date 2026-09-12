@@ -11,46 +11,55 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-/* A flex row: [workspace panel?] [chat column] [surface pane]. The chat column
-   is a persistent element whose width animates; the surface pane takes whatever
-   is left. Keeping it flex (not grid) makes the width transition rock-solid
-   across browsers. */
+/* Dock the workspace beside a persistent agent and surface. */
 .body {
   position: relative;
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
-/* Reserve space as the full-width panel slides in, keeping its content stable. */
+/* The panel never changes width. Only its transform moves; docking space in
+   .workspaceMotion changes once; its visual bounds animate with FLIP. */
 .panelSlot {
-  flex: 0 0 auto;
-  width: 0;
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 40;
+  width: var(--workspace-panel-width);
   min-width: 0;
   display: flex;
   overflow: hidden;
-  visibility: hidden;
-  transition:
-    width var(--shell-motion-duration) var(--shell-motion-easing),
-    visibility 0s var(--shell-motion-duration);
-}
-
-.panelSlot[data-open="true"] {
-  width: var(--workspace-panel-width);
-  visibility: visible;
-  transition-delay: 0s;
-}
-
-.panelSlot > * {
-  flex: 0 0 var(--workspace-panel-width);
-  min-width: 0;
+  pointer-events: none;
   transform: translateX(-100%);
   transition: transform var(--shell-motion-duration) var(--shell-motion-easing);
 }
 
-.panelSlot[data-open="true"] > * {
+.panelSlot[data-open="true"] {
+  pointer-events: auto;
   transform: translateX(0);
+}
+
+.panelSlot > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.panelSlot[data-open="true"] + .workspaceMotion {
+  margin-inline-start: var(--workspace-panel-width);
+}
+
+/* Keep the motion layer separate from the query container so its transform
+   does not continually invalidate the agent's container-dependent styles. */
+.workspaceMotion {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  transform-origin: top left;
 }
 
 /* The chat + surface split fills only the space left after the workspace panel,
@@ -169,10 +178,10 @@
 
   .panelSlot {
     --workspace-panel-width: min(18rem, 85vw);
-    position: absolute;
-    inset-block: 0;
-    inset-inline-start: 0;
-    z-index: 40;
+  }
+
+  .panelSlot[data-open="true"] + .workspaceMotion {
+    margin-inline-start: 0;
   }
 }
 
@@ -180,8 +189,7 @@
   /* Keep the surface's parked/visible states without animating the geometry. */
   .chatColumn,
   .surfacePane,
-  .panelSlot,
-  .panelSlot > * {
+  .panelSlot {
     transition: none;
   }
 }
