@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -10,6 +11,12 @@ import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
 import { CanvasContent } from "./canvas-registry";
 import { useSurfaceCanvases } from "./surface-canvas-context";
 import styles from "./SurfaceCanvasHost.module.css";
+
+// Element-scoped transitions keep the agent and tab strip outside the snapshot.
+// Older browsers retain the immediate-close behavior.
+type CanvasTransitionScope = HTMLDivElement & {
+  startViewTransition?: (callback: () => void) => ViewTransition;
+};
 
 /** DOM ids that wire each tab to the shared panel for `aria-controls` /
  *  `aria-labelledby`. Scoped by surface so two surface panes (were they ever
@@ -64,6 +71,11 @@ export function SurfaceCanvasHost({
   // is fine — programmatic focus ignores tabindex.
   const tabRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const tabListRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<CanvasTransitionScope>(null);
+  const exitTransition = useRef<ViewTransition | null>(null);
+  const pendingClose = useRef<string | null>(null);
+
+  useEffect(() => () => { exitTransition.current?.skipTransition(); }, []);
 
   // Reveal a newly opened canvas without scrolling the content or letting it
   // hide behind the pinned surface tab.
@@ -114,9 +126,33 @@ export function SurfaceCanvasHost({
 
   function dismissTab(canvasId: string): void {
     const index = canvases.findIndex((canvas) => canvas.id === canvasId);
+    if (index < 0 || canvasId === OVERVIEW_CANVAS_ID || pendingClose.current === canvasId) return;
     const neighborId = canvases[index + 1]?.id ?? canvases[index - 1]?.id;
-    closeCanvas(surfaceId, canvasId);
-    if (canvasId === activeCanvasId && neighborId) selectTab(neighborId);
+    const isActive = canvasId === activeCanvasId;
+    const commitClose = () => {
+      flushSync(() => {
+        closeCanvas(surfaceId, canvasId);
+        if (isActive && neighborId) selectTab(neighborId);
+      });
+      if (isActive && neighborId) tabRefs.current.get(neighborId)?.focus({ preventScroll: true });
+      if (pendingClose.current === canvasId) pendingClose.current = null;
+    };
+    const panel = panelRef.current;
+    if (!isActive || !panel?.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      commitClose();
+      return;
+    }
+
+    pendingClose.current = canvasId;
+    exitTransition.current?.skipTransition();
+    const transition = panel.startViewTransition(commitClose);
+    exitTransition.current = transition;
+    // A skipped snapshot (e.g. a concurrent route change) still commits the
+    // close. There is only one live canvas; its outgoing image is browser-owned.
+    void transition.ready.catch(() => {});
+    void transition.finished.finally(() => {
+      if (exitTransition.current === transition) exitTransition.current = null;
+    }).catch(() => {});
   }
 
   function focusTab(canvasId: string): void {
@@ -139,18 +175,11 @@ export function SurfaceCanvasHost({
       event.preventDefault();
       focusTab(canvases[last]!.id);
     } else if (event.key === "Delete" || event.key === "Backspace") {
-      // Close the focused tab when it isn't the pinned overview. The store moves
-      // the active id to a sensible neighbor (the tab that slides into the closed
-      // slot, else the previous one, else the overview); we mirror that choice
-      // here and re-focus it so keyboard-close keeps roving-tabindex continuity
-      // instead of dropping focus to <body>. The neighbor still exists in the
-      // current DOM — only the closed tab unmounts — and programmatic focus
-      // ignores its (still -1) tabindex until the store-driven re-render flips it.
+      // Dismissal restores focus after the snapshot's update commits, so
+      // keyboard close keeps the selected tab and roving tabindex together.
       if (activeCanvas.id === OVERVIEW_CANVAS_ID) return;
       event.preventDefault();
-      const neighborId = canvases[activeIndex + 1]?.id ?? canvases[activeIndex - 1]!.id;
       dismissTab(activeCanvas.id);
-      tabRefs.current.get(neighborId)?.focus();
     }
   }
 
@@ -230,6 +259,8 @@ export function SurfaceCanvasHost({
       </div>
 
       <div
+        ref={panelRef}
+        data-canvas-close-scope
         role="tabpanel"
         id={panelDomId(surfaceId)}
         aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
