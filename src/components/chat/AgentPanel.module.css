@@ -1,4 +1,5 @@
 .agent {
+  --agent-content-inset: var(--slds-g-spacing-5, 1.5rem);
   color-scheme: light dark;
   display: flex;
   min-width: 0;
@@ -63,7 +64,7 @@
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: var(--slds-g-spacing-3, 0.75rem);
-  padding: var(--slds-g-spacing-5, 1.5rem);
+  padding: var(--slds-g-spacing-5, 1.5rem) var(--agent-content-inset);
   border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
 
@@ -115,7 +116,7 @@
   flex-direction: column;
   gap: var(--slds-g-spacing-3, 0.75rem);
   overflow-y: auto;
-  padding: var(--slds-g-spacing-5, 1.5rem);
+  padding: var(--slds-g-spacing-5, 1.5rem) var(--agent-content-inset);
 }
 
 .message {
@@ -168,7 +169,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  padding: 0 1.5rem;
+  padding: 0 var(--agent-content-inset);
   flex: 0 0 auto;
 }
 
@@ -190,10 +191,13 @@
 
 .composerDock {
   flex: 0 0 auto;
-  width: min(62rem, 100%);
+  width: 100%;
+  max-width: 100%;
   margin-inline: auto;
-  padding: 0.5rem 1.5rem 1rem;
-  transition: padding-inline var(--agent-move-duration) ease var(--agent-move-delay);
+  padding: 0.5rem var(--agent-content-inset) 1rem;
+  transition:
+    padding-inline var(--agent-move-duration) ease var(--agent-move-delay),
+    max-width var(--agent-move-duration) ease var(--agent-move-delay);
 }
 
 .conversationHeading {
@@ -305,7 +309,7 @@
 }
 
 
-.agent[data-view="home"] .composerDock { padding-inline: 2rem; }
+.agent[data-view="home"] .composerDock { max-width: 62rem; padding-inline: 2rem; }
 .conversationHeading {
   filter: blur(0px);
   transition:
@@ -314,10 +318,11 @@
 }
 .agent[data-view="surface"] .conversationHeading { opacity: 0; filter: blur(var(--agent-stream-blur)); }
 .agent[data-view="home"] .conversationHeading { transition-delay: var(--agent-reveal-delay); }
-.prototypeNote { margin: 0.75rem 1.5rem 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+.prototypeNote { margin: 0.75rem var(--agent-content-inset) 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
 
 @media (max-width: 700px) {
-  .composerDock, .agent[data-view="home"] .composerDock { padding-inline: 1.25rem; }
+  .agent { --agent-content-inset: 1.25rem; }
+  .agent[data-view="home"] .composerDock { padding-inline: var(--agent-content-inset); }
   .composerHint { display: none; }
   .composerHint + .send { margin-inline-start: auto; }
 }
