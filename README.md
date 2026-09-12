@@ -33,9 +33,11 @@ assessment of the connected orgs in Sam's demo workspace.
 Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
 The front door and surfaces share one persistent agent panel and composer. When
-opening a surface, the welcome content blurs and fades out over 500ms, the composer
-moves with the narrowing panel, and the chat header and conversation fade in after the surface
-slides into place. Draft text, text selection, and session conversations survive
+opening a surface, the welcome content fades out with a strong 24px blur over
+500ms. Only then does the composer move with the narrowing panel for 440ms, followed
+by the chat header and conversation fading into focus over 500ms. Returning home
+uses the same sequence in reverse. The composer stays sharp throughout. Draft
+text, text selection, and session conversations survive
 client-side navigation home and back. Reduced-motion preferences skip the transitions.
 
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.

@@ -7,12 +7,13 @@
   background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
-/* Only these stream layers crossfade. Their sibling composer stays visible
-   while the shell changes width. Hidden content is also inert in JSX. */
+/* Streams dissolve before the shell moves and refocus only after it settles.
+   Their sibling composer stays visible and sharp throughout. */
 .streamStage {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: clip;
 }
 
 .homeStream,
@@ -21,22 +22,20 @@
   inset: 0;
   display: flex;
   min-height: 0;
+  opacity: 0;
+  filter: blur(var(--agent-stream-blur));
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--agent-stream-duration) var(--agent-stream-easing),
+    filter var(--agent-stream-duration) var(--agent-stream-easing),
+    visibility 0s var(--agent-stream-duration);
 }
 
 .homeStream {
   /* The split is the query container: keep the outgoing welcome content at
      its full width while it fades, instead of wrapping it into the narrow rail. */
   width: 100cqw;
-  opacity: 0;
-  filter: blur(6px);
-  visibility: hidden;
-  pointer-events: none;
-  /* Defocus only the outgoing stream; the sibling composer stays sharp.
-     Keep it visible until both effects finish, including during panel motion. */
-  transition:
-    opacity var(--agent-home-exit-duration) cubic-bezier(0.22, 0.61, 0.36, 1),
-    filter var(--agent-home-exit-duration) cubic-bezier(0.22, 0.61, 0.36, 1),
-    visibility 0s var(--agent-home-exit-duration);
 }
 
 .homeStream > * { flex: 1 1 auto; min-width: 0; }
@@ -44,27 +43,18 @@
 .conversationStream {
   flex-direction: column;
   overflow: hidden;
-  opacity: 1;
-  visibility: visible;
-  transition: opacity 180ms ease var(--agent-reveal-delay), visibility 0s var(--agent-reveal-delay);
 }
 
-.agent[data-view="home"] .homeStream {
+.agent[data-view="home"] .homeStream,
+.agent[data-view="surface"] .conversationStream {
   opacity: 1;
   filter: blur(0px);
   visibility: visible;
   pointer-events: auto;
   transition:
-    opacity 180ms ease var(--agent-reveal-delay),
-    filter 180ms ease var(--agent-reveal-delay),
+    opacity var(--agent-stream-duration) var(--agent-stream-easing) var(--agent-reveal-delay),
+    filter var(--agent-stream-duration) var(--agent-stream-easing) var(--agent-reveal-delay),
     visibility 0s var(--agent-reveal-delay);
-}
-
-.agent[data-view="home"] .conversationStream {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition: opacity 120ms ease, visibility 0s 120ms;
 }
 
 .heading {
@@ -316,8 +306,13 @@
 
 
 .agent[data-view="home"] .composerDock { padding-inline: 2rem; }
-.conversationHeading { transition: opacity 120ms ease; }
-.agent[data-view="surface"] .conversationHeading { opacity: 0; }
+.conversationHeading {
+  filter: blur(0px);
+  transition:
+    opacity var(--agent-stream-duration) var(--agent-stream-easing),
+    filter var(--agent-stream-duration) var(--agent-stream-easing);
+}
+.agent[data-view="surface"] .conversationHeading { opacity: 0; filter: blur(var(--agent-stream-blur)); }
 .agent[data-view="home"] .conversationHeading { transition-delay: var(--agent-reveal-delay); }
 .prototypeNote { margin: 0.75rem 1.5rem 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
 
@@ -336,7 +331,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .homeStream, .conversationStream, .composerDock, .conversationHeading { transition: none !important; }
-  .homeStream, .agent[data-view="home"] .homeStream { filter: none; }
+  .homeStream, .conversationStream, .conversationHeading { filter: none !important; }
 }
 
 .srOnly {
