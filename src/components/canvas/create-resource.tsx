@@ -82,9 +82,7 @@ export function ResourceWizard({
   return <ProjectStep kind={kind} onBack={() => setStep("kind")} onPick={chooseProject} />;
 }
 
-/* ── Launch ───────────────────────────────────────────────────────────────
- * A fresh "Create a Resource" canvas's single action. A centered hero so a new
- * tab reads as an invitation rather than an empty placeholder. */
+/* A fresh "Create a Resource" canvas's single action. */
 function LaunchStep({ onStart }: { onStart: () => void }) {
   return (
     <CanvasView>

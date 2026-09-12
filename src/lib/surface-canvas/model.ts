@@ -19,7 +19,7 @@
  * overview's launch region opens `capability` (and, on Build, `app`); the
  * workspace panel's app rows also open `app`.
  */
-export type CanvasKind = "overview" | "app" | "capability" | "work";
+export type CanvasKind = "overview" | "app" | "capability" | "work" | "improvement-project";
 
 /** The reserved id/kind of the pinned overview tab. Never persisted; the
  *  provider prepends it to every surface's list at index 0. */
@@ -28,7 +28,7 @@ export const OVERVIEW_CANVAS_ID = "overview";
 /** Openable (persistable) kinds. Excludes `"overview"`, which is not launchable
  *  — it always exists. Drives both the registry's exhaustiveness and the
  *  parser's "drop specs of an unknown kind" sanitization. */
-export const LAUNCHABLE_KINDS = ["app", "capability", "work"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project"] as const;
 
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 

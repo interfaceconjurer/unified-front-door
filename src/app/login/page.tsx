@@ -34,7 +34,7 @@ export default function LoginPage() {
               <span className={styles.accountCopy}>
                 <strong>{profile.name}</strong>
                 <span>
-                  {profile.experience === "returning" ? "Returning" : "New"} {profile.role.toLowerCase()}
+                  {profile.onboarding ? "Day zero · Org assessment" : `${profile.experience === "returning" ? "Returning" : "New"} ${profile.role.toLowerCase()}`}
                 </span>
               </span>
             </button>

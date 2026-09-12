@@ -1,6 +1,6 @@
 import type { SurfaceId } from "@/lib/workspace/model";
 
-export type DemoProfileId = "jw" | "kf" | "am";
+export type DemoProfileId = "jw" | "kf" | "am" | "sp";
 
 export type DemoProfile = {
   id: DemoProfileId;
@@ -10,10 +10,22 @@ export type DemoProfile = {
   role: string;
   experience: "returning" | "new";
   workspaceExperience: "established" | "empty";
+  onboarding?: "org-assessment";
   surfaceAccess: readonly SurfaceId[];
 };
 
 export const DEMO_PROFILES: readonly DemoProfile[] = [
+  {
+    id: "sp",
+    name: "Sam Patel",
+    firstName: "Sam",
+    initials: "SP",
+    role: "Platform Administrator",
+    experience: "new",
+    workspaceExperience: "empty",
+    onboarding: "org-assessment",
+    surfaceAccess: ["build", "alm"],
+  },
   {
     id: "jw",
     name: "Jordan Wright",

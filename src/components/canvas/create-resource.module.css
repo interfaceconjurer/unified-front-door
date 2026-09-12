@@ -1,18 +1,12 @@
 /* Create-a-Resource wizard — the launch hero, the kind-picker grouping, and the
    two-beat stepper. SLDS token house style, consistent with the canvas kit. */
 
-/* ── Launch hero ───────────────────────────────────────────────────────────
-   The single action a fresh canvas opens on. Centered so a new tab reads as an
-   invitation, not an empty placeholder. */
+/* The single action a fresh canvas opens on, using the shared content edge. */
 .launch {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
   gap: var(--slds-g-spacing-4, 1rem);
-  padding-block: 5rem;
-  margin-inline: auto;
-  max-width: 32rem;
 }
 
 .launchIcon {

@@ -118,7 +118,6 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: var(--slds-g-spacing-8, 3rem);
   background-color: var(--slds-g-color-surface-2, #f3f3f3);
   background-image: radial-gradient(
     var(--slds-g-color-border-1, #c9c9c9) 1px,
@@ -129,14 +128,10 @@
 }
 
 .placeholder {
-  max-width: 42rem;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
   gap: var(--slds-g-spacing-3, 0.75rem);
-  padding-block: var(--slds-g-spacing-6, 2rem);
 }
 
 .placeholderIcon {
@@ -181,14 +176,10 @@
 }
 
 .empty {
-  max-width: 30rem;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  padding-block: var(--slds-g-spacing-8, 3rem);
 }
 
 .emptyTitle {

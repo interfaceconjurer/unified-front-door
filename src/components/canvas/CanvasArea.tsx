@@ -2,6 +2,7 @@
 
 import { CloseIcon, PlusIcon } from "@/components/icons";
 import { useCanvas } from "./canvas-context";
+import { CanvasLayout } from "./CanvasLayout";
 import styles from "./CanvasArea.module.css";
 
 /**
@@ -61,28 +62,32 @@ export function CanvasArea() {
           active.Body ? (
             <active.Body openProject={openProject} almMode={almMode} />
           ) : (
-            <div className={styles.placeholder}>
-              <span className={styles.placeholderIcon} aria-hidden="true">
-                <active.Icon width={30} height={30} />
-              </span>
-              <h1 className={styles.placeholderTitle}>{active.title}</h1>
-              <p className={styles.placeholderBlurb}>{active.blurb}</p>
-              <div className={styles.wireframe} aria-hidden="true">
-                <span>Canvas placeholder</span>
+            <CanvasLayout>
+              <div className={styles.placeholder}>
+                <span className={styles.placeholderIcon} aria-hidden="true">
+                  <active.Icon width={30} height={30} />
+                </span>
+                <h1 className={styles.placeholderTitle}>{active.title}</h1>
+                <p className={styles.placeholderBlurb}>{active.blurb}</p>
+                <div className={styles.wireframe} aria-hidden="true">
+                  <span>Canvas placeholder</span>
+                </div>
               </div>
-            </div>
+            </CanvasLayout>
           )
         ) : (
-          <div className={styles.empty}>
-            <p className={styles.emptyTitle}>No canvases open</p>
-            <p className={styles.emptyHint}>
-              Ask the agent to pull one in — or create a resource to get started.
-            </p>
-            <button type="button" className={styles.emptyAdd} onClick={() => openResourceCanvas()}>
-              <PlusIcon width={16} height={16} />
-              Create a resource
-            </button>
-          </div>
+          <CanvasLayout>
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>No canvases open</p>
+              <p className={styles.emptyHint}>
+                Ask the agent to pull one in — or create a resource to get started.
+              </p>
+              <button type="button" className={styles.emptyAdd} onClick={() => openResourceCanvas()}>
+                <PlusIcon width={16} height={16} />
+                Create a resource
+              </button>
+            </div>
+          </CanvasLayout>
         )}
       </div>
     </section>

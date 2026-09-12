@@ -38,7 +38,7 @@ export function ProfileMenu() {
   if (!profile) return null;
 
   const alternateProfiles = DEMO_PROFILES.filter((candidate) => candidate.id !== profile.id);
-  const experienceLabel = profile.experience === "returning" ? "Returning user" : "New user";
+  const experienceLabel = profile.onboarding ? "Day zero" : profile.experience === "returning" ? "Returning user" : "New user";
 
   function switchUser(profileId: DemoProfileId) {
     signIn(profileId);
@@ -83,7 +83,7 @@ export function ProfileMenu() {
               <span className={styles.personCopy}>
                 <strong>Switch to {alternateProfile.name}</strong>
                 <small>
-                  {alternateProfile.role} · {alternateProfile.experience === "returning" ? "Returning user" : "New user"}
+                  {alternateProfile.role} · {alternateProfile.onboarding ? "Day zero" : alternateProfile.experience === "returning" ? "Returning user" : "New user"}
                 </small>
               </span>
             </button>)}

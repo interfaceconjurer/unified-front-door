@@ -19,6 +19,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { CheckIcon, ServerIcon } from "@/components/icons";
 import type { Project } from "./projects-data";
+import { CanvasLayout } from "./CanvasLayout";
 import styles from "./project-provisioner.module.css";
 
 type ProvisionStep = { label: string; detail: string; duration: number };
@@ -130,63 +131,65 @@ export function ProjectProvisioner({
   const activeStep = STEPS[completed];
 
   return (
-    <div className={styles.screen} aria-label="Provisioning workspace" aria-busy={!allDone}>
-      <div className={styles.card}>
-        <div className={styles.head}>
-          <span className={styles.headIcon} data-done={allDone || undefined} aria-hidden="true">
-            {allDone ? <CheckIcon width={24} height={24} /> : <ServerIcon width={24} height={24} />}
-          </span>
-          <div className={styles.headText}>
-            <h2 className={styles.title}>
-              {allDone ? "Workspace ready" : "Provisioning workspace"}
-            </h2>
-            <p className={styles.subtitle}>
-              {project.name} · {project.subtitle}
-            </p>
+    <CanvasLayout>
+      <div className={styles.screen} aria-label="Provisioning workspace" aria-busy={!allDone}>
+        <div className={styles.card}>
+          <div className={styles.head}>
+            <span className={styles.headIcon} data-done={allDone || undefined} aria-hidden="true">
+              {allDone ? <CheckIcon width={24} height={24} /> : <ServerIcon width={24} height={24} />}
+            </span>
+            <div className={styles.headText}>
+              <h2 className={styles.title}>
+                {allDone ? "Workspace ready" : "Provisioning workspace"}
+              </h2>
+              <p className={styles.subtitle}>
+                {project.name} · {project.subtitle}
+              </p>
+            </div>
           </div>
+
+          <div className={styles.meter} data-done={allDone || undefined} aria-hidden="true">
+            <span className={styles.meterFill} style={{ width: `${pct}%` }} />
+          </div>
+
+          <ul className={styles.steps}>
+            {STEPS.map((step, i) => {
+              const state = i < completed ? "done" : i === completed ? "active" : "pending";
+              return (
+                <li key={step.label} className={styles.step} data-state={state}>
+                  <span className={styles.indicator} aria-hidden="true">
+                    {state === "done" ? (
+                      <CheckIcon className={styles.check} width={15} height={15} />
+                    ) : state === "active" ? (
+                      <span className={styles.spinner} />
+                    ) : (
+                      <span className={styles.dot} />
+                    )}
+                  </span>
+                  <span className={styles.stepText}>
+                    <span className={styles.stepLabel}>{step.label}</span>
+                    <span className={styles.stepDetail}>{step.detail}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className={styles.footnote}>
+            {allDone
+              ? "Opening your project…"
+              : "Spinning up an isolated, ephemeral workspace for this project."}
+          </p>
         </div>
 
-        <div className={styles.meter} data-done={allDone || undefined} aria-hidden="true">
-          <span className={styles.meterFill} style={{ width: `${pct}%` }} />
-        </div>
-
-        <ul className={styles.steps}>
-          {STEPS.map((step, i) => {
-            const state = i < completed ? "done" : i === completed ? "active" : "pending";
-            return (
-              <li key={step.label} className={styles.step} data-state={state}>
-                <span className={styles.indicator} aria-hidden="true">
-                  {state === "done" ? (
-                    <CheckIcon className={styles.check} width={15} height={15} />
-                  ) : state === "active" ? (
-                    <span className={styles.spinner} />
-                  ) : (
-                    <span className={styles.dot} />
-                  )}
-                </span>
-                <span className={styles.stepText}>
-                  <span className={styles.stepLabel}>{step.label}</span>
-                  <span className={styles.stepDetail}>{step.detail}</span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-
-        <p className={styles.footnote}>
+        {/* Single, quiet live region — announces the current step rather than
+            re-reading the whole list on every tick. */}
+        <p className={styles.srOnly} role="status" aria-live="polite">
           {allDone
-            ? "Opening your project…"
-            : "Spinning up an isolated, ephemeral workspace for this project."}
+            ? `Workspace ready for ${project.name}.`
+            : `Provisioning ${project.name}: ${activeStep?.label}.`}
         </p>
       </div>
-
-      {/* Single, quiet live region — announces the current step rather than
-          re-reading the whole list on every tick. */}
-      <p className={styles.srOnly} role="status" aria-live="polite">
-        {allDone
-          ? `Workspace ready for ${project.name}.`
-          : `Provisioning ${project.name}: ${activeStep?.label}.`}
-      </p>
-    </div>
+    </CanvasLayout>
   );
 }

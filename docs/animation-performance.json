@@ -1,0 +1,929 @@
+{
+  "date": "2026-09-12",
+  "baselineCommit": "937c44c",
+  "method": "Production app, Alex Morgan on ALM; 3 open/close cycles per CPU rate; each action plus 650ms; whole-page CDP metrics and Paint trace events. Frames excluded because baseline RAF collection was not comparable.",
+  "measurements": {
+    "baseline": {
+      "label": "baseline",
+      "browser": "152.0.7977.120",
+      "gpu": {
+        "2d_canvas": "enabled",
+        "direct_rendering_display_compositor": "disabled_off_ok",
+        "gpu_compositing": "enabled",
+        "multiple_raster_threads": "enabled_on",
+        "opengl": "enabled_on",
+        "rasterization": "enabled",
+        "raw_draw": "disabled_off_ok",
+        "skia_graphite": "enabled_on",
+        "trees_in_viz": "disabled_off",
+        "video_decode": "enabled",
+        "video_encode": "enabled",
+        "webgl": "enabled",
+        "webgpu": "enabled",
+        "webnn": "disabled_off"
+      },
+      "feature": {
+        "scopedViewTransitions": true,
+        "longAnimationFrames": true
+      },
+      "viewport": "1440x1100 @2x",
+      "results": [
+        {
+          "name": "cpu1-0-sidebar-open",
+          "layoutCount": 31,
+          "layoutMs": 15.893999999999998,
+          "styleCount": 138,
+          "styleMs": 15.854,
+          "taskMs": 89.30799999999996,
+          "paintCount": 244,
+          "paintMs": 20.522,
+          "rasterMs": 12.794,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-0-sidebar-close",
+          "layoutCount": 32,
+          "layoutMs": 13.302000000000001,
+          "styleCount": 137,
+          "styleMs": 12.889999999999992,
+          "taskMs": 74.39200000000001,
+          "paintCount": 249,
+          "paintMs": 18.975,
+          "rasterMs": 5.911,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-0-palette-open",
+          "layoutCount": 2,
+          "layoutMs": 0.8659999999999988,
+          "styleCount": 50,
+          "styleMs": 5.925,
+          "taskMs": 39.266999999999996,
+          "paintCount": 6,
+          "paintMs": 1.066,
+          "rasterMs": 1.164,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-0-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.2930000000000016,
+          "styleCount": 44,
+          "styleMs": 6.791000000000006,
+          "taskMs": 38.83799999999999,
+          "paintCount": 7,
+          "paintMs": 1.212,
+          "rasterMs": 0.466,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-sidebar-open",
+          "layoutCount": 30,
+          "layoutMs": 14.469000000000003,
+          "styleCount": 137,
+          "styleMs": 12.574000000000002,
+          "taskMs": 75.658,
+          "paintCount": 243,
+          "paintMs": 21.264,
+          "rasterMs": 7.128,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-sidebar-close",
+          "layoutCount": 32,
+          "layoutMs": 13.895999999999992,
+          "styleCount": 137,
+          "styleMs": 12.341000000000005,
+          "taskMs": 74.91400000000003,
+          "paintCount": 247,
+          "paintMs": 20.235,
+          "rasterMs": 5.875,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 3.2750000000000004,
+          "styleCount": 56,
+          "styleMs": 8.424000000000001,
+          "taskMs": 56.40900000000004,
+          "paintCount": 7,
+          "paintMs": 2.048,
+          "rasterMs": 0.819,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.2570000000000072,
+          "styleCount": 45,
+          "styleMs": 5.679000000000004,
+          "taskMs": 31.174000000000035,
+          "paintCount": 7,
+          "paintMs": 1.034,
+          "rasterMs": 0.485,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-sidebar-open",
+          "layoutCount": 31,
+          "layoutMs": 15.715999999999994,
+          "styleCount": 138,
+          "styleMs": 14.296000000000003,
+          "taskMs": 83.70400000000001,
+          "paintCount": 244,
+          "paintMs": 22.464,
+          "rasterMs": 6.991,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-sidebar-close",
+          "layoutCount": 32,
+          "layoutMs": 15.146000000000006,
+          "styleCount": 138,
+          "styleMs": 15.418999999999988,
+          "taskMs": 84.156,
+          "paintCount": 247,
+          "paintMs": 20.038,
+          "rasterMs": 6.425,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-palette-open",
+          "layoutCount": 2,
+          "layoutMs": 1.0389999999999984,
+          "styleCount": 52,
+          "styleMs": 8.342000000000017,
+          "taskMs": 54.24399999999996,
+          "paintCount": 6,
+          "paintMs": 1.805,
+          "rasterMs": 0.528,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.3449999999999981,
+          "styleCount": 44,
+          "styleMs": 8.438,
+          "taskMs": 47.99600000000004,
+          "paintCount": 7,
+          "paintMs": 1.695,
+          "rasterMs": 0.455,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-sidebar-open",
+          "layoutCount": 30,
+          "layoutMs": 35.83199999999999,
+          "styleCount": 138,
+          "styleMs": 33.32199999999999,
+          "taskMs": 189.1670000000001,
+          "paintCount": 245,
+          "paintMs": 54.883,
+          "rasterMs": 4.278,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-sidebar-close",
+          "layoutCount": 32,
+          "layoutMs": 29.29800000000002,
+          "styleCount": 137,
+          "styleMs": 28.130000000000017,
+          "taskMs": 149.52699999999996,
+          "paintCount": 247,
+          "paintMs": 43.114,
+          "rasterMs": 3.501,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-palette-open",
+          "layoutCount": 2,
+          "layoutMs": 1.3910000000000033,
+          "styleCount": 51,
+          "styleMs": 6.897999999999987,
+          "taskMs": 54.14300000000005,
+          "paintCount": 6,
+          "paintMs": 2.128,
+          "rasterMs": 0.181,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.12099999999998223,
+          "styleCount": 45,
+          "styleMs": 5.768999999999997,
+          "taskMs": 31.73899999999996,
+          "paintCount": 7,
+          "paintMs": 1.744,
+          "rasterMs": 0.19,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-sidebar-open",
+          "layoutCount": 30,
+          "layoutMs": 31.118000000000006,
+          "styleCount": 137,
+          "styleMs": 23.40599999999998,
+          "taskMs": 139.1659999999999,
+          "paintCount": 243,
+          "paintMs": 45.958,
+          "rasterMs": 3.266,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-sidebar-close",
+          "layoutCount": 31,
+          "layoutMs": 24.01700000000001,
+          "styleCount": 136,
+          "styleMs": 26.837,
+          "taskMs": 178.19000000000008,
+          "paintCount": 244,
+          "paintMs": 42.601,
+          "rasterMs": 3.355,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-palette-open",
+          "layoutCount": 2,
+          "layoutMs": 2.0739999999999927,
+          "styleCount": 50,
+          "styleMs": 5.393000000000036,
+          "taskMs": 44.483999999999966,
+          "paintCount": 6,
+          "paintMs": 2.212,
+          "rasterMs": 0.191,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.9200000000000041,
+          "styleCount": 45,
+          "styleMs": 7.477000000000011,
+          "taskMs": 47.17799999999994,
+          "paintCount": 7,
+          "paintMs": 1.215,
+          "rasterMs": 0.213,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-sidebar-open",
+          "layoutCount": 30,
+          "layoutMs": 36.574,
+          "styleCount": 138,
+          "styleMs": 32.235000000000014,
+          "taskMs": 192.48200000000003,
+          "paintCount": 243,
+          "paintMs": 48.976,
+          "rasterMs": 3.992,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-sidebar-close",
+          "layoutCount": 32,
+          "layoutMs": 38.297000000000025,
+          "styleCount": 136,
+          "styleMs": 28.654999999999987,
+          "taskMs": 171.4279999999999,
+          "paintCount": 247,
+          "paintMs": 48.851,
+          "rasterMs": 3.91,
+          "compositorFailures": [
+            {
+              "compositeFailed": 8224,
+              "unsupportedProperties": [
+                "width"
+              ]
+            },
+            {
+              "compositeFailed": 8232,
+              "unsupportedProperties": [
+                "visibility"
+              ]
+            },
+            {
+              "compositeFailed": 131072
+            },
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-palette-open",
+          "layoutCount": 2,
+          "layoutMs": 1.552999999999971,
+          "styleCount": 51,
+          "styleMs": 4.753000000000007,
+          "taskMs": 45.414999999999765,
+          "paintCount": 6,
+          "paintMs": 2.682,
+          "rasterMs": 0.184,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.25999999999998247,
+          "styleCount": 46,
+          "styleMs": 5.193999999999976,
+          "taskMs": 41.601,
+          "paintCount": 7,
+          "paintMs": 2.555,
+          "rasterMs": 0.195,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        }
+      ]
+    },
+    "verified": {
+      "label": "verified",
+      "browser": "152.0.7977.120",
+      "gpu": {
+        "2d_canvas": "enabled",
+        "direct_rendering_display_compositor": "disabled_off_ok",
+        "gpu_compositing": "enabled",
+        "multiple_raster_threads": "enabled_on",
+        "opengl": "enabled_on",
+        "rasterization": "enabled",
+        "raw_draw": "disabled_off_ok",
+        "skia_graphite": "enabled_on",
+        "trees_in_viz": "disabled_off",
+        "video_decode": "enabled",
+        "video_encode": "enabled",
+        "webgl": "enabled",
+        "webgpu": "enabled",
+        "webnn": "disabled_off"
+      },
+      "feature": {
+        "scopedViewTransitions": true,
+        "longAnimationFrames": true
+      },
+      "viewport": "1440x1100 @2x",
+      "results": [
+        {
+          "name": "cpu1-0-sidebar-open",
+          "layoutCount": 33,
+          "layoutMs": 11.091,
+          "styleCount": 116,
+          "styleMs": 21.676,
+          "taskMs": 90.54899999999999,
+          "paintCount": 94,
+          "paintMs": 18.547,
+          "rasterMs": 5.387,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu1-0-sidebar-close",
+          "layoutCount": 33,
+          "layoutMs": 9.787999999999998,
+          "styleCount": 110,
+          "styleMs": 16.675999999999995,
+          "taskMs": 85.48500000000003,
+          "paintCount": 96,
+          "paintMs": 23.4,
+          "rasterMs": 2.105,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-0-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 1.2549999999999992,
+          "styleCount": 49,
+          "styleMs": 6.56000000000001,
+          "taskMs": 43.55499999999996,
+          "paintCount": 6,
+          "paintMs": 0.6,
+          "rasterMs": 1.512,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-0-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.41500000000000564,
+          "styleCount": 45,
+          "styleMs": 9.287999999999991,
+          "taskMs": 52.10999999999999,
+          "paintCount": 7,
+          "paintMs": 1.064,
+          "rasterMs": 0.607,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-sidebar-open",
+          "layoutCount": 32,
+          "layoutMs": 9.221999999999994,
+          "styleCount": 111,
+          "styleMs": 15.514,
+          "taskMs": 77.75300000000007,
+          "paintCount": 93,
+          "paintMs": 20.649,
+          "rasterMs": 4.438,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu1-1-sidebar-close",
+          "layoutCount": 34,
+          "layoutMs": 12.234000000000002,
+          "styleCount": 111,
+          "styleMs": 19.707,
+          "taskMs": 90.3710000000001,
+          "paintCount": 97,
+          "paintMs": 25.749,
+          "rasterMs": 3.691,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-palette-open",
+          "layoutCount": 4,
+          "layoutMs": 3.2830000000000013,
+          "styleCount": 54,
+          "styleMs": 9.424000000000001,
+          "taskMs": 55.83300000000002,
+          "paintCount": 7,
+          "paintMs": 1.032,
+          "rasterMs": 0.587,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-1-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.2380000000000021,
+          "styleCount": 45,
+          "styleMs": 8.349999999999996,
+          "taskMs": 46.50100000000001,
+          "paintCount": 7,
+          "paintMs": 0.99,
+          "rasterMs": 0.496,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-sidebar-open",
+          "layoutCount": 34,
+          "layoutMs": 12.982999999999995,
+          "styleCount": 116,
+          "styleMs": 20.654000000000007,
+          "taskMs": 98.18899999999996,
+          "paintCount": 97,
+          "paintMs": 27.605,
+          "rasterMs": 4.642,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu1-2-sidebar-close",
+          "layoutCount": 33,
+          "layoutMs": 11.678000000000008,
+          "styleCount": 110,
+          "styleMs": 19.772000000000013,
+          "taskMs": 91.95699999999995,
+          "paintCount": 94,
+          "paintMs": 25.489,
+          "rasterMs": 3.43,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 1.1499999999999981,
+          "styleCount": 51,
+          "styleMs": 7.986999999999994,
+          "taskMs": 53.50699999999997,
+          "paintCount": 6,
+          "paintMs": 0.774,
+          "rasterMs": 0.208,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu1-2-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.22099999999999898,
+          "styleCount": 44,
+          "styleMs": 8.922000000000013,
+          "taskMs": 51.736000000000004,
+          "paintCount": 7,
+          "paintMs": 0.897,
+          "rasterMs": 0.464,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-sidebar-open",
+          "layoutCount": 33,
+          "layoutMs": 13.048000000000004,
+          "styleCount": 115,
+          "styleMs": 27.535999999999976,
+          "taskMs": 128.6919999999998,
+          "paintCount": 96,
+          "paintMs": 33.314,
+          "rasterMs": 2.235,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu4-0-sidebar-close",
+          "layoutCount": 33,
+          "layoutMs": 13.657999999999989,
+          "styleCount": 111,
+          "styleMs": 14.599,
+          "taskMs": 77.34100000000011,
+          "paintCount": 94,
+          "paintMs": 22.965,
+          "rasterMs": 1.433,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 1.3220000000000036,
+          "styleCount": 52,
+          "styleMs": 5.420000000000008,
+          "taskMs": 37.80300000000003,
+          "paintCount": 6,
+          "paintMs": 1.215,
+          "rasterMs": 0.147,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-0-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.7989999999999942,
+          "styleCount": 45,
+          "styleMs": 4.360000000000003,
+          "taskMs": 37.370000000000125,
+          "paintCount": 7,
+          "paintMs": 3.817,
+          "rasterMs": 0.2,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-sidebar-open",
+          "layoutCount": 33,
+          "layoutMs": 13.353000000000003,
+          "styleCount": 115,
+          "styleMs": 16.239000000000004,
+          "taskMs": 88.9979999999999,
+          "paintCount": 96,
+          "paintMs": 24.265,
+          "rasterMs": 2.12,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu4-1-sidebar-close",
+          "layoutCount": 34,
+          "layoutMs": 12.963000000000003,
+          "styleCount": 111,
+          "styleMs": 18.57500000000001,
+          "taskMs": 93.9810000000001,
+          "paintCount": 97,
+          "paintMs": 30.078,
+          "rasterMs": 1.591,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 2.829999999999999,
+          "styleCount": 51,
+          "styleMs": 6.8150000000000155,
+          "taskMs": 53.86000000000002,
+          "paintCount": 6,
+          "paintMs": 0.917,
+          "rasterMs": 0.154,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-1-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 1.1019999999999919,
+          "styleCount": 45,
+          "styleMs": 5.001999999999951,
+          "taskMs": 35.509999999999934,
+          "paintCount": 7,
+          "paintMs": 0.306,
+          "rasterMs": 0.193,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-sidebar-open",
+          "layoutCount": 33,
+          "layoutMs": 14.902999999999999,
+          "styleCount": 115,
+          "styleMs": 23.069000000000006,
+          "taskMs": 104.46999999999984,
+          "paintCount": 96,
+          "paintMs": 34.369,
+          "rasterMs": 2.123,
+          "compositorFailures": []
+        },
+        {
+          "name": "cpu4-2-sidebar-close",
+          "layoutCount": 33,
+          "layoutMs": 11.41600000000001,
+          "styleCount": 109,
+          "styleMs": 15.075000000000005,
+          "taskMs": 74.53300000000019,
+          "paintCount": 94,
+          "paintMs": 22.029,
+          "rasterMs": 1.373,
+          "compositorFailures": [
+            {
+              "compositeFailed": 131072
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-palette-open",
+          "layoutCount": 3,
+          "layoutMs": 2.1859999999999937,
+          "styleCount": 51,
+          "styleMs": 7.141000000000009,
+          "taskMs": 42.21699999999995,
+          "paintCount": 6,
+          "paintMs": 0.598,
+          "rasterMs": 0.141,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        },
+        {
+          "name": "cpu4-2-palette-close",
+          "layoutCount": 2,
+          "layoutMs": 0.13199999999999323,
+          "styleCount": 45,
+          "styleMs": 5.508000000000013,
+          "taskMs": 33.98199999999996,
+          "paintCount": 7,
+          "paintMs": 0.906,
+          "rasterMs": 0.217,
+          "compositorFailures": [
+            {
+              "compositeFailed": 4096
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "implementationCommit": "2195660"
+}

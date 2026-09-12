@@ -137,22 +137,18 @@
 }
 
 /* The single panel every tab shares (aria-labelledby points at the active tab).
-   It carries the scroll for the surface content. */
+   CanvasLayout owns its content gutters; the shell owns scrolling. */
 .panel {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
+/* Keep the canvas background filling the pane even when content is short. */
 .panel > * {
-  flex: 0 0 auto;
-}
-
-/* On the overview, the projection body should still fill/scroll like it did as
-   a direct pane child, so let it grow. */
-.panel > :last-child {
   flex: 1 1 auto;
   min-height: 0;
 }

@@ -1,0 +1,24 @@
+/* Keep org kind colors consistent in the status bar and command palette. */
+.devhub {
+  --org-color: #9050e9;
+  --org-wash: color-mix(in srgb, #9050e9 10%, transparent);
+  --org-line: color-mix(in srgb, #9050e9 45%, transparent);
+}
+
+.scratch {
+  --org-color: #dd7a01;
+  --org-wash: color-mix(in srgb, #dd7a01 10%, transparent);
+  --org-line: color-mix(in srgb, #dd7a01 45%, transparent);
+}
+
+.sandbox {
+  --org-color: #0176d3;
+  --org-wash: color-mix(in srgb, #0176d3 10%, transparent);
+  --org-line: color-mix(in srgb, #0176d3 45%, transparent);
+}
+
+.production {
+  --org-color: #ba0517;
+  --org-wash: color-mix(in srgb, #ba0517 12%, transparent);
+  --org-line: color-mix(in srgb, #ba0517 50%, transparent);
+}

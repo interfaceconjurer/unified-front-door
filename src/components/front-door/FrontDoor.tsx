@@ -1,13 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ChevronRightIcon,
   GitBranchIcon,
   ListCheckIcon,
   PuzzleIcon,
-  SendIcon,
   SparklesIcon,
   type IconComponent,
 } from "@/components/icons";
@@ -15,6 +12,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
 import { ReturningHome } from "./ReturningHome";
+import { DayZeroHome } from "@/components/onboarding/DayZeroHome";
 import { SurfaceNav } from "./SurfaceNav";
 import styles from "./FrontDoor.module.css";
 
@@ -62,23 +60,13 @@ const STARTERS: readonly Starter[] = [
 const EXISTING_PROJECT_PROMPT =
   "Help me get started with an existing Salesforce source project. Walk me through connecting my repository and a development org, then exploring the codebase.";
 
-function recommendSurface(text: string, availableSurfaces: readonly SurfaceApp[]) {
-  const normalized = text.toLowerCase();
-  const preferredId = /deploy|release|pipeline|work item|lifecycle/.test(normalized)
-    ? "alm"
-    : /code|react|apex|lwc|test|debug|source/.test(normalized)
-      ? "code"
-      : /security|permission|monitor|observe|health|trust|govern/.test(normalized)
-        ? "govern"
-        : "build";
-  return availableSurfaces.find((surface) => surface.id === preferredId) ?? availableSurfaces[0];
+export function isStarterPrompt(value: string): boolean {
+  return STARTERS.some((starter) => starter.prompt === value) || value === EXISTING_PROJECT_PROMPT;
 }
 
-export function FrontDoor({ onStartConversation }: { onStartConversation: (message: string) => void }) {
-  const router = useRouter();
+/** The welcome/assessment content occupies the persistent agent's stream area. */
+export function FrontDoor({ onSeedPrompt }: { onSeedPrompt: (prompt: string) => void }) {
   const { profile } = useDemoProfile();
-  const [draft, setDraft] = useState("");
-  const composerRef = useRef<HTMLTextAreaElement>(null);
   const availableSurfaces = profile
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
@@ -90,35 +78,14 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
     return [];
   });
   const returning = profile?.workspaceExperience === "established";
+  const dayZero = profile?.onboarding === "org-assessment";
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
-
-  useEffect(() => {
-    if (window.location.hash === "#front-door-composer") composerRef.current?.focus();
-  }, []);
-
-  function submit() {
-    const intent = draft.trim();
-    const surface = recommendSurface(intent, availableSurfaces);
-    if (!intent || !surface) return;
-    onStartConversation(intent);
-    router.push(surface.href);
-  }
-
-  function seedPrompt(prompt: string) {
-    setDraft((current) => {
-      // Switching starters replaces an untouched suggestion, while preserving
-      // anything the user has written themselves.
-      const isSuggestion = STARTERS.some((starter) => starter.prompt === current) || current === EXISTING_PROJECT_PROMPT;
-      return current.trim() && !isSuggestion ? `${current.trim()}\n\n${prompt}` : prompt;
-    });
-    requestAnimationFrame(() => composerRef.current?.focus());
-  }
 
   return (
     <main className={`${styles.frontDoor} ${returning ? styles.returning : ""}`} aria-labelledby="front-door-heading">
       <div className={styles.scroll}>
         <div className={styles.content}>
-          {returning ? <ReturningHome /> : <>
+          {dayZero ? <DayZeroHome /> : returning ? <ReturningHome /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -143,7 +110,7 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
                     type="button"
                     className={styles.starterCard}
                     data-surface={starter.surfaceId}
-                    onClick={() => seedPrompt(starter.prompt)}
+                    onClick={() => onSeedPrompt(starter.prompt)}
                   >
                     <span className={styles.cardTop}>
                       <span className={styles.starterIcon} aria-hidden="true">
@@ -172,7 +139,7 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
                 <h2>Have a project already?</h2>
                 <p>Start with your codebase and get to know what you can do here.</p>
               </div>
-              <button type="button" onClick={() => seedPrompt(EXISTING_PROJECT_PROMPT)}>
+              <button type="button" onClick={() => onSeedPrompt(EXISTING_PROJECT_PROMPT)}>
                 Bring your project
                 <ChevronRightIcon width={15} height={15} aria-hidden="true" />
               </button>
@@ -182,54 +149,6 @@ export function FrontDoor({ onStartConversation }: { onStartConversation: (messa
         </div>
       </div>
 
-      <div className={styles.composerDock}>
-        <div className={styles.conversationHeading}>
-          <span>{returning ? "What would you like to work on?" : "Or start with a conversation"}</span>
-        </div>
-        <form
-          className={styles.composer}
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit();
-          }}
-        >
-          <label className={styles.srOnly} htmlFor="front-door-composer">
-            Describe what you want to do
-          </label>
-          <textarea
-            id="front-door-composer"
-            ref={composerRef}
-            rows={returning ? 2 : 3}
-            value={draft}
-            placeholder={returning ? "Ask about your work, plan a change, or start something new…" : "Describe an idea, ask a question, or tell me what you want to build…"}
-            aria-describedby="front-door-composer-hint"
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                submit();
-              }
-            }}
-          />
-          <div className={styles.composerTools}>
-            <span className={styles.agentLabel}>
-              <SparklesIcon width={16} height={16} aria-hidden="true" />
-              Agent
-            </span>
-            <span id="front-door-composer-hint" className={styles.composerHint}>
-              Enter to send · Shift + Enter for a new line
-            </span>
-            <button
-              type="submit"
-              className={styles.send}
-              disabled={!draft.trim() || !availableSurfaces.length}
-              aria-label="Send message"
-            >
-              <SendIcon width={18} height={18} />
-            </button>
-          </div>
-        </form>
-      </div>
     </main>
   );
 }

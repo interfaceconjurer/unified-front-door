@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { FrontDoor } from "@/components/front-door/FrontDoor";
 import { surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
@@ -11,11 +10,13 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
-import { CommandPalette } from "./CommandPalette";
+import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
+import { useDockedPanelMotion } from "./use-docked-panel-motion";
 import styles from "./AppShell.module.css";
+import "@/components/surfaces/surface-transitions.css";
 
 /**
  * The shared chrome. The left "chat column" is a single persistent element that
@@ -31,15 +32,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { profile, resolved } = useDemoProfile();
   const isLogin = pathname === "/login";
-  // The front door merges the agent and launcher into one column, so it renders
-  // full-width without the separate persistent agent panel.
+  // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
   // Which surface (if any) this route belongs to — drives whether the route
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
+  const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [entryMessage, setEntryMessage] = useState<string | null>(null);
+  const paletteTrigger = useRef<HTMLElement | null>(null);
+  const paletteClosing = useRef(false);
+  const paletteAction = useRef<(() => void) | undefined>(undefined);
+  const openPalette = useCallback((tab: CommandPaletteTab) => {
+    if (!paletteTab) {
+      paletteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setPaletteTab(tab);
+    }
+    // Reopening during dismissal reverses the dissolve and cancels its action.
+    paletteClosing.current = false;
+    paletteAction.current = undefined;
+    setPaletteOpen(true);
+  }, [paletteTab]);
+  const closePalette = useCallback((action?: () => void) => {
+    if (paletteClosing.current) return;
+    paletteClosing.current = true;
+    paletteAction.current = action;
+    setPaletteOpen(false);
+  }, []);
+  const finishPaletteClose = useCallback(() => {
+    if (!paletteClosing.current) return;
+    const action = paletteAction.current;
+    paletteClosing.current = false;
+    paletteAction.current = undefined;
+    setPaletteTab(null);
+    paletteTrigger.current?.focus();
+    action?.();
+  }, []);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
   // panel survives a reload. New workspaces start collapsed; established ones
@@ -47,6 +75,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { panelOpen, togglePanel } = useWorkspacePanel(
     isFrontDoor && profile?.workspaceExperience === "established",
   );
+  const panelSlot = useRef<HTMLDivElement>(null);
+  const workspaceRef = useDockedPanelMotion(panelOpen, resolved && !isLogin && !!profile);
+  const toggleWorkspacePanel = useCallback(() => {
+    if (panelOpen && panelSlot.current?.contains(document.activeElement)) {
+      document.getElementById("workspace-panel-toggle")?.focus();
+    }
+    togglePanel();
+  }, [panelOpen, togglePanel]);
 
   // Demo identity is deliberately a client-side product concept, not an auth
   // boundary. Keep signed-out users on the login screen and prevent a profile
@@ -79,15 +115,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const key = event.key.toLowerCase();
       if (event.shiftKey && key === "p") {
         event.preventDefault();
-        setPaletteOpen((open) => !open);
+        if (paletteOpen) closePalette();
+        else openPalette("surfaces");
       } else if (!event.shiftKey && key === "b") {
         event.preventDefault();
-        togglePanel();
+        toggleWorkspacePanel();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isLogin, profile, togglePanel]);
+  }, [isLogin, profile, toggleWorkspacePanel, paletteOpen, openPalette, closePalette]);
 
   if (!resolved) return null;
   if (isLogin) return children;
@@ -101,59 +138,55 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SurfaceCanvasProvider>
       <div className={styles.shell}>
         <TopBar
-          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenPalette={() => openPalette("surfaces")}
           panelOpen={panelOpen}
-          onTogglePanel={togglePanel}
+          onTogglePanel={toggleWorkspacePanel}
           profileMenu={<ProfileMenu />}
         />
         <div className={styles.body}>
-          {panelOpen && (
-            <div className={styles.panelSlot}>
-              <WorkspacePanel onClose={togglePanel} />
-            </div>
-          )}
+          <div ref={panelSlot} className={styles.panelSlot} data-open={panelOpen} inert={!panelOpen}>
+            <WorkspacePanel onClose={toggleWorkspacePanel} />
+          </div>
           {/* The chat/surface split lives in its own flex box that fills only the
               space left after the workspace panel. So the chat column's 100%
               front-door width is 100% *of what's available*, not the whole
               screen — opening the panel shrinks the chat to fit instead of
               pushing it off the right edge. */}
-          <div className={styles.split}>
-            <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
-              {/* Keyed only on the home↔surface boundary, not per surface, so the
-                  AgentPanel (and its thread) persists as you move between
-                  surfaces, and only the merged front-door swap crossfades. */}
-              <div key={isFrontDoor ? "home" : "surface"} className={styles.chatInner}>
-                {isFrontDoor ? (
-                  <FrontDoor onStartConversation={setEntryMessage} />
-                ) : (
-                  <AgentPanel initialMessage={entryMessage} onMessageReceived={() => setEntryMessage(null)} />
-                )}
+          <div ref={workspaceRef} className={styles.workspaceMotion}>
+            <div className={styles.split}>
+              <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
+                {/* Keep the agent, its conversation state, and its composer mounted
+                    across the home/surface boundary. Only the stream dissolves. */}
+                <div className={styles.chatInner}>
+                  <AgentPanel />
+                </div>
               </div>
-            </div>
-            {/* The surface is an overlay pinned at its final 60% width: adding
-                .surfaceVisible slides it in from the right (and the front door
-                parks it off-screen) so its content never reflows as it enters. */}
-            <main
-              className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
-              aria-hidden={isFrontDoor}
-            >
-              <div key={pathname} className={styles.surfaceInner}>
-                {/* On a surface route the route content becomes tab 0 (the
-                    Overview launch pad) of that surface's canvas host; other
-                    routes (the front door) render bare. Keying on pathname is
-                    preserved — the host reads its state from the shell-level
-                    provider, so remounting the UI per route is harmless. */}
+              {/* The surface is an overlay pinned at its final 60% width: adding
+                  .surfaceVisible slides it in from the right (and the front door
+                  parks it off-screen) so its content never reflows as it enters. */}
+              <main
+                className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
+                aria-hidden={isFrontDoor}
+                inert={isFrontDoor}
+              >
                 {surface ? (
-                  <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                  // Matching names retain the outgoing canvas image across a
+                  // surface swap. Only shared transitions animate: entering or
+                  // leaving home keeps the existing agent/panel sequence.
+                  <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
+                    <div className={styles.surfaceInner}>
+                      <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                    </div>
+                  </ViewTransition>
                 ) : (
-                  children
+                  <div className={styles.surfaceInner}>{children}</div>
                 )}
-              </div>
-            </main>
+              </main>
+            </div>
           </div>
         </div>
-        <StatusBar />
-        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
+        {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
       </SurfaceCanvasProvider>
     </WorkspaceProvider>

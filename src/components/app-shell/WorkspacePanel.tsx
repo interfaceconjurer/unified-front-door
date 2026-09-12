@@ -117,7 +117,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const { profile } = useDemoProfile();
   const { openCanvas, setActiveCanvas } = useSurfaceCanvases("build");
   const currentSurface = surfaceAppForPath(pathname);
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
+  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects } =
     useWorkspace();
   const [filter, setFilter] = useState<PanelFilter>("all");
 
@@ -129,21 +129,22 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
 
   function goToBuild() {
     onClose();
+    if (profile?.onboarding) { router.push("/"); return; }
     if (pathname !== buildHref) router.push(buildHref);
   }
 
   function startConversation() {
     onClose();
     if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("front-door-composer")?.focus());
+      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
     } else {
-      router.push("/#front-door-composer");
+      router.push("/#agent-composer");
     }
   }
 
   if (!profile) return null;
 
-  if (profile.workspaceExperience === "empty") {
+  if (!hasProjects) {
     return (
       <aside className={styles.panel} aria-label="Workspace">
         <header className={styles.header}>
@@ -271,6 +272,11 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     onClick={() => {
                       setActiveProject(project.id);
                       setActiveWorktree(base.worktree.id, project.id);
+                      if (profile.onboarding) {
+                        openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
+                        router.push("/alm");
+                        return;
+                      }
                       if (currentSurface) setActiveCanvas(currentSurface.id, OVERVIEW_CANVAS_ID);
                     }}
                   >

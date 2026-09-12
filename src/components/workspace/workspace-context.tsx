@@ -12,13 +12,16 @@ import {
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getWorkspaceSelectionStore } from "@/lib/workspace/persistence";
+import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
+import { ASSESSMENT_ORGS, workspaceProject } from "@/lib/onboarding/assessment";
 
 type WorkspaceContextValue = {
+  hasProjects: boolean;
   projects: readonly Project[];
   orgs: readonly Org[];
   activeProject: Project;
   activeWorktree: Worktree;
-  /** The org the active project currently targets — a free, independent switch. */
+  /** The connected org selected for this project, or for the initial assessment. */
   activeOrg: Org;
   /** The active project's agent sessions, one per worktree — the seam consumers
    *  (e.g. the Code surface's sessions rail) read instead of the fixture. */
@@ -37,6 +40,14 @@ type WorkspaceContextValue = {
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
+const CONNECTED_ASSESSMENT_ORGS = ASSESSMENT_ORGS.filter((org) => org.connection === "connected");
+
+const EMPTY_PROJECT: Project = {
+  id: "org-assessment", name: "Org assessment", description: "Discover your first project.",
+  defaultOrgId: "prod", worktrees: [{ id: "main", label: "Planning", branch: "main", isPrimary: true }],
+  facets: { objects: 0, flows: 0, apexClasses: 0, lwc: 0, permissionSets: 0 },
+  agentSessions: [], apps: [],
+};
 
 /**
  * Shell-level workspace context — a peer to the agent, not owned by any surface.
@@ -57,9 +68,12 @@ const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
  * stored value, if any, applies in React's dedicated post-hydration pass).
  */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const projects = PROJECTS;
-  const orgs = ORGS;
   const { profile } = useDemoProfile();
+  const assessment = useAssessmentRunner();
+  const dayZero = profile?.onboarding === "org-assessment";
+  const projects = useMemo(() => dayZero ? assessment.projects.map(workspaceProject) : PROJECTS, [dayZero, assessment.projects]);
+  const orgs = dayZero ? CONNECTED_ASSESSMENT_ORGS : ORGS;
+  const hasProjects = dayZero ? projects.length > 0 : profile?.workspaceExperience === "established";
   const workspaceSelectionStore = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(
     workspaceSelectionStore.subscribe,
@@ -68,17 +82,21 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo<WorkspaceContextValue>(() => {
-    const activeProjectId = selection.activeProjectId ?? projects[0]!.id;
-    const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0]!;
+    const activeProjectId = selection.activeProjectId ?? projects[0]?.id;
+    // Existing surface contracts require a project context. Before creation,
+    // provide a neutral planning context; it is never listed as a real project.
+    const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? EMPTY_PROJECT;
 
     const worktreeId = selection.worktreeByProject[activeProject.id];
     const activeWorktree =
       activeProject.worktrees.find((w) => w.id === worktreeId) ?? primaryWorktree(activeProject);
 
     const orgId = selection.orgByProject[activeProject.id] ?? activeProject.defaultOrgId;
-    const activeOrg = orgs.find((o) => o.id === orgId) ?? orgs[0]!;
+    const activeOrg = orgs.find((o) => o.id === orgId && o.connection === "connected")
+      ?? orgs.find((o) => o.connection === "connected")!;
 
     return {
+      hasProjects,
       projects,
       orgs,
       activeProject,
@@ -89,9 +107,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setActiveProject: workspaceSelectionStore.setActiveProjectId,
       setActiveWorktree: (id, projectId) =>
         workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
-      setActiveOrg: (id) => workspaceSelectionStore.setOrgForProject(activeProject.id, id),
+      setActiveOrg: (id) => {
+        if (orgs.some((org) => org.id === id && org.connection === "connected")) {
+          workspaceSelectionStore.setOrgForProject(activeProject.id, id);
+        }
+      },
     };
-  }, [projects, orgs, selection, workspaceSelectionStore]);
+  }, [projects, orgs, hasProjects, selection, workspaceSelectionStore]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }

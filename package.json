@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:onboarding": "node --test scripts/onboarding.test.mjs",
     "predev": "node scripts/copy-slds.mjs",
     "prebuild": "node scripts/copy-slds.mjs"
   },

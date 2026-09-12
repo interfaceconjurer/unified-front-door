@@ -1,4 +1,4 @@
-.canvas { color-scheme: light dark; padding: 1.75rem; width: min(65rem, 100%); margin-inline: auto; display: flex; flex-direction: column; gap: 1.75rem; }
+.canvas { display: flex; flex-direction: column; gap: 1.75rem; }
 .eyebrow { display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin: 0 0 0.875rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.75rem; }
 .header h1 { margin: 0 0 0.75rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(1.25rem, 2vw, 1.75rem); font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
 .summary { margin: 0 0 1rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.8125rem; line-height: 1.6; }
@@ -16,4 +16,3 @@
 .editor textarea { display: block; width: 100%; padding: 1rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 0.625rem; background: var(--slds-g-color-surface-1, #fff); color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; font-size: 0.8125rem; line-height: 1.7; resize: vertical; }
 .editor textarea:focus { outline: 2px solid var(--slds-g-color-accent-2, #0176d3); outline-offset: 2px; }
 .editor .source { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; background: light-dark(#f8fafc, #141c28); tab-size: 2; }
-@media (max-width: 600px) { .canvas { padding: 1.25rem; } }

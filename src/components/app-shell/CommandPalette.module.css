@@ -6,15 +6,26 @@
   justify-content: center;
   align-items: flex-start;
   padding: 12vh var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-4, 1rem);
+}
+
+.overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background: rgb(3 13 33 / 45%);
-  backdrop-filter: blur(3px);
-  animation: overlay-in 120ms ease;
+  /* A dimming layer avoids sampling and blurring the entire app while the
+     palette itself dissolves. Keep the strong blur on that bounded panel. */
+  opacity: 1;
+  transition: opacity var(--shell-motion-duration) var(--shell-motion-easing);
 }
 
 .palette {
+  position: relative;
   display: flex;
-  width: min(40rem, 100%);
-  max-height: 60vh;
+  width: min(48rem, 100%);
+  min-height: min(28rem, 70dvh);
+  max-height: 70dvh;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
@@ -23,12 +34,37 @@
   box-shadow:
     0 1px 0 rgb(255 255 255 / 6%) inset,
     0 24px 60px -12px rgb(3 13 33 / 55%);
-  animation: palette-in 140ms ease;
+  opacity: 1;
+  filter: blur(0px);
+  contain: layout style;
+  will-change: opacity, filter;
+  transition:
+    opacity var(--shell-motion-duration) var(--shell-motion-easing),
+    filter var(--shell-motion-duration) var(--shell-motion-easing);
+}
+
+.overlay[data-open="false"]::before,
+.overlay[data-open="false"] .palette {
+  opacity: 0;
+}
+
+.overlay[data-open="false"] .palette {
+  filter: blur(var(--shell-motion-blur));
+}
+
+@starting-style {
+  .overlay::before {
+    opacity: 0;
+  }
+  .palette {
+    opacity: 0;
+    filter: blur(var(--shell-motion-blur));
+  }
 }
 
 .tabs {
   display: flex;
-  gap: var(--slds-g-spacing-4, 1rem);
+  gap: clamp(0.5rem, 2.5vw, 1rem);
   padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) 0;
   border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
@@ -93,10 +129,29 @@
 }
 
 .results {
+  flex: 1 1 auto;
+  min-height: 0;
   margin: 0;
   padding: var(--slds-g-spacing-2, 0.5rem);
   list-style: none;
   overflow-y: auto;
+}
+
+.contextHint {
+  margin: 0;
+  padding: 0.75rem 1.5rem 0.25rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.resultIcon.resultOrg {
+  color: var(--org-color);
+  background: var(--org-wash);
+}
+
+.resultActive .resultOrg {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .empty {
@@ -107,6 +162,8 @@
 
 .guidedEmpty {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
   justify-items: start;
   gap: var(--slds-g-spacing-2, 0.5rem);
   padding: var(--slds-g-spacing-5, 1.5rem);
@@ -368,22 +425,9 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes palette-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .overlay,
+  .overlay::before,
   .palette {
-    animation: none;
+    transition: none;
   }
 }

@@ -71,7 +71,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
   }
 
   return (
-    <article className={styles.canvas}>
+    <article>
       <header className={styles.header}>
         <span className={styles.icon} aria-hidden="true"><Icon width={23} height={23} /></span>
         <div>

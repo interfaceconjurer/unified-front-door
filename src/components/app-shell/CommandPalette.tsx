@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  DatabaseIcon,
   HomeIcon,
   LayersIcon,
   PlusIcon,
@@ -17,9 +18,10 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
-import type { AgentSessionStatus } from "@/lib/workspace/model";
+import type { AgentSessionStatus, OrgKind } from "@/lib/workspace/model";
 import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./CommandPalette.module.css";
+import orgStyles from "@/components/workspace/OrgKind.module.css";
 
 type Destination = {
   id: string;
@@ -39,22 +41,31 @@ const HOME_DESTINATION: Destination = {
   Icon: HomeIcon,
 };
 
-type Tab = "surfaces" | "projects" | "sessions";
+export type CommandPaletteTab = "surfaces" | "projects" | "sessions" | "orgs";
+type Tab = CommandPaletteTab;
 
-const TAB_ORDER: readonly Tab[] = ["surfaces", "projects", "sessions"];
+const TAB_ORDER: readonly Tab[] = ["surfaces", "projects", "sessions", "orgs"];
 const TAB_LABEL: Record<Tab, string> = {
   surfaces: "Surfaces",
   projects: "Projects",
   sessions: "Sessions",
+  orgs: "Orgs",
 };
 const TAB_PLACEHOLDER: Record<Tab, string> = {
   surfaces: "Search surfaces…",
   projects: "Search projects…",
   sessions: "Search sessions…",
+  orgs: "Search orgs…",
 };
 // What ↵ does, in this tab's own vocabulary — surfaces "open" (navigate),
 // projects "switch" (re-point context, stay put), sessions "go" (teleport).
-const TAB_ENTER_HINT: Record<Tab, string> = { surfaces: "open", projects: "switch", sessions: "go" };
+const TAB_ENTER_HINT: Record<Tab, string> = { surfaces: "open", projects: "switch", sessions: "go", orgs: "switch" };
+const ORG_KIND_LABEL: Record<OrgKind, string> = {
+  devhub: "Dev Hub",
+  scratch: "Scratch",
+  sandbox: "Sandbox",
+  production: "Production",
+};
 
 // A row in the results list, normalized across tabs so keyboard nav and
 // rendering don't need to branch on which tab built it — only on which
@@ -77,14 +88,19 @@ type PaletteItem = {
   /** Present on worktree/session rows; renders a status dot + chip instead
    *  of (resp. alongside) the plain icon/current-tag treatment. */
   status?: AgentSessionStatus;
+  orgKind?: OrgKind;
 };
+
+// Stable ordering keeps all other destinations in their existing order.
+const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - Number(a.isCurrent);
 
 /**
  * A Spotlight/Raycast-style command palette for switching what you're looking
  * at. Opened with ⌘⇧P (the shell owns the shortcut and only mounts this while
  * open, so its state starts fresh each time), it overlays a search box over
- * the whole app. Three tabs:
- *  - Surfaces — the purpose-built destinations; picking one navigates.
+ * the whole app. Four tabs:
+ *  - Surfaces — Front Door stays first, followed by the current surface;
+ *    picking another destination navigates.
  *  - Projects — the shell-level workspace noun; picking a project calls
  *    `setActiveProject` and re-projects the current surface instead of
  *    navigating. Multi-worktree projects list their worktrees inline and
@@ -92,25 +108,51 @@ type PaletteItem = {
  *    picking a worktree additionally calls `setActiveWorktree` — still no
  *    navigation, because switching what you're working on is a re-point, not
  *    a trip.
- *  - Sessions — every agent session across every project, globally, sorted
- *    waiting → working → idle so the thing that needs you most sorts first.
+ *  - Sessions — the current session first, then every other session across
+ *    projects sorted waiting → working → idle.
  *    Picking one sets the project + worktree AND navigates to the Code
  *    surface (v1 read of "where the agent is working" — see plan.md), because
  *    unlike Projects, a session is something you're jumping *to*.
- * Type to filter within the active tab, ↑/↓ to move, ←/→ to switch tabs, ↵ to
+ *  - Orgs — connections available from login; picking one changes the target
+ *    org without navigating or changing the assessment scope.
+ * Each tab starts with the current destination highlighted, when it matches
+ * the search. Type to filter, ↑/↓ to move, ←/→ to switch tabs, ↵ to
  * select, esc to dismiss.
  */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({ initialTab = "surfaces", open, onClose, onExited }: {
+  initialTab?: CommandPaletteTab;
+  open: boolean;
+  onClose: (action?: () => void) => void;
+  onExited: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const { setActiveCanvas } = useSurfaceCanvases("code");
+  const { setActiveCanvas, openCanvas } = useSurfaceCanvases("code");
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } =
+  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects,
+    orgs, activeOrg, setActiveOrg } =
     useWorkspace();
-  const [tab, setTab] = useState<Tab>("surfaces");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<number | null>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      return;
+    }
+    let cancelled = false;
+    // Wait for the actual CSS transitions, including shortened reversals.
+    // Reduced motion has no transitions, so dismissal completes immediately.
+    const transitions = paletteRef.current?.getAnimations() ?? [];
+    void Promise.allSettled(transitions.map((transition) => transition.finished)).then(() => {
+      if (!cancelled) onExited();
+    });
+    return () => { cancelled = true; };
+  }, [open, onExited]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const q = query.trim().toLowerCase();
@@ -135,19 +177,41 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         label: d.label,
         description: d.description,
         Icon: d.Icon,
-        isCurrent: d.href === pathname,
+        isCurrent: d.id === (currentSurfaceId ?? "home"),
         select: () => {
-          onClose();
-          if (d.href !== pathname) router.push(d.href);
+          if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
         },
-      }));
+      })).sort((a, b) =>
+        Number(b.id === "home") - Number(a.id === "home") || currentFirst(a, b),
+      );
     }
 
-    if (profile?.workspaceExperience === "empty") return [];
+    // Org connections exist before the user has created a project.
+    if (tab === "orgs") {
+      return orgs.filter((org) => org.connection === "connected").map((org) => ({
+        id: org.id,
+        label: org.label,
+        description: [ORG_KIND_LABEL[org.kind], "Connected",
+          ...(org.kind === "scratch" && org.expiresInDays != null ? [`${org.expiresInDays}d left`] : []),
+        ].join(" · "),
+        Icon: DatabaseIcon,
+        orgKind: org.kind,
+        isCurrent: org.id === activeOrg.id,
+        select: () => {
+          setActiveOrg(org.id);
+        },
+      })).filter((org) => matchesQuery(org.label, org.description)).sort(currentFirst);
+    }
+
+    if (!hasProjects) return [];
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
-      for (const { project, base, children } of buildProjectTree(projects)) {
+      // Move whole project groups together so their children stay attached.
+      const tree = buildProjectTree(projects).sort(
+        (a, b) => Number(b.project.id === activeProject.id) - Number(a.project.id === activeProject.id),
+      );
+      for (const { project, base, children } of tree) {
         // The project row IS the project-on-main node: its title is the project
         // name and its subtitle is the primary worktree ("main"), so the two
         // read as one node (title + description), not a header with a separate
@@ -156,9 +220,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         // its project matched (all of a matching project's worktrees show, same
         // as unfiltered) — so searching "hotfix" surfaces just that worktree
         // under its project for context, "trailblazer" surfaces every worktree.
-        // `lastChild` is re-derived against this filtered list (not the shared
-        // derivation's unfiltered one), since the tree guide's corner has to
-        // land on the last child actually on screen.
+        // Tree guides are re-derived after filtering and pinning the current
+        // row, so each group ends at its last remaining child.
         const projectMatches = matchesQuery(
           project.name,
           project.description,
@@ -189,30 +252,37 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           select: () => {
             setActiveProject(project.id);
             setActiveWorktree(base.worktree.id, project.id);
+            if (profile?.onboarding) {
+              openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
+              router.push("/alm");
+              return;
+            }
             if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-            onClose();
           },
         });
 
-        matchingChildren.forEach(({ worktree, status }, childIndex) => {
+        matchingChildren.forEach(({ worktree, status }) => {
+          const isCurrent = project.id === activeProject.id && worktree.id === activeWorktree.id;
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
-            description: worktree.branch,
-            isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
-            indent: true,
-            lastChild: childIndex === matchingChildren.length - 1,
+            // A pinned worktree stands alone above its project tree; include
+            // the project name so it still has context without a parent row.
+            description: isCurrent ? `${project.name} · ${worktree.branch}` : worktree.branch,
+            isCurrent,
+            indent: !isCurrent,
             status,
             select: () => {
               setActiveProject(project.id);
               setActiveWorktree(worktree.id, project.id);
               if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-              onClose();
             },
           });
         });
       }
-      return rows;
+      return rows.sort(currentFirst).map((row, index, ordered) =>
+        row.indent ? { ...row, lastChild: !ordered[index + 1]?.indent } : row,
+      );
     }
 
     // tab === "sessions": every session, across every project, flattened for
@@ -236,33 +306,38 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           setActiveProject(project.id);
           setActiveWorktree(worktree.id, project.id);
           setActiveCanvas("code", OVERVIEW_CANVAS_ID);
-          onClose();
           if (pathname !== codeHref) router.push(codeHref);
         },
-      }));
+      })).sort(currentFirst);
   }, [
     tab,
     query,
     pathname,
     profile,
     projects,
+    hasProjects,
+    openCanvas,
     activeProject.id,
     activeWorktree.id,
     router,
-    onClose,
     setActiveProject,
     setActiveWorktree,
     setActiveCanvas,
     currentSurfaceId,
+    orgs,
+    activeOrg.id,
+    setActiveOrg,
   ]);
 
-  // Derived, not stored: `active` can point past the end after filtering or a
-  // tab switch, so we clamp it here rather than correcting state in an effect.
-  const safeActive = items.length ? Math.min(active, items.length - 1) : 0;
+  // Opening, switching tabs, and clearing search highlight the current item,
+  // which can now sit below the pinned Front Door. Search starts at its first
+  // match; explicit keyboard/pointer selection still takes precedence.
+  const defaultActive = query.trim() ? 0 : Math.max(0, items.findIndex((item) => item.isCurrent));
+  const safeActive = items.length ? Math.min(active ?? defaultActive, items.length - 1) : 0;
 
   function switchTab(next: Tab) {
     setTab(next);
-    setActive(0);
+    setActive(null);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -285,32 +360,34 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       }
     } else if (event.key === "Enter") {
       event.preventDefault();
-      items[safeActive]?.select();
+      const item = items[safeActive];
+      if (item) onClose(item.select);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
     }
   }
 
-  const showGuidedEmpty = profile?.workspaceExperience === "empty" && tab !== "surfaces";
+  const showGuidedEmpty = !hasProjects && (tab === "projects" || tab === "sessions");
 
   function goToBuild() {
-    onClose();
-    router.push(surfaceAppById("build").href);
+    onClose(() => router.push(profile?.onboarding ? "/" : surfaceAppById("build").href));
   }
 
   function startConversation() {
-    onClose();
-    if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("front-door-composer")?.focus());
-    } else {
-      router.push("/#front-door-composer");
-    }
+    onClose(() => {
+      if (pathname === "/") {
+        requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
+      } else {
+        router.push("/#agent-composer");
+      }
+    });
   }
 
   return (
     <div
       className={styles.overlay}
+      data-open={open}
       role="presentation"
       onMouseDown={(event) => {
         // Dismiss only on backdrop clicks, not clicks that start inside the panel.
@@ -318,10 +395,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       }}
     >
       <div
+        ref={paletteRef}
         className={styles.palette}
+        inert={!open}
         role="dialog"
         aria-modal="true"
-        aria-label="Switch surfaces, projects, or sessions"
+        aria-label="Switch surfaces, projects, sessions, or orgs"
       >
         <div className={styles.tabs} role="tablist" aria-label="Palette section">
           {TAB_ORDER.map((t) => (
@@ -346,6 +425,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         <div className={styles.searchRow}>
           <SearchIcon className={styles.searchIcon} width={18} height={18} />
           <input
+            ref={inputRef}
             // The palette exists only to receive typing; focus it on mount.
             autoFocus
             className={styles.input}
@@ -356,7 +436,10 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             aria-expanded={showGuidedEmpty ? undefined : true}
             aria-controls={showGuidedEmpty ? undefined : "command-palette-results"}
             aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActive(null);
+            }}
             onKeyDown={onKeyDown}
           />
           <kbd className={styles.escHint}>esc</kbd>
@@ -381,7 +464,14 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {!showGuidedEmpty && <ul className={styles.results} id="command-palette-results" role="listbox">
+        {tab === "orgs" && (
+          <p className={styles.contextHint}>
+            Connected orgs · {orgs.filter((org) => org.connection === "connected").length} available from your login
+          </p>
+        )}
+
+        {/* Reset scrolling with the results so the first selection is visible. */}
+        {!showGuidedEmpty && <ul key={`${tab}:${query}`} className={styles.results} id="command-palette-results" role="listbox">
           {items.length === 0 && (
             <li className={styles.empty}>
               No {tab} match “{query}”.
@@ -390,17 +480,18 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           {items.map((item, index) => {
             const isActive = index === safeActive;
             return (
-              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}>
+              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}
+                className={item.orgKind ? orgStyles[item.orgKind] : undefined}>
                 <button
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
                     item.indent ? styles.resultIndent : ""
                   } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
-                  onClick={() => item.select()}
+                  onClick={() => onClose(item.select)}
                 >
                   <span
-                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""}`}
+                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""} ${item.orgKind ? styles.resultOrg : ""}`}
                     aria-hidden="true"
                   >
                     {item.status ? (

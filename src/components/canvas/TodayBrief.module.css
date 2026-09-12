@@ -3,8 +3,6 @@
    real brief (header + data sections + an agent note) so the "your today"
    concept reads clearly. Matches the SLDS token house style used elsewhere. */
 .brief {
-  max-width: 46rem;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--slds-g-spacing-5, 1.5rem);
