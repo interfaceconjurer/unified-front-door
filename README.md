@@ -40,6 +40,18 @@ uses the same sequence in reverse. The composer stays sharp throughout. Draft
 text, text selection, and session conversations survive
 client-side navigation home and back. Reduced-motion preferences skip the transitions.
 
+Switching between surfaces uses a separate 500ms canvas swap: the incoming surface
+lands in front while the outgoing surface recedes, blurs, and fades away. The agent
+and composer stay in place. Next's experimental view-transition integration captures the outgoing
+canvas without keeping a second live surface mounted; browsers without support and
+reduced-motion users get an immediate swap. Browser Back/Forward currently restores
+the saved surface instantly. The home transition remains separate.
+
+The command palette puts the current surface, project/worktree, or session first
+in its tab and highlights that row on opening or switching tabs. One Down press
+selects another destination. Search filters normally and resets the highlight to
+the first match; clearing it returns the highlight to the current destination.
+
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
 - Use the bottom-right status-bar org switcher from first login to choose among all connected orgs, independently of the assessment scope. The selected org persists across reloads.
 - Review prioritized findings, their sample evidence, proposed approaches, and success criteria.

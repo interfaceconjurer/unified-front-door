@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
 import { surfaceAppForPath } from "@/components/front-door/app-catalog";
@@ -15,6 +15,7 @@ import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
 import styles from "./AppShell.module.css";
+import "@/components/surfaces/surface-transitions.css";
 
 /**
  * The shared chrome. The left "chat column" is a single persistent element that
@@ -117,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className={styles.split}>
             <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
               {/* Keep the agent, its conversation state, and its composer mounted
-                  across the home/surface boundary. Only the stream crossfades. */}
+                  across the home/surface boundary. Only the stream dissolves. */}
               <div className={styles.chatInner}>
                 <AgentPanel />
               </div>
@@ -130,18 +131,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-hidden={isFrontDoor}
               inert={isFrontDoor}
             >
-              <div key={pathname} className={styles.surfaceInner}>
-                {/* On a surface route the route content becomes tab 0 (the
-                    Overview launch pad) of that surface's canvas host; other
-                    routes (the front door) render bare. Keying on pathname is
-                    preserved — the host reads its state from the shell-level
-                    provider, so remounting the UI per route is harmless. */}
-                {surface ? (
-                  <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
-                ) : (
-                  children
-                )}
-              </div>
+              {surface ? (
+                // Matching names retain the outgoing canvas image across a
+                // surface swap. Only shared transitions animate: entering or
+                // leaving home keeps the existing agent/panel sequence.
+                <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
+                  <div className={styles.surfaceInner}>
+                    <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                  </div>
+                </ViewTransition>
+              ) : (
+                <div className={styles.surfaceInner}>{children}</div>
+              )}
             </main>
           </div>
         </div>

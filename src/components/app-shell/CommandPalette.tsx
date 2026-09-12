@@ -79,6 +79,9 @@ type PaletteItem = {
   status?: AgentSessionStatus;
 };
 
+// Stable ordering keeps all other destinations in their existing order.
+const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - Number(a.isCurrent);
+
 /**
  * A Spotlight/Raycast-style command palette for switching what you're looking
  * at. Opened with ⌘⇧P (the shell owns the shortcut and only mounts this while
@@ -92,12 +95,13 @@ type PaletteItem = {
  *    picking a worktree additionally calls `setActiveWorktree` — still no
  *    navigation, because switching what you're working on is a re-point, not
  *    a trip.
- *  - Sessions — every agent session across every project, globally, sorted
- *    waiting → working → idle so the thing that needs you most sorts first.
+ *  - Sessions — the current session first, then every other session across
+ *    projects sorted waiting → working → idle.
  *    Picking one sets the project + worktree AND navigates to the Code
  *    surface (v1 read of "where the agent is working" — see plan.md), because
  *    unlike Projects, a session is something you're jumping *to*.
- * Type to filter within the active tab, ↑/↓ to move, ←/→ to switch tabs, ↵ to
+ * Each tab starts with the current destination highlighted, when it matches
+ * the search. Type to filter, ↑/↓ to move, ←/→ to switch tabs, ↵ to
  * select, esc to dismiss.
  */
 export function CommandPalette({ onClose }: { onClose: () => void }) {
@@ -135,19 +139,23 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         label: d.label,
         description: d.description,
         Icon: d.Icon,
-        isCurrent: d.href === pathname,
+        isCurrent: d.id === (currentSurfaceId ?? "home"),
         select: () => {
           onClose();
-          if (d.href !== pathname) router.push(d.href);
+          if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
         },
-      }));
+      })).sort(currentFirst);
     }
 
     if (!hasProjects) return [];
 
     if (tab === "projects") {
       const rows: PaletteItem[] = [];
-      for (const { project, base, children } of buildProjectTree(projects)) {
+      // Move whole project groups together so their children stay attached.
+      const tree = buildProjectTree(projects).sort(
+        (a, b) => Number(b.project.id === activeProject.id) - Number(a.project.id === activeProject.id),
+      );
+      for (const { project, base, children } of tree) {
         // The project row IS the project-on-main node: its title is the project
         // name and its subtitle is the primary worktree ("main"), so the two
         // read as one node (title + description), not a header with a separate
@@ -156,9 +164,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         // its project matched (all of a matching project's worktrees show, same
         // as unfiltered) — so searching "hotfix" surfaces just that worktree
         // under its project for context, "trailblazer" surfaces every worktree.
-        // `lastChild` is re-derived against this filtered list (not the shared
-        // derivation's unfiltered one), since the tree guide's corner has to
-        // land on the last child actually on screen.
+        // Tree guides are re-derived after filtering and pinning the current
+        // row, so each group ends at its last remaining child.
         const projectMatches = matchesQuery(
           project.name,
           project.description,
@@ -200,14 +207,16 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           },
         });
 
-        matchingChildren.forEach(({ worktree, status }, childIndex) => {
+        matchingChildren.forEach(({ worktree, status }) => {
+          const isCurrent = project.id === activeProject.id && worktree.id === activeWorktree.id;
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
-            description: worktree.branch,
-            isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
-            indent: true,
-            lastChild: childIndex === matchingChildren.length - 1,
+            // A pinned worktree stands alone above its project tree; include
+            // the project name so it still has context without a parent row.
+            description: isCurrent ? `${project.name} · ${worktree.branch}` : worktree.branch,
+            isCurrent,
+            indent: !isCurrent,
             status,
             select: () => {
               setActiveProject(project.id);
@@ -218,7 +227,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           });
         });
       }
-      return rows;
+      return rows.sort(currentFirst).map((row, index, ordered) =>
+        row.indent ? { ...row, lastChild: !ordered[index + 1]?.indent } : row,
+      );
     }
 
     // tab === "sessions": every session, across every project, flattened for
@@ -245,7 +256,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           onClose();
           if (pathname !== codeHref) router.push(codeHref);
         },
-      }));
+      })).sort(currentFirst);
   }, [
     tab,
     query,
@@ -364,7 +375,10 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
             aria-expanded={showGuidedEmpty ? undefined : true}
             aria-controls={showGuidedEmpty ? undefined : "command-palette-results"}
             aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActive(0);
+            }}
             onKeyDown={onKeyDown}
           />
           <kbd className={styles.escHint}>esc</kbd>
@@ -389,7 +403,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        {!showGuidedEmpty && <ul className={styles.results} id="command-palette-results" role="listbox">
+        {/* Reset scrolling with the results so the first selection is visible. */}
+        {!showGuidedEmpty && <ul key={`${tab}:${query}`} className={styles.results} id="command-palette-results" role="listbox">
           {items.length === 0 && (
             <li className={styles.empty}>
               No {tab} match “{query}”.
