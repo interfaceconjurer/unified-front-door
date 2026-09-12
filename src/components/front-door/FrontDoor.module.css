@@ -310,7 +310,7 @@
   border: none;
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-accent-2, #0176d3);
-  color: var(--slds-g-color-on-accent-1, #fff);
+  color: light-dark(var(--slds-g-color-on-accent-1, #fff), var(--slds-g-color-accent-dark-2, #001642));
   cursor: pointer;
 }
 

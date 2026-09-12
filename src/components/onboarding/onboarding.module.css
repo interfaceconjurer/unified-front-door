@@ -23,7 +23,7 @@
 .demoBadge { color: var(--muted); font-size: 0.625rem; padding: 0.2rem 0.45rem; border-radius: 0.3rem; background: var(--slds-g-color-surface-2, #f3f3f3); }
 .textButton { display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 0.3rem 0; border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .textButton:hover { text-decoration: underline; }
-.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; min-height: 2.5rem; padding: 0.65rem 1rem; border: 1px solid var(--accent); border-radius: 0.5rem; background: var(--accent); color: var(--slds-g-color-on-accent-1, #fff); font: inherit; font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
+.primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 0.55rem; min-height: 2.5rem; padding: 0.65rem 1rem; border: 1px solid var(--accent); border-radius: 0.5rem; background: var(--accent); color: light-dark(var(--slds-g-color-on-accent-1, #fff), var(--slds-g-color-accent-dark-2, #001642)); font: inherit; font-weight: 600; font-size: 0.8125rem; cursor: pointer; }
 .secondary { background: var(--surface); color: var(--accent); border-color: var(--border); }
 .primary:hover:not(:disabled), .secondary:hover { filter: brightness(0.95); }
 .primary:disabled { opacity: 0.45; cursor: not-allowed; }
