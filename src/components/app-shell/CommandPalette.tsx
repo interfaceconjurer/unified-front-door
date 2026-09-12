@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   DatabaseIcon,
@@ -118,9 +118,11 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  * the search. Type to filter, ↑/↓ to move, ←/→ to switch tabs, ↵ to
  * select, esc to dismiss.
  */
-export function CommandPalette({ initialTab = "surfaces", onClose }: {
+export function CommandPalette({ initialTab = "surfaces", open, onClose, onExited }: {
   initialTab?: CommandPaletteTab;
-  onClose: () => void;
+  open: boolean;
+  onClose: (action?: () => void) => void;
+  onExited: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -133,6 +135,23 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus();
+      return;
+    }
+    let cancelled = false;
+    // Wait for the actual CSS transitions, including shortened reversals.
+    // Reduced motion has no transitions, so dismissal completes immediately.
+    const transitions = paletteRef.current?.getAnimations() ?? [];
+    void Promise.allSettled(transitions.map((transition) => transition.finished)).then(() => {
+      if (!cancelled) onExited();
+    });
+    return () => { cancelled = true; };
+  }, [open, onExited]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const q = query.trim().toLowerCase();
@@ -159,7 +178,6 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
         Icon: d.Icon,
         isCurrent: d.id === (currentSurfaceId ?? "home"),
         select: () => {
-          onClose();
           if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
         },
       })).sort(currentFirst);
@@ -178,7 +196,6 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
         isCurrent: org.id === activeOrg.id,
         select: () => {
           setActiveOrg(org.id);
-          onClose();
         },
       })).filter((org) => matchesQuery(org.label, org.description)).sort(currentFirst);
     }
@@ -235,11 +252,9 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
             if (profile?.onboarding) {
               openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
               router.push("/alm");
-              onClose();
               return;
             }
             if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-            onClose();
           },
         });
 
@@ -258,7 +273,6 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
               setActiveProject(project.id);
               setActiveWorktree(worktree.id, project.id);
               if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-              onClose();
             },
           });
         });
@@ -289,7 +303,6 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
           setActiveProject(project.id);
           setActiveWorktree(worktree.id, project.id);
           setActiveCanvas("code", OVERVIEW_CANVAS_ID);
-          onClose();
           if (pathname !== codeHref) router.push(codeHref);
         },
       })).sort(currentFirst);
@@ -304,7 +317,6 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
     activeProject.id,
     activeWorktree.id,
     router,
-    onClose,
     setActiveProject,
     setActiveWorktree,
     setActiveCanvas,
@@ -343,7 +355,8 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
       }
     } else if (event.key === "Enter") {
       event.preventDefault();
-      items[safeActive]?.select();
+      const item = items[safeActive];
+      if (item) onClose(item.select);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
@@ -353,22 +366,23 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
   const showGuidedEmpty = !hasProjects && (tab === "projects" || tab === "sessions");
 
   function goToBuild() {
-    onClose();
-    router.push(profile?.onboarding ? "/" : surfaceAppById("build").href);
+    onClose(() => router.push(profile?.onboarding ? "/" : surfaceAppById("build").href));
   }
 
   function startConversation() {
-    onClose();
-    if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
-    } else {
-      router.push("/#agent-composer");
-    }
+    onClose(() => {
+      if (pathname === "/") {
+        requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
+      } else {
+        router.push("/#agent-composer");
+      }
+    });
   }
 
   return (
     <div
       className={styles.overlay}
+      data-open={open}
       role="presentation"
       onMouseDown={(event) => {
         // Dismiss only on backdrop clicks, not clicks that start inside the panel.
@@ -376,7 +390,9 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
       }}
     >
       <div
+        ref={paletteRef}
         className={styles.palette}
+        inert={!open}
         role="dialog"
         aria-modal="true"
         aria-label="Switch surfaces, projects, sessions, or orgs"
@@ -404,6 +420,7 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
         <div className={styles.searchRow}>
           <SearchIcon className={styles.searchIcon} width={18} height={18} />
           <input
+            ref={inputRef}
             // The palette exists only to receive typing; focus it on mount.
             autoFocus
             className={styles.input}
@@ -466,7 +483,7 @@ export function CommandPalette({ initialTab = "surfaces", onClose }: {
                     item.indent ? styles.resultIndent : ""
                   } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
-                  onClick={() => item.select()}
+                  onClick={() => onClose(item.select)}
                 >
                   <span
                     className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""} ${item.orgKind ? styles.resultOrg : ""}`}

@@ -1,4 +1,8 @@
 .shell {
+  --shell-motion-duration: 500ms;
+  --shell-motion-blur: 24px;
+  --shell-motion-easing: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --workspace-panel-width: clamp(15rem, 20vw, 18rem);
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -12,22 +16,41 @@
    is left. Keeping it flex (not grid) makes the width transition rock-solid
    across browsers. */
 .body {
+  position: relative;
   display: flex;
   flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
 }
 
-/* The workspace panel (⌘B) is a fixed-width column ahead of everything else. */
+/* Reserve space as the full-width panel slides in, keeping its content stable. */
 .panelSlot {
-  flex: 0 0 clamp(15rem, 20vw, 18rem);
+  flex: 0 0 auto;
+  width: 0;
   min-width: 0;
   display: flex;
+  overflow: hidden;
+  visibility: hidden;
+  transition:
+    width var(--shell-motion-duration) var(--shell-motion-easing),
+    visibility 0s var(--shell-motion-duration);
+}
+
+.panelSlot[data-open="true"] {
+  width: var(--workspace-panel-width);
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 .panelSlot > * {
-  flex: 1 1 auto;
+  flex: 0 0 var(--workspace-panel-width);
   min-width: 0;
+  transform: translateX(-100%);
+  transition: transform var(--shell-motion-duration) var(--shell-motion-easing);
+}
+
+.panelSlot[data-open="true"] > * {
+  transform: translateX(0);
 }
 
 /* The chat + surface split fills only the space left after the workspace panel,
@@ -36,9 +59,9 @@
    overlay; `overflow: hidden` clips it while it's parked off the right edge. */
 .split {
   /* Both directions: dissolve the stream, move the panel, then refocus. */
-  --agent-stream-duration: 500ms;
-  --agent-stream-blur: 24px;
-  --agent-stream-easing: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --agent-stream-duration: var(--shell-motion-duration);
+  --agent-stream-blur: var(--shell-motion-blur);
+  --agent-stream-easing: var(--shell-motion-easing);
   --agent-move-duration: 440ms;
   --agent-move-delay: var(--agent-stream-duration);
   --agent-reveal-delay: calc(var(--agent-move-delay) + var(--agent-move-duration));
@@ -145,14 +168,20 @@
   }
 
   .panelSlot {
-    flex-basis: auto;
+    --workspace-panel-width: min(18rem, 85vw);
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 40;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   /* Keep the surface's parked/visible states without animating the geometry. */
   .chatColumn,
-  .surfacePane {
+  .surfacePane,
+  .panelSlot,
+  .panelSlot > * {
     transition: none;
   }
 }

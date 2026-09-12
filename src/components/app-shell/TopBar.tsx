@@ -32,6 +32,7 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, profileMenu }:
 
         <button
           type="button"
+          id="workspace-panel-toggle"
           className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`}
           onClick={onTogglePanel}
           aria-expanded={panelOpen}

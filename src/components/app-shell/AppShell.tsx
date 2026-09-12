@@ -38,14 +38,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteTrigger = useRef<HTMLElement | null>(null);
+  const paletteClosing = useRef(false);
+  const paletteAction = useRef<(() => void) | undefined>(undefined);
   const openPalette = useCallback((tab: CommandPaletteTab) => {
-    paletteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setPaletteTab(tab);
+    if (!paletteTab) {
+      paletteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setPaletteTab(tab);
+    }
+    // Reopening during dismissal reverses the dissolve and cancels its action.
+    paletteClosing.current = false;
+    paletteAction.current = undefined;
+    setPaletteOpen(true);
+  }, [paletteTab]);
+  const closePalette = useCallback((action?: () => void) => {
+    if (paletteClosing.current) return;
+    paletteClosing.current = true;
+    paletteAction.current = action;
+    setPaletteOpen(false);
   }, []);
-  const closePalette = useCallback(() => {
+  const finishPaletteClose = useCallback(() => {
+    if (!paletteClosing.current) return;
+    const action = paletteAction.current;
+    paletteClosing.current = false;
+    paletteAction.current = undefined;
     setPaletteTab(null);
     paletteTrigger.current?.focus();
+    action?.();
   }, []);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
@@ -54,6 +74,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { panelOpen, togglePanel } = useWorkspacePanel(
     isFrontDoor && profile?.workspaceExperience === "established",
   );
+  const panelSlot = useRef<HTMLDivElement>(null);
+  const toggleWorkspacePanel = useCallback(() => {
+    if (panelOpen && panelSlot.current?.contains(document.activeElement)) {
+      document.getElementById("workspace-panel-toggle")?.focus();
+    }
+    togglePanel();
+  }, [panelOpen, togglePanel]);
 
   // Demo identity is deliberately a client-side product concept, not an auth
   // boundary. Keep signed-out users on the login screen and prevent a profile
@@ -86,16 +113,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const key = event.key.toLowerCase();
       if (event.shiftKey && key === "p") {
         event.preventDefault();
-        if (paletteTab) closePalette();
+        if (paletteOpen) closePalette();
         else openPalette("surfaces");
       } else if (!event.shiftKey && key === "b") {
         event.preventDefault();
-        togglePanel();
+        toggleWorkspacePanel();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isLogin, profile, togglePanel, paletteTab, openPalette, closePalette]);
+  }, [isLogin, profile, toggleWorkspacePanel, paletteOpen, openPalette, closePalette]);
 
   if (!resolved) return null;
   if (isLogin) return children;
@@ -111,15 +138,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <TopBar
           onOpenPalette={() => openPalette("surfaces")}
           panelOpen={panelOpen}
-          onTogglePanel={togglePanel}
+          onTogglePanel={toggleWorkspacePanel}
           profileMenu={<ProfileMenu />}
         />
         <div className={styles.body}>
-          {panelOpen && (
-            <div className={styles.panelSlot}>
-              <WorkspacePanel onClose={togglePanel} />
-            </div>
-          )}
+          <div ref={panelSlot} className={styles.panelSlot} data-open={panelOpen} inert={!panelOpen}>
+            <WorkspacePanel onClose={toggleWorkspacePanel} />
+          </div>
           {/* The chat/surface split lives in its own flex box that fills only the
               space left after the workspace panel. So the chat column's 100%
               front-door width is 100% *of what's available*, not the whole
@@ -157,7 +182,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
-        {paletteTab && <CommandPalette initialTab={paletteTab} onClose={closePalette} />}
+        {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
       </SurfaceCanvasProvider>
     </WorkspaceProvider>

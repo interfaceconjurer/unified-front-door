@@ -51,6 +51,14 @@ The command palette puts the current surface, project/worktree, session, or org 
 in its tab and highlights that row on opening or switching tabs. One Down press
 selects another destination. Search filters normally and resets the highlight to
 the first match; clearing it returns the highlight to the current destination.
+Opening and closing use the front-door chat's 500ms fade and 24px blur. A selection
+takes effect after dismissal completes, and reopening during dismissal reverses
+the transition and cancels the pending selection. Reduced motion skips the dissolve.
+
+The workspace panel slides in and out from the left over 500ms, preserving its
+content width and filter selection. It reserves space on desktop and overlays the
+content as a drawer on mobile. Closed controls are inert, and reduced motion skips
+the slide.
 
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
 - The status bar shows the project followed immediately by the org. Click either to open the command palette's Projects or Orgs tab with the current selection first and highlighted. Orgs are available from first login, independently of project creation or assessment scope; org selection persists across reloads. Closing the palette returns focus to its trigger.

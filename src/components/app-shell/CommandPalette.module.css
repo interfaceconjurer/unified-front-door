@@ -6,12 +6,21 @@
   justify-content: center;
   align-items: flex-start;
   padding: 12vh var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-4, 1rem);
+}
+
+.overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
   background: rgb(3 13 33 / 45%);
   backdrop-filter: blur(3px);
-  animation: overlay-in 120ms ease;
+  opacity: 1;
+  transition: opacity var(--shell-motion-duration) var(--shell-motion-easing);
 }
 
 .palette {
+  position: relative;
   display: flex;
   width: min(48rem, 100%);
   min-height: min(28rem, 70dvh);
@@ -24,7 +33,30 @@
   box-shadow:
     0 1px 0 rgb(255 255 255 / 6%) inset,
     0 24px 60px -12px rgb(3 13 33 / 55%);
-  animation: palette-in 140ms ease;
+  opacity: 1;
+  filter: blur(0px);
+  transition:
+    opacity var(--shell-motion-duration) var(--shell-motion-easing),
+    filter var(--shell-motion-duration) var(--shell-motion-easing);
+}
+
+.overlay[data-open="false"]::before,
+.overlay[data-open="false"] .palette {
+  opacity: 0;
+}
+
+.overlay[data-open="false"] .palette {
+  filter: blur(var(--shell-motion-blur));
+}
+
+@starting-style {
+  .overlay::before {
+    opacity: 0;
+  }
+  .palette {
+    opacity: 0;
+    filter: blur(var(--shell-motion-blur));
+  }
 }
 
 .tabs {
@@ -390,22 +422,9 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-@keyframes overlay-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes palette-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .overlay,
+  .overlay::before,
   .palette {
-    animation: none;
+    transition: none;
   }
 }
