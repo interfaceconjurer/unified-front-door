@@ -99,7 +99,8 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  * at. Opened with ⌘⇧P (the shell owns the shortcut and only mounts this while
  * open, so its state starts fresh each time), it overlays a search box over
  * the whole app. Four tabs:
- *  - Surfaces — the purpose-built destinations; picking one navigates.
+ *  - Surfaces — Front Door stays first, followed by the current surface;
+ *    picking another destination navigates.
  *  - Projects — the shell-level workspace noun; picking a project calls
  *    `setActiveProject` and re-projects the current surface instead of
  *    navigating. Multi-worktree projects list their worktrees inline and
@@ -134,7 +135,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
     useWorkspace();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<number | null>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -180,7 +181,9 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         select: () => {
           if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
         },
-      })).sort(currentFirst);
+      })).sort((a, b) =>
+        Number(b.id === "home") - Number(a.id === "home") || currentFirst(a, b),
+      );
     }
 
     // Org connections exist before the user has created a project.
@@ -326,13 +329,15 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
     setActiveOrg,
   ]);
 
-  // Derived, not stored: `active` can point past the end after filtering or a
-  // tab switch, so we clamp it here rather than correcting state in an effect.
-  const safeActive = items.length ? Math.min(active, items.length - 1) : 0;
+  // Opening, switching tabs, and clearing search highlight the current item,
+  // which can now sit below the pinned Front Door. Search starts at its first
+  // match; explicit keyboard/pointer selection still takes precedence.
+  const defaultActive = query.trim() ? 0 : Math.max(0, items.findIndex((item) => item.isCurrent));
+  const safeActive = items.length ? Math.min(active ?? defaultActive, items.length - 1) : 0;
 
   function switchTab(next: Tab) {
     setTab(next);
-    setActive(0);
+    setActive(null);
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -433,7 +438,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
             aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
             onChange={(event) => {
               setQuery(event.target.value);
-              setActive(0);
+              setActive(null);
             }}
             onKeyDown={onKeyDown}
           />
