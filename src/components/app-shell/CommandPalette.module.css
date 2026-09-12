@@ -28,7 +28,7 @@
 
 .tabs {
   display: flex;
-  gap: var(--slds-g-spacing-4, 1rem);
+  gap: clamp(0.5rem, 2.5vw, 1rem);
   padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-5, 1.5rem) 0;
   border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
@@ -97,6 +97,23 @@
   padding: var(--slds-g-spacing-2, 0.5rem);
   list-style: none;
   overflow-y: auto;
+}
+
+.contextHint {
+  margin: 0;
+  padding: 0.75rem 1.5rem 0.25rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
+}
+
+.resultIcon.resultOrg {
+  color: var(--org-color);
+  background: var(--org-wash);
+}
+
+.resultActive .resultOrg {
+  color: var(--slds-g-color-on-surface-3, #03234d);
+  background: color-mix(in srgb, currentColor 12%, transparent);
 }
 
 .empty {

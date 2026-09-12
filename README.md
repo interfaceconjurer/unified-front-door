@@ -47,13 +47,13 @@ canvas without keeping a second live surface mounted; browsers without support a
 reduced-motion users get an immediate swap. Browser Back/Forward currently restores
 the saved surface instantly. The home transition remains separate.
 
-The command palette puts the current surface, project/worktree, or session first
+The command palette puts the current surface, project/worktree, session, or org first
 in its tab and highlights that row on opening or switching tabs. One Down press
 selects another destination. Search filters normally and resets the highlight to
 the first match; clearing it returns the highlight to the current destination.
 
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
-- Use the bottom-right status-bar org switcher from first login to choose among all connected orgs, independently of the assessment scope. The selected org persists across reloads.
+- The status bar shows the project followed immediately by the org. Click either to open the command palette's Projects or Orgs tab with the current selection first and highlighted. Orgs are available from first login, independently of project creation or assessment scope; org selection persists across reloads. Closing the palette returns focus to its trigger.
 - Review prioritized findings, their sample evidence, proposed approaches, and success criteria.
 - Select opportunities and choose **Shape a project** to edit the goal, sandbox, and included work items.
 - Choose **Create project** to open the saved project in ALM, inspect each implementation plan, and track work item status.

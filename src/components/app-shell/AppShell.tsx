@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, ViewTransition } from "react";
+import { useCallback, useEffect, useRef, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
 import { surfaceAppForPath } from "@/components/front-door/app-catalog";
@@ -10,7 +10,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
-import { CommandPalette } from "./CommandPalette";
+import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
@@ -37,7 +37,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
-  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
+  const paletteTrigger = useRef<HTMLElement | null>(null);
+  const openPalette = useCallback((tab: CommandPaletteTab) => {
+    paletteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPaletteTab(tab);
+  }, []);
+  const closePalette = useCallback(() => {
+    setPaletteTab(null);
+    paletteTrigger.current?.focus();
+  }, []);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
   // panel survives a reload. New workspaces start collapsed; established ones
@@ -77,7 +86,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const key = event.key.toLowerCase();
       if (event.shiftKey && key === "p") {
         event.preventDefault();
-        setPaletteOpen((open) => !open);
+        if (paletteTab) closePalette();
+        else openPalette("surfaces");
       } else if (!event.shiftKey && key === "b") {
         event.preventDefault();
         togglePanel();
@@ -85,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isLogin, profile, togglePanel]);
+  }, [isLogin, profile, togglePanel, paletteTab, openPalette, closePalette]);
 
   if (!resolved) return null;
   if (isLogin) return children;
@@ -99,7 +109,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SurfaceCanvasProvider>
       <div className={styles.shell}>
         <TopBar
-          onOpenPalette={() => setPaletteOpen(true)}
+          onOpenPalette={() => openPalette("surfaces")}
           panelOpen={panelOpen}
           onTogglePanel={togglePanel}
           profileMenu={<ProfileMenu />}
@@ -146,8 +156,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
-        <StatusBar />
-        {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} />}
+        <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
+        {paletteTab && <CommandPalette initialTab={paletteTab} onClose={closePalette} />}
       </div>
       </SurfaceCanvasProvider>
     </WorkspaceProvider>

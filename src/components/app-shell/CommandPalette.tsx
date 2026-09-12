@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  DatabaseIcon,
   HomeIcon,
   LayersIcon,
   PlusIcon,
@@ -17,9 +18,10 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
-import type { AgentSessionStatus } from "@/lib/workspace/model";
+import type { AgentSessionStatus, OrgKind } from "@/lib/workspace/model";
 import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import styles from "./CommandPalette.module.css";
+import orgStyles from "@/components/workspace/OrgKind.module.css";
 
 type Destination = {
   id: string;
@@ -39,22 +41,31 @@ const HOME_DESTINATION: Destination = {
   Icon: HomeIcon,
 };
 
-type Tab = "surfaces" | "projects" | "sessions";
+export type CommandPaletteTab = "surfaces" | "projects" | "sessions" | "orgs";
+type Tab = CommandPaletteTab;
 
-const TAB_ORDER: readonly Tab[] = ["surfaces", "projects", "sessions"];
+const TAB_ORDER: readonly Tab[] = ["surfaces", "projects", "sessions", "orgs"];
 const TAB_LABEL: Record<Tab, string> = {
   surfaces: "Surfaces",
   projects: "Projects",
   sessions: "Sessions",
+  orgs: "Orgs",
 };
 const TAB_PLACEHOLDER: Record<Tab, string> = {
   surfaces: "Search surfaces…",
   projects: "Search projects…",
   sessions: "Search sessions…",
+  orgs: "Search orgs…",
 };
 // What ↵ does, in this tab's own vocabulary — surfaces "open" (navigate),
 // projects "switch" (re-point context, stay put), sessions "go" (teleport).
-const TAB_ENTER_HINT: Record<Tab, string> = { surfaces: "open", projects: "switch", sessions: "go" };
+const TAB_ENTER_HINT: Record<Tab, string> = { surfaces: "open", projects: "switch", sessions: "go", orgs: "switch" };
+const ORG_KIND_LABEL: Record<OrgKind, string> = {
+  devhub: "Dev Hub",
+  scratch: "Scratch",
+  sandbox: "Sandbox",
+  production: "Production",
+};
 
 // A row in the results list, normalized across tabs so keyboard nav and
 // rendering don't need to branch on which tab built it — only on which
@@ -77,6 +88,7 @@ type PaletteItem = {
   /** Present on worktree/session rows; renders a status dot + chip instead
    *  of (resp. alongside) the plain icon/current-tag treatment. */
   status?: AgentSessionStatus;
+  orgKind?: OrgKind;
 };
 
 // Stable ordering keeps all other destinations in their existing order.
@@ -86,7 +98,7 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  * A Spotlight/Raycast-style command palette for switching what you're looking
  * at. Opened with ⌘⇧P (the shell owns the shortcut and only mounts this while
  * open, so its state starts fresh each time), it overlays a search box over
- * the whole app. Three tabs:
+ * the whole app. Four tabs:
  *  - Surfaces — the purpose-built destinations; picking one navigates.
  *  - Projects — the shell-level workspace noun; picking a project calls
  *    `setActiveProject` and re-projects the current surface instead of
@@ -100,19 +112,25 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  *    Picking one sets the project + worktree AND navigates to the Code
  *    surface (v1 read of "where the agent is working" — see plan.md), because
  *    unlike Projects, a session is something you're jumping *to*.
+ *  - Orgs — connections available from login; picking one changes the target
+ *    org without navigating or changing the assessment scope.
  * Each tab starts with the current destination highlighted, when it matches
  * the search. Type to filter, ↑/↓ to move, ←/→ to switch tabs, ↵ to
  * select, esc to dismiss.
  */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({ initialTab = "surfaces", onClose }: {
+  initialTab?: CommandPaletteTab;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
   const { setActiveCanvas, openCanvas } = useSurfaceCanvases("code");
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects } =
+  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects,
+    orgs, activeOrg, setActiveOrg } =
     useWorkspace();
-  const [tab, setTab] = useState<Tab>("surfaces");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
 
@@ -145,6 +163,24 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
         },
       })).sort(currentFirst);
+    }
+
+    // Org connections exist before the user has created a project.
+    if (tab === "orgs") {
+      return orgs.filter((org) => org.connection === "connected").map((org) => ({
+        id: org.id,
+        label: org.label,
+        description: [ORG_KIND_LABEL[org.kind], "Connected",
+          ...(org.kind === "scratch" && org.expiresInDays != null ? [`${org.expiresInDays}d left`] : []),
+        ].join(" · "),
+        Icon: DatabaseIcon,
+        orgKind: org.kind,
+        isCurrent: org.id === activeOrg.id,
+        select: () => {
+          setActiveOrg(org.id);
+          onClose();
+        },
+      })).filter((org) => matchesQuery(org.label, org.description)).sort(currentFirst);
     }
 
     if (!hasProjects) return [];
@@ -273,6 +309,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     setActiveWorktree,
     setActiveCanvas,
     currentSurfaceId,
+    orgs,
+    activeOrg.id,
+    setActiveOrg,
   ]);
 
   // Derived, not stored: `active` can point past the end after filtering or a
@@ -311,7 +350,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const showGuidedEmpty = !hasProjects && tab !== "surfaces";
+  const showGuidedEmpty = !hasProjects && (tab === "projects" || tab === "sessions");
 
   function goToBuild() {
     onClose();
@@ -340,7 +379,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         className={styles.palette}
         role="dialog"
         aria-modal="true"
-        aria-label="Switch surfaces, projects, or sessions"
+        aria-label="Switch surfaces, projects, sessions, or orgs"
       >
         <div className={styles.tabs} role="tablist" aria-label="Palette section">
           {TAB_ORDER.map((t) => (
@@ -403,6 +442,12 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        {tab === "orgs" && (
+          <p className={styles.contextHint}>
+            Connected orgs · {orgs.filter((org) => org.connection === "connected").length} available from your login
+          </p>
+        )}
+
         {/* Reset scrolling with the results so the first selection is visible. */}
         {!showGuidedEmpty && <ul key={`${tab}:${query}`} className={styles.results} id="command-palette-results" role="listbox">
           {items.length === 0 && (
@@ -413,7 +458,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           {items.map((item, index) => {
             const isActive = index === safeActive;
             return (
-              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}>
+              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}
+                className={item.orgKind ? orgStyles[item.orgKind] : undefined}>
                 <button
                   type="button"
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
@@ -423,7 +469,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                   onClick={() => item.select()}
                 >
                   <span
-                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""}`}
+                    className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""} ${item.orgKind ? styles.resultOrg : ""}`}
                     aria-hidden="true"
                   >
                     {item.status ? (
