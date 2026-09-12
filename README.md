@@ -32,6 +32,7 @@ from the avatar menu. The agent automatically starts a simulated read-only
 assessment of the connected orgs in Sam's demo workspace.
 
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
+- Use the bottom-right status-bar org switcher from first login to choose among all connected orgs, independently of the assessment scope. The selected org persists across reloads.
 - Review prioritized findings, their sample evidence, proposed approaches, and success criteria.
 - Select opportunities and choose **Shape a project** to edit the goal, sandbox, and included work items.
 - Choose **Create project** to open the saved project in ALM, inspect each implementation plan, and track work item status.

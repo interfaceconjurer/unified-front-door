@@ -21,7 +21,7 @@ type WorkspaceContextValue = {
   orgs: readonly Org[];
   activeProject: Project;
   activeWorktree: Worktree;
-  /** The org the active project currently targets — a free, independent switch. */
+  /** The connected org selected for this project, or for the initial assessment. */
   activeOrg: Org;
   /** The active project's agent sessions, one per worktree — the seam consumers
    *  (e.g. the Code surface's sessions rail) read instead of the fixture. */
@@ -92,7 +92,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       activeProject.worktrees.find((w) => w.id === worktreeId) ?? primaryWorktree(activeProject);
 
     const orgId = selection.orgByProject[activeProject.id] ?? activeProject.defaultOrgId;
-    const activeOrg = orgs.find((o) => o.id === orgId) ?? orgs[0]!;
+    const activeOrg = orgs.find((o) => o.id === orgId && o.connection === "connected")
+      ?? orgs.find((o) => o.connection === "connected")!;
 
     return {
       hasProjects,
@@ -106,7 +107,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setActiveProject: workspaceSelectionStore.setActiveProjectId,
       setActiveWorktree: (id, projectId) =>
         workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
-      setActiveOrg: (id) => workspaceSelectionStore.setOrgForProject(activeProject.id, id),
+      setActiveOrg: (id) => {
+        if (orgs.some((org) => org.id === id && org.connection === "connected")) {
+          workspaceSelectionStore.setOrgForProject(activeProject.id, id);
+        }
+      },
     };
   }, [projects, orgs, hasProjects, selection, workspaceSelectionStore]);
 
