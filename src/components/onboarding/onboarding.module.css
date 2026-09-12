@@ -119,7 +119,6 @@
 .projectLink > span { flex: 1; min-width: 0; display: grid; gap: 0.25rem; overflow-wrap: anywhere; }
 .projectLink strong { font-size: 0.875rem; }
 .projectLink small { color: var(--muted); font-size: 0.75rem; }
-.projectCanvas { padding: clamp(1.25rem, 3vw, 2rem); }
 .projectCanvas > h1, .projectHeader h1 { font-size: 1.65rem; font-weight: 500; line-height: 1.25; letter-spacing: -0.025em; margin: 0.7rem 0; overflow-wrap: anywhere; }
 .projectCanvas > p, .projectHeader > p:not(.kicker) { font-size: 0.875rem; color: var(--muted); }
 .projectMeta { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.7rem; color: var(--muted); margin-top: 1rem; }

@@ -47,6 +47,13 @@ canvas without keeping a second live surface mounted; browsers without support a
 reduced-motion users get an immediate swap. Browser Back/Forward currently restores
 the saved surface instantly. The home transition remains separate.
 
+Canvas content shares `src/components/canvas/CanvasLayout.tsx`: responsive gutters
+and a left-aligned inner column capped at 72rem. `SurfaceCanvasHost` supplies it
+once for every overview and launched tab, so canvas bodies provide content without
+their own outer padding, centering, or width limits. The older canvas kit uses the
+same layout through `CanvasView`; its explicit `wide` and `full` variants accommodate
+a project side rail and builders with their own toolbar, respectively.
+
 The command palette puts the current surface, project/worktree, session, or org first
 in its tab and highlights that row on opening or switching tabs. One Down press
 selects another destination. Search filters normally and resets the highlight to

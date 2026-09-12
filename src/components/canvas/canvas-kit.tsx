@@ -9,16 +9,14 @@
  */
 import { Fragment, type ReactNode } from "react";
 import type { IconComponent } from "@/components/icons";
+import { CanvasLayout } from "./CanvasLayout";
 import styles from "./canvas-kit.module.css";
 
 /** Semantic status tone. Drives pill / delta / stage-dot color. */
 export type Tone = "neutral" | "info" | "success" | "warning" | "danger";
 
-/** Outer wrapper for a canvas body: centers content and defines the tone vars.
- *  `wide` bumps the max width for surfaces that carry their own side rail (the
- *  project workspace), which also auto-collapses the global rail for the room.
- *  `full` bleeds edge-to-edge and flush to the artboard top, for builder
- *  surfaces that bring their own chrome (a top toolbar over a working area). */
+/** Canvas-kit tone variables over the shared layout. Keep the existing wide
+ *  project-workspace and full builder variants as explicit layout exceptions. */
 export function CanvasView({
   children,
   wide,
@@ -29,9 +27,9 @@ export function CanvasView({
   full?: boolean;
 }) {
   return (
-    <div className={`${styles.view} ${wide ? styles.viewWide : ""} ${full ? styles.viewFull : ""}`}>
+    <CanvasLayout className={styles.view} width={full ? "full" : wide ? "wide" : "standard"}>
       {children}
-    </div>
+    </CanvasLayout>
   );
 }
 

@@ -1,14 +1,9 @@
 /* Workspace provisioning screen. Wireframe fidelity, SLDS token house style —
-   a single considered card centered on the canvas's dot-grid artboard while the
+   a progress card on the shared canvas content edge while the
    project's execution substrate "spins up." Tone colors mirror canvas-kit:
    accent for in-flight, a success green for done. */
 .screen {
   --prov-success: #2e844a;
-
-  min-height: 100%;
-  display: grid;
-  place-items: center;
-  padding-block: var(--slds-g-spacing-6, 2rem);
 }
 
 .card {
@@ -183,7 +178,6 @@
 /* ── Footnote ───────────────────────────────────────────────────────────── */
 .footnote {
   margin: 0;
-  text-align: center;
   font-size: var(--slds-g-font-scale-neg-1, 0.75rem);
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }

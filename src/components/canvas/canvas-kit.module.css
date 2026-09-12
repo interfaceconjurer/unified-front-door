@@ -14,27 +14,6 @@
   --tone-warning-bg: color-mix(in srgb, #fe9339 24%, var(--slds-g-color-surface-1, #fff));
   --tone-danger-fg: #ba0517;
   --tone-danger-bg: color-mix(in srgb, #ea001e 12%, var(--slds-g-color-surface-1, #fff));
-
-  max-width: 72rem;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--slds-g-spacing-5, 1.5rem);
-}
-
-/* Wider variant for surfaces that carry their own side rail (project workspace). */
-.viewWide {
-  max-width: 90rem;
-}
-
-/* Full-bleed variant: fills the artboard edge-to-edge — negating its padding —
-   and flush to the top, for builder surfaces that supply their own chrome (a
-   top toolbar over a working area). Still inherits the tone vars from .view. */
-.viewFull {
-  max-width: none;
-  gap: 0;
-  margin: calc(var(--slds-g-spacing-8, 3rem) * -1);
-  min-height: calc(100% + var(--slds-g-spacing-8, 3rem) * 2);
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */

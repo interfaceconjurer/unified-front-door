@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { CloseIcon } from "@/components/icons";
+import { CanvasLayout } from "@/components/canvas/CanvasLayout";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
@@ -302,11 +303,13 @@ export function SurfaceCanvasHost({
         tabIndex={0}
         className={styles.panel}
       >
-        {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
-          children
-        ) : (
-          <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
-        )}
+        <CanvasLayout>
+          {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
+            children
+          ) : (
+            <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
+          )}
+        </CanvasLayout>
       </div>
     </div>
   );

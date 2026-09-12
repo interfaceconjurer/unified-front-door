@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { CanvasLayout } from "./CanvasLayout";
 import {
   ListCheckIcon,
   GitBranchIcon,
@@ -56,63 +57,65 @@ export function TodayBrief(): ReactElement {
   });
 
   return (
-    <article className={styles.brief}>
-      <header className={styles.header}>
-        <p className={styles.eyebrow} suppressHydrationWarning>
-          {dateLabel}
-        </p>
-        <h1 className={styles.greeting} suppressHydrationWarning>
-          Good {partOfDay}, Jordan
-        </h1>
-        <p className={styles.summary}>
-          Here&rsquo;s what needs you across your projects today.
-        </p>
-      </header>
+    <CanvasLayout>
+      <article className={styles.brief}>
+        <header className={styles.header}>
+          <p className={styles.eyebrow} suppressHydrationWarning>
+            {dateLabel}
+          </p>
+          <h1 className={styles.greeting} suppressHydrationWarning>
+            Good {partOfDay}, Jordan
+          </h1>
+          <p className={styles.summary}>
+            Here&rsquo;s what needs you across your projects today.
+          </p>
+        </header>
 
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Needs your attention</h2>
-          <span className={styles.count}>{attention.length}</span>
-        </div>
-        <ul className={styles.rows}>
-          {attention.map((item) => (
-            <ItemRow key={item.title} {...item} />
-          ))}
-        </ul>
-      </section>
-
-      <section className={styles.section}>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>In flight</h2>
-          <span className={styles.count}>{inFlight.length}</span>
-        </div>
-        <ul className={styles.rows}>
-          {inFlight.map((item) => (
-            <ItemRow key={item.title} {...item} />
-          ))}
-        </ul>
-      </section>
-
-      <section className={`${styles.section} ${styles.agent}`}>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>From your agent</h2>
-        </div>
-        <div className={styles.agentBody}>
-          <span className={styles.agentIcon} aria-hidden="true">
-            <SparklesIcon width={20} height={20} />
-          </span>
-          <div className={styles.agentText}>
-            <p className={styles.agentNote}>
-              Test coverage in the <strong>Billing</strong>{" "}
-              service dropped 6% after yesterday&rsquo;s merge. I can open a canvas
-              breaking down the uncovered paths.
-            </p>
-            <button type="button" className={styles.agentAction}>
-              Open coverage canvas
-            </button>
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>Needs your attention</h2>
+            <span className={styles.count}>{attention.length}</span>
           </div>
-        </div>
-      </section>
-    </article>
+          <ul className={styles.rows}>
+            {attention.map((item) => (
+              <ItemRow key={item.title} {...item} />
+            ))}
+          </ul>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>In flight</h2>
+            <span className={styles.count}>{inFlight.length}</span>
+          </div>
+          <ul className={styles.rows}>
+            {inFlight.map((item) => (
+              <ItemRow key={item.title} {...item} />
+            ))}
+          </ul>
+        </section>
+
+        <section className={`${styles.section} ${styles.agent}`}>
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>From your agent</h2>
+          </div>
+          <div className={styles.agentBody}>
+            <span className={styles.agentIcon} aria-hidden="true">
+              <SparklesIcon width={20} height={20} />
+            </span>
+            <div className={styles.agentText}>
+              <p className={styles.agentNote}>
+                Test coverage in the <strong>Billing</strong>{" "}
+                service dropped 6% after yesterday&rsquo;s merge. I can open a canvas
+                breaking down the uncovered paths.
+              </p>
+              <button type="button" className={styles.agentAction}>
+                Open coverage canvas
+              </button>
+            </div>
+          </div>
+        </section>
+      </article>
+    </CanvasLayout>
   );
 }
