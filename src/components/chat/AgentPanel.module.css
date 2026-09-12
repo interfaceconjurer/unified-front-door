@@ -28,9 +28,15 @@
      its full width while it fades, instead of wrapping it into the narrow rail. */
   width: 100cqw;
   opacity: 0;
+  filter: blur(6px);
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 120ms ease, visibility 0s 120ms;
+  /* Defocus only the outgoing stream; the sibling composer stays sharp.
+     Keep it visible until both effects finish, including during panel motion. */
+  transition:
+    opacity var(--agent-home-exit-duration) cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter var(--agent-home-exit-duration) cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 0s var(--agent-home-exit-duration);
 }
 
 .homeStream > * { flex: 1 1 auto; min-width: 0; }
@@ -45,9 +51,13 @@
 
 .agent[data-view="home"] .homeStream {
   opacity: 1;
+  filter: blur(0px);
   visibility: visible;
   pointer-events: auto;
-  transition: opacity 180ms ease var(--agent-reveal-delay), visibility 0s var(--agent-reveal-delay);
+  transition:
+    opacity 180ms ease var(--agent-reveal-delay),
+    filter 180ms ease var(--agent-reveal-delay),
+    visibility 0s var(--agent-reveal-delay);
 }
 
 .agent[data-view="home"] .conversationStream {
@@ -326,6 +336,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .homeStream, .conversationStream, .composerDock, .conversationHeading { transition: none !important; }
+  .homeStream, .agent[data-view="home"] .homeStream { filter: none; }
 }
 
 .srOnly {

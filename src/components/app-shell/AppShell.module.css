@@ -35,6 +35,7 @@
    rather than the whole viewport. `position: relative` anchors the surface
    overlay; `overflow: hidden` clips it while it's parked off the right edge. */
 .split {
+  --agent-home-exit-duration: 500ms;
   --agent-move-duration: 440ms;
   --agent-move-delay: 120ms;
   --agent-reveal-delay: 560ms;
@@ -127,7 +128,7 @@
   }
 
   .split {
-    --agent-reveal-delay: 120ms;
+    --agent-reveal-delay: var(--agent-home-exit-duration);
   }
 
   .chatColumn,

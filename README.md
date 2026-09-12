@@ -33,8 +33,8 @@ assessment of the connected orgs in Sam's demo workspace.
 Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
 The front door and surfaces share one persistent agent panel and composer. When
-opening a surface, the welcome content fades out, the composer moves with the
-narrowing panel, and the chat header and conversation fade in after the surface
+opening a surface, the welcome content blurs and fades out over 500ms, the composer
+moves with the narrowing panel, and the chat header and conversation fade in after the surface
 slides into place. Draft text, text selection, and session conversations survive
 client-side navigation home and back. Reduced-motion preferences skip the transitions.
 
