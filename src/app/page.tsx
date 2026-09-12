@@ -1,6 +1,6 @@
 /**
- * The front door's content lives in the shell's persistent chat column (see
- * AppShell / FrontDoor), so it can animate its width as you enter a surface.
+ * The front door's content lives in the persistent AgentPanel's stream, so its
+ * composer stays mounted as the shell makes room for a surface.
  * The route itself therefore renders no surface-pane content.
  */
 export default function Home() {

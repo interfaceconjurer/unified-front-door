@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ChevronRightIcon, SendIcon, SparklesIcon } from "@/components/icons";
+import { usePathname, useRouter } from "next/navigation";
+import { SendIcon, SparklesIcon } from "@/components/icons";
+import { FrontDoor, isStarterPrompt } from "@/components/front-door/FrontDoor";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import {
   surfaceAppForPath,
@@ -84,13 +84,7 @@ function recommendApp(text: string, profile: DemoProfile): SurfaceApp {
 
 // The greeting that seeds a brand-new thread. Fixed id so it's stable across a
 // session; appended messages take ids from the running counter (>= 1).
-function seedThread(scope: Scope, initialMessage?: string | null): Message[] {
-  if (initialMessage) {
-    return [
-      { id: 1, role: "user", text: initialMessage },
-      { id: 2, role: "agent", text: scope.greeting },
-    ];
-  }
+function seedThread(scope: Scope): Message[] {
   return [{ id: 0, role: "agent", text: scope.greeting }];
 }
 
@@ -101,21 +95,20 @@ function seedThread(scope: Scope, initialMessage?: string | null): Message[] {
  * Its thread is bound to the active {project, worktree} session: switching
  * worktree (or project) swaps to that session's own thread, the way parallel
  * Herdr worktrees each carry their own agent. Moving between *surfaces* within a
- * session keeps the thread and just drops a context marker. The context bar
- * reflects project / worktree / org, revealed progressively so a simple user
- * with one worktree and one org sees almost none of it.
+ * session keeps the thread and just drops a context marker. Workspace context
+ * remains in the status bar, while the front door occupies the agent's stream.
  *
  * Interaction is a wireframe: sending appends the message and a scope-aware
- * canned reply. On the front door it also recommends a surface to jump into.
+ * canned reply. A message sent from the front door opens a matching surface.
  */
-export function AgentPanel({ initialMessage, onMessageReceived }: {
-  initialMessage?: string | null;
-  onMessageReceived?: () => void;
-}) {
+export function AgentPanel() {
   const pathname = usePathname();
+  const router = useRouter();
   const { profile } = useDemoProfile();
   const baseScope = scopeForPath(pathname);
   const isHome = baseScope.key === HOME_SCOPE.key;
+  const returning = profile?.workspaceExperience === "established";
+  const dayZero = profile?.onboarding === "org-assessment";
 
   const { activeProject, activeWorktree, activeOrg, sessionKey, hasProjects } = useWorkspace();
   const { state: assessment } = useAssessment();
@@ -147,27 +140,26 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
   const showWorktree = activeProject.worktrees.length > 1;
 
   const [draft, setDraft] = useState("");
-  // One thread per {project, worktree} session, seeded from the mount scope.
-  const [sessions, setSessions] = useState<Record<string, Message[]>>(() => ({
-    [sessionKey]: seedThread(scope, initialMessage),
-  }));
-  const [recommendation, setRecommendation] = useState<SurfaceApp | null>(null);
-  const nextId = useRef(3);
+  // Home and surfaces share this store and the same composer. A session is
+  // seeded when first used, so visiting home doesn't capture a stale greeting.
+  const [sessions, setSessions] = useState<Record<string, Message[]>>({});
+  const nextId = useRef(1);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const conversationRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   const thread = sessions[sessionKey] ?? seedThread(scope);
 
-  // Acknowledge the front-door handoff once it is held in this thread, so a
-  // later visit through a navigation link cannot replay an old message.
+  // Preserve existing home-composer deep links as well as the shared id.
   useEffect(() => {
-    if (initialMessage) onMessageReceived?.();
-  }, [initialMessage, onMessageReceived]);
+    if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) {
+      composerRef.current?.focus();
+    }
+  }, [isHome]);
 
   // Two transitions to handle, both guarded on refs so they fire on change only:
-  // switching session (project/worktree) swaps threads — nothing appended, just
-  // clear transient UI; moving between surfaces within a session drops a slim,
-  // coalesced context marker (the header carries the scoped messaging, so we
-  // don't re-greet, and consecutive markers replace rather than stack).
+  // Switching project/worktree selects its own thread. Surface changes within
+  // a session add a coalesced context marker; home doesn't append to the thread.
   const prevSession = useRef(sessionKey);
   const prevScope = useRef(scope.key);
   useEffect(() => {
@@ -176,14 +168,11 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
     prevSession.current = sessionKey;
     prevScope.current = scope.key;
 
-    if (sessionChanged) {
-      setRecommendation(null);
-      return;
-    }
+    if (sessionChanged || isHome) return;
     if (scopeChanged) {
-      setRecommendation(null);
       setSessions((current) => {
-        const existing = current[sessionKey] ?? [{ id: 0, role: "agent", text: scope.greeting }];
+        const existing = current[sessionKey];
+        if (!existing) return current;
         const marker: Message = {
           id: nextId.current++,
           role: "context",
@@ -197,19 +186,25 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
         return { ...current, [sessionKey]: next };
       });
     }
-  }, [sessionKey, scope.key, scope.label, scope.greeting]);
+  }, [sessionKey, scope.key, scope.label, isHome]);
 
   // Keep the newest content in view as the active thread grows.
   useEffect(() => {
-    const el = transcriptRef.current;
+    const el = window.matchMedia("(max-width: 900px)").matches ? conversationRef.current : transcriptRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [sessions, sessionKey, recommendation]);
+  }, [sessions, sessionKey, isHome]);
+
+  function seedPrompt(prompt: string) {
+    setDraft((current) => current.trim() && !isStarterPrompt(current) ? `${current.trim()}\n\n${prompt}` : prompt);
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
 
   function send(text = draft) {
     const value = text.trim();
     if (!value) return;
 
     if (!profile) return;
+    const destination = isHome ? recommendApp(value, profile) : null;
 
     const projectFindings = improvement?.workItems.flatMap((item) => {
       const finding = ASSESSMENT_FINDINGS.find((finding) => finding.id === item.findingId);
@@ -227,7 +222,7 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
         ? /project/i.test(value) ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, sandbox, and work item plans, then choose Create project."
           : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Each finding includes sample evidence and an approach to investigate. Review the scope and findings on the home screen."
       : isHome
-      ? `I’d start this in ${recommendApp(value, profile).label}. I’ll carry your goal and the context we establish here into that workspace.`
+      ? `I’d start this in ${destination!.label}. I’ll carry your goal and the context we establish here into that workspace.`
       : !hasProjects
         ? `This is a wireframe response scoped to ${scope.label}. In the full experience I’d help you establish the project context as we begin.`
         : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
@@ -235,7 +230,7 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
           } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
 
     setSessions((current) => {
-      const existing = current[sessionKey] ?? seedThread(scope);
+      const existing = current[sessionKey] ?? (isHome ? [] : seedThread(scope));
       return {
         ...current,
         [sessionKey]: [
@@ -245,100 +240,85 @@ export function AgentPanel({ initialMessage, onMessageReceived }: {
         ],
       };
     });
-    if (isHome) setRecommendation(recommendApp(value, profile));
     setDraft("");
+    if (destination) router.push(destination.href);
   }
 
   return (
-    <section className={styles.agent} aria-label="Agent" aria-labelledby="agent-heading">
-      <div className={styles.heading}>
-        <span className={styles.avatar} aria-hidden="true">
-          <SparklesIcon width={21} height={21} />
-        </span>
-        {/* Compact inside a surface: the surface's own <h1> is the page's
-            primary title, so the agent heading steps down to a subordinate,
-            companion scale. On the front door there's no surface to defer to,
-            so the agent keeps its full prominence. */}
-        <div className={`${styles.headingText} ${isHome ? "" : styles.headingCompact}`}>
-          <p className={styles.kicker}>Agent</p>
-          <h1 id="agent-heading">{scope.heading}</h1>
-          <p className={styles.intro}>{scope.intro}</p>
+    <section className={styles.agent} data-view={isHome ? "home" : "surface"} aria-label="Agent">
+      <div className={styles.streamStage}>
+        <div className={styles.homeStream} aria-hidden={!isHome} inert={!isHome}>
+          <FrontDoor onSeedPrompt={seedPrompt} />
         </div>
 
-        {/* No context chips here on purpose. The agent is agnostic to where it's
-            pointed; the workspace coordinates (project · worktree · org) are the
-            status bar's single source of truth, and the surface owns its own
-            identity. A hand-off stays legible through the in-transcript "Now
-            referencing X" marker, not by restating context in this header. */}
-      </div>
-
-      <div className={styles.transcript} ref={transcriptRef} role="log" aria-live="polite">
-        {thread.map((message) =>
-          message.role === "context" ? (
-            <div key={message.id} className={styles.contextMarker}>
-              <span>{message.text}</span>
-            </div>
-          ) : (
-            <div key={message.id} className={`${styles.message} ${styles[message.role]}`}>
-              <div className={styles.bubble}>{message.text}</div>
-            </div>
-          ),
-        )}
-
-        {recommendation && (
-          <Link className={styles.recommendation} href={recommendation.href}>
-            <span>
-              <strong>Open {recommendation.label}</strong>
-              <small>{recommendation.description}</small>
+        <div className={styles.conversationStream} ref={conversationRef} aria-hidden={isHome} inert={isHome}>
+          <header className={styles.heading}>
+            <span className={styles.avatar} aria-hidden="true">
+              <SparklesIcon width={21} height={21} />
             </span>
-            <ChevronRightIcon width={19} height={19} />
-          </Link>
-        )}
+            <div className={styles.headingText}>
+              <p className={styles.kicker}>Agent</p>
+              <h2 id="agent-heading">{scope.heading}</h2>
+              <p className={styles.intro}>{scope.intro}</p>
+            </div>
+          </header>
+
+          <div className={styles.transcript} ref={transcriptRef} role="log" aria-live={isHome ? "off" : "polite"}>
+            {thread.map((message) =>
+              message.role === "context" ? (
+                <div key={message.id} className={styles.contextMarker}>
+                  <span>{message.text}</span>
+                </div>
+              ) : (
+                <div key={message.id} className={`${styles.message} ${styles[message.role]}`}>
+                  <div className={styles.bubble}>{message.text}</div>
+                </div>
+              ),
+            )}
+          </div>
+
+          <div className={styles.suggestions} aria-label="Suggested prompts">
+            {scope.suggestions.map((prompt) => (
+              <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>
+            ))}
+          </div>
+          <p className={styles.prototypeNote}>The prototype is not connected to a model yet.</p>
+        </div>
       </div>
 
-      <div className={styles.promptArea}>
-        <div className={styles.suggestions} aria-label="Suggested prompts">
-          {scope.suggestions.map((prompt) => (
-            <button key={prompt} type="button" onClick={() => send(prompt)}>
-              {prompt}
-            </button>
-          ))}
+      {/* This form is never keyed, swapped, or faded. Its bounds follow the
+          panel's width, retaining the textarea node, selection, and draft. */}
+      <div className={styles.composerDock}>
+        <div className={styles.conversationHeading} aria-hidden={!isHome}>
+          <span>{returning ? "What would you like to work on?" : "Or start with a conversation"}</span>
         </div>
-
-        <form
-          className={styles.composer}
-          onSubmit={(event) => {
-            event.preventDefault();
-            send();
-          }}
-        >
-          <label className={styles.srOnly} htmlFor="agent-composer">
-            Message the agent
-          </label>
+        <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); send(); }}>
+          <label className={styles.srOnly} htmlFor="agent-composer">Message the agent</label>
           <textarea
             id="agent-composer"
+            ref={composerRef}
             rows={2}
             value={draft}
-            placeholder={
-              isHome
-                ? "Describe what you want to build, change, or understand…"
-                : `Ask about ${scope.label}…`
-            }
+            placeholder={isHome
+              ? dayZero ? "Ask about an opportunity, explore a plan, or start something new…"
+                : returning ? "Ask about your work, plan a change, or start something new…"
+                : "Describe an idea, ask a question, or tell me what you want to build…"
+              : `Ask about ${scope.label}…`}
+            aria-describedby="agent-composer-hint"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
+              if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
                 event.preventDefault();
                 send();
               }
             }}
           />
-          <button type="submit" disabled={!draft.trim()} aria-label="Send message">
-            <SendIcon width={19} height={19} />
-          </button>
+          <div className={styles.composerTools}>
+            <span className={styles.agentLabel}><SparklesIcon width={16} height={16} aria-hidden="true" />Agent</span>
+            <span id="agent-composer-hint" className={styles.composerHint}>Enter to send · Shift + Enter for a new line</span>
+            <button className={styles.send} type="submit" disabled={!draft.trim()} aria-label="Send message"><SendIcon width={18} height={18} aria-hidden="true" /></button>
+          </div>
         </form>
-        <p className={styles.composerHint}>
-          The prototype routes by intent; it is not connected to a model yet.
-        </p>
       </div>
     </section>
   );

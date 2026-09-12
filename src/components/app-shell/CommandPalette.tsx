@@ -310,9 +310,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   function startConversation() {
     onClose();
     if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("front-door-composer")?.focus());
+      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
     } else {
-      router.push("/#front-door-composer");
+      router.push("/#agent-composer");
     }
   }
 

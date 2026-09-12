@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { FrontDoor } from "@/components/front-door/FrontDoor";
 import { surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
@@ -31,15 +30,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { profile, resolved } = useDemoProfile();
   const isLogin = pathname === "/login";
-  // The front door merges the agent and launcher into one column, so it renders
-  // full-width without the separate persistent agent panel.
+  // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
   // Which surface (if any) this route belongs to — drives whether the route
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [entryMessage, setEntryMessage] = useState<string | null>(null);
   // Read from the persisted store (SSR-safe: fixed closed default on the
   // server and first hydration pass) rather than a plain `useState`, so the
   // panel survives a reload. New workspaces start collapsed; established ones
@@ -119,15 +116,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.split}>
             <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
-              {/* Keyed only on the home↔surface boundary, not per surface, so the
-                  AgentPanel (and its thread) persists as you move between
-                  surfaces, and only the merged front-door swap crossfades. */}
-              <div key={isFrontDoor ? "home" : "surface"} className={styles.chatInner}>
-                {isFrontDoor ? (
-                  <FrontDoor onStartConversation={setEntryMessage} />
-                ) : (
-                  <AgentPanel initialMessage={entryMessage} onMessageReceived={() => setEntryMessage(null)} />
-                )}
+              {/* Keep the agent, its conversation state, and its composer mounted
+                  across the home/surface boundary. Only the stream crossfades. */}
+              <div className={styles.chatInner}>
+                <AgentPanel />
               </div>
             </div>
             {/* The surface is an overlay pinned at its final 60% width: adding
@@ -136,6 +128,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <main
               className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
               aria-hidden={isFrontDoor}
+              inert={isFrontDoor}
             >
               <div key={pathname} className={styles.surfaceInner}>
                 {/* On a surface route the route content becomes tab 0 (the

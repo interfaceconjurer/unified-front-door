@@ -35,6 +35,10 @@
    rather than the whole viewport. `position: relative` anchors the surface
    overlay; `overflow: hidden` clips it while it's parked off the right edge. */
 .split {
+  --agent-move-duration: 440ms;
+  --agent-move-delay: 120ms;
+  --agent-reveal-delay: 560ms;
+  container-type: inline-size;
   position: relative;
   flex: 1 1 0;
   min-width: 0;
@@ -51,7 +55,7 @@
   min-width: 0;
   display: flex;
   overflow: hidden;
-  transition: width 360ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: width var(--agent-move-duration) cubic-bezier(0.22, 0.61, 0.36, 1) var(--agent-move-delay);
 }
 
 .chatColumnFull {
@@ -62,7 +66,6 @@
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
-  animation: chatFade 320ms ease;
 }
 
 .chatInner > * {
@@ -85,7 +88,7 @@
   display: flex;
   overflow: hidden;
   transform: translateX(100%);
-  transition: transform 360ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition: transform var(--agent-move-duration) cubic-bezier(0.22, 0.61, 0.36, 1) var(--agent-move-delay);
 }
 
 .surfaceVisible {
@@ -104,26 +107,13 @@
   min-width: 0;
 }
 
-@keyframes chatFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  /* Keep the transform *states* (so the surface still parks off-screen on the
-     front door), just drop the animated transitions and the chat crossfade. */
+  /* Keep the surface's parked/visible states without animating the geometry. */
   .chatColumn,
   .surfacePane {
     transition: none;
   }
 
-  .chatInner {
-    animation: none;
-  }
 }
 
 /* On narrow viewports the split stacks: the chat sits above the surface. The
@@ -136,10 +126,18 @@
     overflow-y: auto;
   }
 
+  .split {
+    --agent-reveal-delay: 120ms;
+  }
+
   .chatColumn,
   .chatColumnFull {
     width: 100%;
     flex: 1 1 auto;
+  }
+
+  .chatColumn:not(.chatColumnFull) {
+    flex: 0 0 28rem;
   }
 
   .surfacePane {

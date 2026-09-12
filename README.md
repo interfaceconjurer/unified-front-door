@@ -32,6 +32,12 @@ from the avatar menu. The agent automatically starts a simulated read-only
 assessment of the connected orgs in Sam's demo workspace.
 Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
+The front door and surfaces share one persistent agent panel and composer. When
+opening a surface, the welcome content fades out, the composer moves with the
+narrowing panel, and the chat header and conversation fade in after the surface
+slides into place. Draft text, text selection, and session conversations survive
+client-side navigation home and back. Reduced-motion preferences skip the transitions.
+
 - Pause/resume the assessment, or open the org scope to choose connections and rerun it.
 - Use the bottom-right status-bar org switcher from first login to choose among all connected orgs, independently of the assessment scope. The selected org persists across reloads.
 - Review prioritized findings, their sample evidence, proposed approaches, and success criteria.

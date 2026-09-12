@@ -1,15 +1,64 @@
 .agent {
+  color-scheme: light dark;
   display: flex;
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  background:
-    radial-gradient(circle at 0 0, rgb(1 118 211 / 10%), transparent 45%),
-    var(--slds-g-color-surface-1, #fff);
-  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+}
+
+/* Only these stream layers crossfade. Their sibling composer stays visible
+   while the shell changes width. Hidden content is also inert in JSX. */
+.streamStage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.homeStream,
+.conversationStream {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  min-height: 0;
+}
+
+.homeStream {
+  /* The split is the query container: keep the outgoing welcome content at
+     its full width while it fades, instead of wrapping it into the narrow rail. */
+  width: 100cqw;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease, visibility 0s 120ms;
+}
+
+.homeStream > * { flex: 1 1 auto; min-width: 0; }
+
+.conversationStream {
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 180ms ease var(--agent-reveal-delay), visibility 0s var(--agent-reveal-delay);
+}
+
+.agent[data-view="home"] .homeStream {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 180ms ease var(--agent-reveal-delay), visibility 0s var(--agent-reveal-delay);
+}
+
+.agent[data-view="home"] .conversationStream {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease, visibility 0s 120ms;
 }
 
 .heading {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
@@ -45,33 +94,18 @@
   font-weight: 700;
 }
 
-.heading h1 {
+.heading h2 {
   margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
-  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+  font-size: var(--slds-g-font-scale-3, 1.25rem);
   line-height: 1.15;
   letter-spacing: -0.025em;
-}
-
-/* Inside a surface, the agent heading is a companion label, not a page title —
-   it must sit clearly below the surface's own <h1> (clamp(1.6rem, 3vw, 2.25rem)
-   in SurfaceProjection) in the visual hierarchy. Same specificity as the rule
-   above (0,1,1); relies on source order to win, so it must stay after it. */
-.headingCompact h1 {
-  font-size: var(--slds-g-font-scale-3, 1.25rem);
-  letter-spacing: -0.01em;
 }
 
 .intro {
   margin: 0.35rem 0 0;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
   line-height: 1.45;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scopeChip {
-    animation: none;
-  }
 }
 
 .transcript {
@@ -86,6 +120,7 @@
 
 .message {
   display: flex;
+  flex: 0 0 auto;
 }
 
 .message.user {
@@ -112,6 +147,7 @@
    you into — the transcript-level echo of the header chip. */
 .contextMarker {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--slds-g-spacing-3, 0.75rem);
   margin-block: var(--slds-g-spacing-1, 0.25rem);
@@ -128,41 +164,12 @@
   background: var(--slds-g-color-border-1, #c9c9c9);
 }
 
-.recommendation {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--slds-g-spacing-3, 0.75rem);
-  width: min(25rem, 90%);
-  padding: var(--slds-g-spacing-3, 0.75rem) var(--slds-g-spacing-4, 1rem);
-  border: 1px solid var(--slds-g-color-accent-1, #0176d3);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-accent-container-1, #eef4ff);
-  color: var(--slds-g-color-accent-1, #0176d3);
-  text-decoration: none;
-}
-
-.recommendation span {
-  display: grid;
-  gap: 0.15rem;
-}
-
-.recommendation small {
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  line-height: 1.35;
-}
-
-.promptArea {
-  padding: var(--slds-g-spacing-4, 1rem) var(--slds-g-spacing-5, 1.5rem)
-    var(--slds-g-spacing-5, 1.5rem);
-  border-block-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-}
-
 .suggestions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  margin-block-end: var(--slds-g-spacing-3, 0.75rem);
+  padding: 0 1.5rem;
+  flex: 0 0 auto;
 }
 
 .suggestions button {
@@ -181,47 +188,144 @@
   color: var(--slds-g-color-accent-1, #0176d3);
 }
 
+.composerDock {
+  flex: 0 0 auto;
+  width: min(62rem, 100%);
+  margin-inline: auto;
+  padding: 0.5rem 1.5rem 1rem;
+  transition: padding-inline var(--agent-move-duration) ease var(--agent-move-delay);
+}
+
+.conversationHeading {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-block-end: 0.65rem;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+}
+
+.conversationHeading::before,
+.conversationHeading::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--slds-g-color-border-1, #c9c9c9);
+}
+
 .composer {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 0.75rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  box-shadow: 0 2px 8px light-dark(rgb(3 35 77 / 3%), rgb(0 0 0 / 10%));
+}
+
+.composer:focus-within {
+  border-color: var(--slds-g-color-accent-2, #0176d3);
+  box-shadow: 0 0 0 1px var(--slds-g-color-accent-2, #0176d3);
 }
 
 .composer textarea {
   width: 100%;
-  min-height: 5.25rem;
-  resize: vertical;
-  padding: 0.85rem 3.25rem 0.85rem 0.9rem;
-  border: 1px solid var(--slds-g-color-border-2, #939393);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--slds-g-color-surface-1, #fff);
+  min-height: 3rem;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
   font: inherit;
-  line-height: 1.45;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  resize: none;
 }
 
-.composer button {
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.75rem;
-  display: grid;
-  place-items: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border: 0;
-  border-radius: var(--slds-g-radius-border-circle, 50%);
-  background: var(--slds-g-color-accent-1, #0176d3);
-  color: var(--slds-g-color-on-accent-1, #fff);
-  cursor: pointer;
+.composer textarea::placeholder {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  opacity: 1;
 }
 
-.composer button:disabled {
-  background: var(--slds-g-color-disabled-1, #c9c9c9);
-  cursor: not-allowed;
+.composer textarea:focus {
+  outline: none;
+}
+
+.composerTools {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.agentLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--slds-g-color-accent-2, #0176d3);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .composerHint {
-  margin: var(--slds-g-spacing-2, 0.5rem) 0 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  margin-inline-start: auto;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  font-size: var(--slds-g-font-scale-neg-2, 0.6875rem);
+  font-size: 0.6875rem;
+}
+
+.send {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-inline-start: auto;
+  padding: 0;
+  border: none;
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-accent-2, #0176d3);
+  color: light-dark(var(--slds-g-color-on-accent-1, #fff), var(--slds-g-color-accent-dark-2, #001642));
+  cursor: pointer;
+}
+
+.composerHint + .send {
+  margin-inline-start: 0;
+}
+
+.send:hover:not(:disabled) {
+  filter: brightness(0.9);
+}
+
+.send:disabled {
+  background: light-dark(rgb(3 35 77 / 8%), rgb(255 255 255 / 10%));
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: not-allowed;
+}
+
+
+.agent[data-view="home"] .composerDock { padding-inline: 2rem; }
+.conversationHeading { transition: opacity 120ms ease; }
+.agent[data-view="surface"] .conversationHeading { opacity: 0; }
+.agent[data-view="home"] .conversationHeading { transition-delay: var(--agent-reveal-delay); }
+.prototypeNote { margin: 0.75rem 1.5rem 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+
+@media (max-width: 700px) {
+  .composerDock, .agent[data-view="home"] .composerDock { padding-inline: 1.25rem; }
+  .composerHint { display: none; }
+  .composerHint + .send { margin-inline-start: auto; }
+}
+
+@media (max-width: 900px) {
+  /* The stacked layout has less height: scroll the whole conversation above
+     the persistent composer instead of squeezing messages and suggestions. */
+  .conversationStream { overflow-y: auto; }
+  .transcript { flex: 0 0 auto; overflow: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .homeStream, .conversationStream, .composerDock, .conversationHeading { transition: none !important; }
 }
 
 .srOnly {
