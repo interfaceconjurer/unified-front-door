@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { CloseIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
@@ -12,10 +12,10 @@ import { CanvasContent } from "./canvas-registry";
 import { useSurfaceCanvases } from "./surface-canvas-context";
 import styles from "./SurfaceCanvasHost.module.css";
 
-// Element-scoped transitions keep the agent and tab strip outside the snapshot.
-// Older browsers retain the immediate-close behavior.
-type CanvasTransitionScope = HTMLDivElement & {
-  startViewTransition?: (callback: () => void) => ViewTransition;
+type PendingCanvasClose = {
+  id: string;
+  animation: Animation;
+  finish: (restoreFocus?: boolean) => void;
 };
 
 /** DOM ids that wire each tab to the shared panel for `aria-controls` /
@@ -71,11 +71,27 @@ export function SurfaceCanvasHost({
   // is fine — programmatic focus ignores tabindex.
   const tabRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const tabListRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<CanvasTransitionScope>(null);
-  const exitTransition = useRef<ViewTransition | null>(null);
-  const pendingClose = useRef<string | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const pendingClose = useRef<PendingCanvasClose | null>(null);
+  const current = useRef({ canvases, activeCanvasId });
 
-  useEffect(() => () => { exitTransition.current?.skipTransition(); }, []);
+  useLayoutEffect(() => {
+    current.current = { canvases, activeCanvasId };
+    // A new selection from elsewhere (e.g. the palette) must not inherit the
+    // outgoing canvas's blur. Cancellation still completes the requested close.
+    if (pendingClose.current && pendingClose.current.id !== activeCanvasId)
+      pendingClose.current.animation.cancel();
+  }, [canvases, activeCanvasId]);
+
+  useEffect(() => {
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+    const settle = () => { if (reducedMotion.matches) pendingClose.current?.finish(); };
+    reducedMotion.addEventListener("change", settle);
+    return () => {
+      reducedMotion.removeEventListener("change", settle);
+      pendingClose.current?.animation.cancel();
+    };
+  }, []);
 
   // Reveal a newly opened canvas without scrolling the content or letting it
   // hide behind the pinned surface tab.
@@ -116,6 +132,7 @@ export function SurfaceCanvasHost({
 
 
   function selectTab(canvasId: string): void {
+    pendingClose.current?.finish(false);
     const canvas = canvases.find((candidate) => candidate.id === canvasId);
     if (canvas?.params?.projectId && projects.some((project) => project.id === canvas.params?.projectId)) {
       setActiveProject(canvas.params.projectId);
@@ -126,33 +143,52 @@ export function SurfaceCanvasHost({
 
   function dismissTab(canvasId: string): void {
     const index = canvases.findIndex((canvas) => canvas.id === canvasId);
-    if (index < 0 || canvasId === OVERVIEW_CANVAS_ID || pendingClose.current === canvasId) return;
-    const neighborId = canvases[index + 1]?.id ?? canvases[index - 1]?.id;
-    const isActive = canvasId === activeCanvasId;
-    const commitClose = () => {
-      flushSync(() => {
-        closeCanvas(surfaceId, canvasId);
-        if (isActive && neighborId) selectTab(neighborId);
-      });
-      if (isActive && neighborId) tabRefs.current.get(neighborId)?.focus({ preventScroll: true });
-      if (pendingClose.current === canvasId) pendingClose.current = null;
-    };
+    if (index < 0 || canvasId === OVERVIEW_CANVAS_ID || pendingClose.current?.id === canvasId) return;
     const panel = panelRef.current;
-    if (!isActive || !panel?.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      commitClose();
+    let animation: Animation | null = null;
+    let settled = false;
+    const finish = (restoreFocus = true) => {
+      if (settled) return;
+      settled = true;
+      if (pendingClose.current?.id === canvasId) pendingClose.current = null;
+      const latest = current.current;
+      const latestIndex = latest.canvases.findIndex((canvas) => canvas.id === canvasId);
+      const neighborId = latest.canvases[latestIndex + 1]?.id ?? latest.canvases[latestIndex - 1]?.id;
+      const isActive = latest.activeCanvasId === canvasId;
+      const shouldFocus = restoreFocus && tabListRef.current?.contains(document.activeElement);
+      // Keep the finished fade applied until the replacement content commits.
+      // The tab then disappears immediately, with no movement or second effect.
+      if (latestIndex >= 0) {
+        flushSync(() => {
+          closeCanvas(surfaceId, canvasId);
+          if (panel?.isConnected && isActive && neighborId) selectTab(neighborId);
+        });
+      }
+      animation?.cancel();
+      if (animation && panel) panel.inert = false;
+      const focusId = isActive ? neighborId : latest.activeCanvasId;
+      if (shouldFocus && focusId) tabRefs.current.get(focusId)?.focus({ preventScroll: true });
+    };
+    if (canvasId !== activeCanvasId || !panel?.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finish();
       return;
     }
 
-    pendingClose.current = canvasId;
-    exitTransition.current?.skipTransition();
-    const transition = panel.startViewTransition(commitClose);
-    exitTransition.current = transition;
-    // A skipped snapshot (e.g. a concurrent route change) still commits the
-    // close. There is only one live canvas; its outgoing image is browser-owned.
-    void transition.ready.catch(() => {});
-    void transition.finished.finally(() => {
-      if (exitTransition.current === transition) exitTransition.current = null;
-    }).catch(() => {});
+    const motionStyle = getComputedStyle(panel);
+    const duration = motionStyle.getPropertyValue("--shell-motion-duration").trim();
+    const blur = motionStyle.getPropertyValue("--shell-motion-blur").trim();
+    if (panel.contains(document.activeElement)) tabRefs.current.get(canvasId)?.focus({ preventScroll: true });
+    panel.inert = true;
+    animation = panel.animate([
+      { opacity: 1, filter: "blur(0px)" },
+      { opacity: 0, filter: `blur(${blur})` },
+    ], {
+      duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000),
+      easing: motionStyle.getPropertyValue("--shell-motion-easing").trim(),
+      fill: "forwards",
+    });
+    pendingClose.current = { id: canvasId, animation, finish };
+    void animation.finished.then(() => finish(), () => finish(false));
   }
 
   function focusTab(canvasId: string): void {
@@ -175,7 +211,7 @@ export function SurfaceCanvasHost({
       event.preventDefault();
       focusTab(canvases[last]!.id);
     } else if (event.key === "Delete" || event.key === "Backspace") {
-      // Dismissal restores focus after the snapshot's update commits, so
+      // Dismissal restores focus after the content fade and tab removal, so
       // keyboard close keeps the selected tab and roving tabindex together.
       if (activeCanvas.id === OVERVIEW_CANVAS_ID) return;
       event.preventDefault();
@@ -260,7 +296,6 @@ export function SurfaceCanvasHost({
 
       <div
         ref={panelRef}
-        data-canvas-close-scope
         role="tabpanel"
         id={panelDomId(surfaceId)}
         aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
