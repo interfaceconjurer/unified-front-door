@@ -9,6 +9,58 @@
   line-height: 1.55;
 }
 .home { display: flex; flex-direction: column; gap: 1.5rem; }
+
+/* Overlap the reveals so the page comes into focus from top to bottom.
+   Animate individual cards in reading order, each following the previous one.
+   Backwards fill hides delayed items without retaining filter layers afterward. */
+.home .hero,
+.home .connection,
+.home .assessment,
+.home .findings > .sectionHead,
+.home .findingCard,
+.home .selectionBar,
+.home .explore {
+  animation: dayZeroReveal 320ms
+    var(--shell-motion-easing, cubic-bezier(0.22, 0.61, 0.36, 1))
+    var(--reveal-delay, 0ms) backwards;
+}
+
+.home .connection { --reveal-delay: 80ms; }
+.home .assessment { --reveal-delay: 160ms; }
+.home .findings > .sectionHead { --reveal-delay: 240ms; }
+.home .findingCard { --reveal-delay: 320ms; }
+.home .findingCard:nth-child(2) { --reveal-delay: 400ms; }
+.home .findingCard:nth-child(3) { --reveal-delay: 480ms; }
+.home .findingCard:nth-child(4) { --reveal-delay: 560ms; }
+.home .selectionBar { --reveal-delay: 640ms; }
+.home .explore { --reveal-delay: 720ms; }
+
+@keyframes dayZeroReveal {
+  from {
+    opacity: 0;
+    filter: blur(var(--shell-motion-blur, 24px));
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: none;
+  }
+}
+
+/* Keyboard focus should never land on content waiting for its reveal. */
+.home :focus-within { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home .hero,
+  .home .connection,
+  .home .assessment,
+  .home .findings > .sectionHead,
+  .home .findingCard,
+  .home .selectionBar,
+  .home .explore { animation: none; }
+}
+
 .hero { padding: 0.5rem 0 0.75rem; text-align: center; }
 .hero h1 { margin: 0.65rem 0; font-size: clamp(1.75rem, 3.2vw, 2.4rem); font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; text-wrap: balance; }
 .hero > p:last-child { font-size: 0.9375rem; color: var(--muted); margin: 0.8rem 0 0; }
