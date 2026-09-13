@@ -21,8 +21,7 @@
   overflow: hidden;
 }
 
-/* The panel never changes width. Only its transform moves; docking space in
-   .workspaceMotion changes once; its visual bounds animate with FLIP. */
+/* Slide the fixed-width panel alongside the workspace's animated inset. */
 .panelSlot {
   position: absolute;
   inset-block: 0;
@@ -51,15 +50,16 @@
   margin-inline-start: var(--workspace-panel-width);
 }
 
-/* Keep the motion layer separate from the query container so its transform
-   does not continually invalidate the agent's container-dependent styles. */
+/* Animate the actual available width so text and cards lay out at their
+   displayed size throughout the slide, without stretching the content. */
 .workspaceMotion {
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
   display: flex;
   overflow: hidden;
-  transform-origin: top left;
+  margin-inline-start: 0;
+  transition: margin-inline-start var(--shell-motion-duration) var(--shell-motion-easing);
 }
 
 /* The chat + surface split fills only the space left after the workspace panel,
@@ -189,6 +189,7 @@
   /* Keep the surface's parked/visible states without animating the geometry. */
   .chatColumn,
   .surfacePane,
+  .workspaceMotion,
   .panelSlot {
     transition: none;
   }

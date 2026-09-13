@@ -4,7 +4,6 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BoxIcon,
-  CloseIcon,
   GitBranchIcon,
   LayersIcon,
   PlusIcon,
@@ -147,16 +146,6 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   if (!hasProjects) {
     return (
       <aside className={styles.panel} aria-label="Workspace">
-        <header className={styles.header}>
-          <button
-            type="button"
-            className={styles.close}
-            onClick={onClose}
-            aria-label="Close workspace panel"
-          >
-            <CloseIcon width={18} height={18} />
-          </button>
-        </header>
 
         <section className={styles.section} aria-label="Projects">
           <h2 className={styles.heading}>Projects</h2>
@@ -194,17 +183,6 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
 
   return (
     <aside className={styles.panel} aria-label="Workspace">
-      {/* Close affordance only — no panel title, to keep the chrome quiet. */}
-      <header className={styles.header}>
-        <button
-          type="button"
-          className={styles.close}
-          onClick={onClose}
-          aria-label="Close workspace panel"
-        >
-          <CloseIcon width={18} height={18} />
-        </button>
-      </header>
 
       <section className={styles.section} aria-label="Projects">
         <h2 className={styles.heading}>Projects</h2>

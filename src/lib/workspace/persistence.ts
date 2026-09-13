@@ -135,6 +135,10 @@ class WorkspaceSelectionStore {
     for (const listener of this.listeners) listener();
   }
 
+  reset = (): void => {
+    this.update(() => this.initialSelection);
+  };
+
   setActiveProjectId = (projectId: string): void => {
     this.update((current) => ({ ...current, activeProjectId: projectId }));
   };
