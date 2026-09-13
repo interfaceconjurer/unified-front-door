@@ -119,6 +119,10 @@ export class AssessmentStore {
     }
     for (const listener of this.listeners) listener();
   }
+  reset = () => {
+    this.update(INITIAL);
+  };
+
   start = () => {
     const state = this.getSnapshot();
     if (state.status === "idle" || state.status === "paused") this.update({ ...state, status: "running" });

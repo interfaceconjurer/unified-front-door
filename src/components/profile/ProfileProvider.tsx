@@ -14,6 +14,10 @@ import {
   type DemoProfileId,
 } from "@/lib/demo-profiles";
 
+import { getAssessmentStore } from "@/lib/onboarding/persistence";
+import { getWorkspaceSelectionStore } from "@/lib/workspace/persistence";
+import { getSurfaceCanvasStore } from "@/lib/surface-canvas/persistence";
+
 const STORAGE_KEY = "ufd.demo-user.v1";
 
 class DemoProfileStore {
@@ -91,7 +95,16 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     () => ({
       profile: profileId ? demoProfileById(profileId) : null,
       resolved: profileId !== undefined,
-      signIn: demoProfileStore.setProfile,
+      signIn: (id) => {
+        // A deliberate day-zero sign-in starts a fresh demo. Hydration and
+        // reloads only read the profile, so they keep the current run intact.
+        if (demoProfileById(id).onboarding) {
+          getAssessmentStore(id).reset();
+          getWorkspaceSelectionStore(id).reset();
+          getSurfaceCanvasStore(id).reset();
+        }
+        demoProfileStore.setProfile(id);
+      },
       signOut: () => demoProfileStore.setProfile(null),
     }),
     [profileId],

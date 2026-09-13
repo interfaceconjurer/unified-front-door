@@ -182,6 +182,10 @@ class SurfaceCanvasStore {
     for (const listener of this.listeners) listener();
   }
 
+  reset = (): void => {
+    this.update(() => this.initialState);
+  };
+
   private updateSlice(
     surfaceId: SurfaceId,
     update: (slice: SurfaceCanvasSlice) => SurfaceCanvasSlice,

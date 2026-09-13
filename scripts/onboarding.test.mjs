@@ -121,3 +121,28 @@ test("blocked local storage retains progress and projects in memory", () => {
   assert.equal(store.getSnapshot().status, "complete");
   assert.equal(store.getSnapshot().projects.length, 1);
 });
+
+
+test("day-zero reset clears assessment progress, projects, and drafts durably", () => {
+  const store = completedStore();
+  draft(store);
+  assert.ok(store.createProject("Sam"));
+  draft(store, ["release-validation"]);
+  const other = completedStore("am");
+  store.reset();
+  assert.deepEqual(store.getSnapshot(), parseAssessment(null));
+  assert.deepEqual(new AssessmentStore("sp").getSnapshot(), parseAssessment(null));
+  assert.equal(other.getSnapshot().status, "complete");
+  store.start();
+  assert.equal(store.getSnapshot().status, "running");
+  assert.equal(store.getSnapshot().step, 0);
+});
+
+test("day-zero reset clears cached progress when browser storage is blocked", () => {
+  globalThis.window.localStorage = { getItem() { throw Error("blocked"); }, setItem() { throw Error("blocked"); } };
+  const store = completedStore();
+  draft(store);
+  assert.ok(store.createProject("Sam"));
+  store.reset();
+  assert.deepEqual(store.getSnapshot(), parseAssessment(null));
+});
