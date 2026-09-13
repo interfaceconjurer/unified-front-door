@@ -8,6 +8,8 @@ type TopBarProps = {
   onOpenPalette: () => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
+  surfaceOpen: boolean;
+  onToggleSurface: () => void;
   profileMenu: React.ReactNode;
 };
 
@@ -19,22 +21,16 @@ type TopBarProps = {
  * bar, and the agent stands as its own panel, so the top bar is left to
  * answer just one question — "where do you want to go?"
  */
-export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, profileMenu }: TopBarProps) {
+export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
-        <Link href="/" className={styles.homeLink} aria-label="Unified Platform home">
-          <span className={styles.logo} aria-hidden="true">
-            U
-          </span>
-          <span className={styles.brandName}>Unified Platform</span>
-        </Link>
-
         <button
           type="button"
           id="workspace-panel-toggle"
           className={`${styles.panelToggle} ${panelOpen ? styles.panelToggleActive : ""}`}
           onClick={onTogglePanel}
+          aria-controls="workspace-panel"
           aria-expanded={panelOpen}
           aria-pressed={panelOpen}
           aria-label="Toggle workspace panel"
@@ -43,6 +39,13 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, profileMenu }:
         >
           <PanelIcon width={16} height={16} />
         </button>
+
+        <Link href="/" className={styles.homeLink} aria-label="Unified Platform home">
+          <span className={styles.logo} aria-hidden="true">
+            U
+          </span>
+          <span className={styles.brandName}>Unified Platform</span>
+        </Link>
 
         <span className={styles.divider} aria-hidden="true" />
 
@@ -64,6 +67,20 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, profileMenu }:
           ?
         </button>
         {profileMenu}
+        <button
+          type="button"
+          id="surface-panel-toggle"
+          className={`${styles.panelToggle} ${surfaceOpen ? styles.panelToggleActive : ""}`}
+          onClick={onToggleSurface}
+          aria-controls="surface-panel"
+          aria-expanded={surfaceOpen}
+          aria-pressed={surfaceOpen}
+          aria-label={surfaceOpen ? "Hide surfaces" : "Show surfaces"}
+          aria-keyshortcuts="Meta+Shift+B Control+Shift+B"
+          title={surfaceOpen ? "Hide surfaces (⌘⇧B)" : "Show surfaces (⌘⇧B)"}
+        >
+          <PanelIcon className={styles.rightPanelIcon} width={16} height={16} />
+        </button>
       </div>
     </header>
   );

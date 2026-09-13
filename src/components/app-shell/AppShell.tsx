@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { surfaceAppForPath } from "@/components/front-door/app-catalog";
+import { surfaceAppById, surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
@@ -14,7 +14,6 @@ import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
 import { WorkspacePanel } from "./WorkspacePanel";
-import { useDockedPanelMotion } from "./use-docked-panel-motion";
 import styles from "./AppShell.module.css";
 import "@/components/surfaces/surface-transitions.css";
 
@@ -38,6 +37,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
   const surface = surfaceAppForPath(pathname);
+  const [surfaceVisibility, setSurfaceVisibility] = useState({ pathname, open: !isFrontDoor });
+  // A newly selected route reveals its surface; manual toggles keep it mounted.
+  if (surfaceVisibility.pathname !== pathname) {
+    setSurfaceVisibility({ pathname, open: !isFrontDoor });
+  }
+  const surfaceOpen = surfaceVisibility.pathname !== pathname ? !isFrontDoor : surfaceVisibility.open;
+  const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteTrigger = useRef<HTMLElement | null>(null);
@@ -76,13 +82,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     isFrontDoor && profile?.workspaceExperience === "established",
   );
   const panelSlot = useRef<HTMLDivElement>(null);
-  const workspaceRef = useDockedPanelMotion(panelOpen, resolved && !isLogin && !!profile);
   const toggleWorkspacePanel = useCallback(() => {
     if (panelOpen && panelSlot.current?.contains(document.activeElement)) {
       document.getElementById("workspace-panel-toggle")?.focus();
     }
     togglePanel();
   }, [panelOpen, togglePanel]);
+
+  const toggleSurfacePanel = useCallback(() => {
+    if (!surface) {
+      router.push(surfaceAppById("build").href);
+      return;
+    }
+    if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
+      document.getElementById("surface-panel-toggle")?.focus();
+    }
+    setSurfaceVisibility({ pathname, open: !surfaceOpen });
+  }, [pathname, router, surface, surfaceOpen]);
 
   // Demo identity is deliberately a client-side product concept, not an auth
   // boundary. Keep signed-out users on the login screen and prevent a profile
@@ -100,13 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (surface && !canAccessSurface(profile, surface.id)) router.replace("/");
   }, [isLogin, profile, resolved, router, surface]);
 
-  // Global shortcuts: ⌘⇧P (⌃⇧P off Mac) toggles the palette, ⌘B (⌃B off Mac)
-  // toggles the left workspace panel. Unlike the old store-level `togglePanel`,
-  // this one closes over the route-resolved `panelOpen` (so it flips the
-  // *effective* state, not a possibly-unset stored one) and is therefore
-  // re-created whenever that changes — listed in the deps so the listener
-  // always sees the current value instead of a stale closure. Shift
-  // distinguishes the two — plain ⌘B must not also fire when ⌘⇧P is pressed.
+  // ⌘⇧P opens the palette; ⌘B and ⌘⇧B toggle the left and right panels.
   useEffect(() => {
     if (isLogin || !profile) return;
 
@@ -117,14 +127,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         event.preventDefault();
         if (paletteOpen) closePalette();
         else openPalette("surfaces");
-      } else if (!event.shiftKey && key === "b") {
+      } else if (key === "b") {
         event.preventDefault();
-        toggleWorkspacePanel();
+        if (event.shiftKey) toggleSurfacePanel();
+        else toggleWorkspacePanel();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isLogin, profile, toggleWorkspacePanel, paletteOpen, openPalette, closePalette]);
+  }, [isLogin, profile, toggleWorkspacePanel, toggleSurfacePanel, paletteOpen, openPalette, closePalette]);
 
   if (!resolved) return null;
   if (isLogin) return children;
@@ -141,10 +152,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           onOpenPalette={() => openPalette("surfaces")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
+          surfaceOpen={surfaceOpen}
+          onToggleSurface={toggleSurfacePanel}
           profileMenu={<ProfileMenu />}
         />
         <div className={styles.body}>
-          <div ref={panelSlot} className={styles.panelSlot} data-open={panelOpen} inert={!panelOpen}>
+          <div id="workspace-panel" ref={panelSlot} className={styles.panelSlot} data-open={panelOpen} inert={!panelOpen}>
             <WorkspacePanel onClose={toggleWorkspacePanel} />
           </div>
           {/* The chat/surface split lives in its own flex box that fills only the
@@ -152,9 +165,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               front-door width is 100% *of what's available*, not the whole
               screen — opening the panel shrinks the chat to fit instead of
               pushing it off the right edge. */}
-          <div ref={workspaceRef} className={styles.workspaceMotion}>
+          <div className={styles.workspaceMotion}>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${isFrontDoor ? styles.chatColumnFull : ""}`}>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`}>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary. Only the stream dissolves. */}
                 <div className={styles.chatInner}>
@@ -165,9 +178,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   .surfaceVisible slides it in from the right (and the front door
                   parks it off-screen) so its content never reflows as it enters. */}
               <main
-                className={`${styles.surfacePane} ${isFrontDoor ? "" : styles.surfaceVisible}`}
-                aria-hidden={isFrontDoor}
-                inert={isFrontDoor}
+                id="surface-panel"
+                ref={surfacePaneRef}
+                className={`${styles.surfacePane} ${surfaceOpen ? styles.surfaceVisible : ""}`}
+                aria-hidden={!surfaceOpen}
+                inert={!surfaceOpen}
               >
                 {surface ? (
                   // Matching names retain the outgoing canvas image across a

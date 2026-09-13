@@ -8,36 +8,6 @@
   background: var(--slds-g-color-surface-1, #fff);
 }
 
-/* Close-only header: a quiet top row with the dismiss control and no title. */
-.header {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: flex-end;
-  padding: var(--slds-g-spacing-2, 0.5rem) var(--slds-g-spacing-3, 0.75rem);
-}
-
-.close {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border: 0;
-  border-radius: var(--slds-g-radius-border-2, 0.5rem);
-  background: transparent;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  cursor: pointer;
-}
-
-.close:hover {
-  background: color-mix(
-    in srgb,
-    var(--slds-g-color-surface-2, #f3f3f3) 60%,
-    var(--slds-g-color-surface-1, #fff)
-  );
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-}
-
 .section {
   display: flex;
   min-height: 0;
