@@ -10,6 +10,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
+import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
 import { TopBar } from "./TopBar";
@@ -20,7 +21,7 @@ import "@/components/surfaces/surface-transitions.css";
 /**
  * The shared chrome. The left "chat column" is a single persistent element that
  * lives across every route, so its width can animate rather than tear down: on
- * the front door it holds the merged workstage (FrontDoor) at full width; enter
+ * the front door it holds the conversation and Today briefing at full width; enter
  * a surface and it shrinks to 40% while the surface pane slides in from the
  * right to fill the remaining 60%. Because AppShell is mounted once in the root
  * layout, that column never unmounts as `children` swap beneath it. Surface
@@ -33,6 +34,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
+  const [homeRequest, setHomeRequest] = useState(0);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const waitForLayout = useCallback(async (signal: AbortSignal) => {
+    if (shellRef.current) await waitForWorkspaceMotion(shellRef.current, signal);
+  }, []);
   // Which surface (if any) this route belongs to — drives whether the route
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
@@ -147,8 +153,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           above the router outlet so a surface's open tabs survive route content
           swaps (and, via its persisted store, a reload). */}
       <SurfaceCanvasProvider>
-      <div className={styles.shell}>
+      <div className={styles.shell} ref={shellRef}>
         <TopBar
+          onOpenHome={() => { if (isFrontDoor) setHomeRequest((value) => value + 1); }}
           onOpenPalette={() => openPalette("surfaces")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
@@ -157,7 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           profileMenu={<ProfileMenu />}
         />
         <div className={styles.body}>
-          <div id="workspace-panel" ref={panelSlot} className={styles.panelSlot} data-open={panelOpen} inert={!panelOpen}>
+          <div id="workspace-panel" ref={panelSlot} className={styles.panelSlot} data-workspace-motion data-open={panelOpen} inert={!panelOpen}>
             <WorkspacePanel onClose={toggleWorkspacePanel} />
           </div>
           {/* The chat/surface split lives in its own flex box that fills only the
@@ -165,13 +172,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               front-door width is 100% *of what's available*, not the whole
               screen — opening the panel shrinks the chat to fit instead of
               pushing it off the right edge. */}
-          <div className={styles.workspaceMotion}>
+          <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`}>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
-                    across the home/surface boundary. Only the stream dissolves. */}
+                    across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
-                  <AgentPanel />
+                  <AgentPanel homeRequest={homeRequest} waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
                 </div>
               </div>
               {/* The surface is an overlay pinned at its final 60% width: adding
@@ -179,6 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   parks it off-screen) so its content never reflows as it enters. */}
               <main
                 id="surface-panel"
+                data-workspace-motion
                 ref={surfacePaneRef}
                 className={`${styles.surfacePane} ${surfaceOpen ? styles.surfaceVisible : ""}`}
                 aria-hidden={!surfaceOpen}

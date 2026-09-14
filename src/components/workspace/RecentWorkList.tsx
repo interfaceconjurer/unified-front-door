@@ -26,8 +26,9 @@ export function WorkStatusBadge({ work }: { work: ReturningWork }) {
   </span>;
 }
 
-export function RecentWorkList({ items }: {
+export function RecentWorkList({ items, onOpenWork }: {
   items: readonly ReturningWork[];
+  onOpenWork?: (work: ReturningWork) => void;
 }) {
   const { projects } = useWorkspace();
   const openWork = useOpenWork();
@@ -37,7 +38,7 @@ export function RecentWorkList({ items }: {
         const surface = surfaceAppById(work.surfaceId);
         const project = projects.find((candidate) => candidate.id === work.projectId);
         return <li key={work.id}>
-          <button className={styles.row} type="button" onClick={() => openWork(work)} aria-label={`Resume ${work.title}`}>
+          <button className={styles.row} type="button" onClick={() => (onOpenWork ?? openWork)(work)} aria-label={`Resume ${work.title}`}>
             <span className={styles.icon} data-surface={work.surfaceId} aria-hidden="true"><surface.Icon width={18} height={18} /></span>
             <span className={styles.copy}>
               <strong>{work.title}</strong>

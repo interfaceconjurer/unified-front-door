@@ -28,6 +28,7 @@
 *.pem
 
 # debug
+/.dev-server.pid
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

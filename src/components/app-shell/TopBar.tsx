@@ -6,6 +6,7 @@ import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   onOpenPalette: () => void;
+  onOpenHome: () => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
   surfaceOpen: boolean;
@@ -21,7 +22,7 @@ type TopBarProps = {
  * bar, and the agent stands as its own panel, so the top bar is left to
  * answer just one question — "where do you want to go?"
  */
-export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
+export function TopBar({ onOpenPalette, onOpenHome, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -40,7 +41,7 @@ export function TopBar({ onOpenPalette, panelOpen, onTogglePanel, surfaceOpen, o
           <PanelIcon width={16} height={16} />
         </button>
 
-        <Link href="/" className={styles.homeLink} aria-label="Unified Platform home">
+        <Link href="/" scroll={false} onNavigate={onOpenHome} className={styles.homeLink} aria-label="Unified Platform home">
           <span className={styles.logo} aria-hidden="true">
             U
           </span>

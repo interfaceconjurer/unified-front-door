@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { SendIcon, SparklesIcon } from "@/components/icons";
 import { FrontDoor, isStarterPrompt } from "@/components/front-door/FrontDoor";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import {
+  surfaceAppById,
   surfaceAppForPath,
   surfaceApps,
   type SurfaceApp,
@@ -14,21 +15,15 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface, type DemoProfile } from "@/lib/demo-profiles";
 import { useAssessment } from "@/components/onboarding/use-assessment";
 import { ASSESSMENT_FINDINGS, findingsForScope } from "@/lib/onboarding/assessment";
+import { RETURNING_WORK, type ReturningWork } from "@/lib/workspace/returning-work";
+import { useOpenWork } from "@/components/workspace/RecentWorkList";
+import { ConversationStore, type ConversationEvent } from "@/lib/chat/conversation";
+import { nextFrame, scrollToEntry, waitForMotion } from "@/lib/motion";
 import styles from "./AgentPanel.module.css";
 
-type Message =
-  | { id: number; role: "agent" | "user"; text: string }
-  | { id: number; role: "context"; text: string };
-
-// The one agent, described by wherever the workspace is currently pointed. The
-// front door is the high-level scope; each surface narrows it. Everything the
-// panel renders — heading, context chip, suggested prompts, composer — reads off
-// this so moving between surfaces visibly re-points the same agent.
 type Scope = {
   key: string;
   label: string;
-  heading: string;
-  intro: string;
   greeting: string;
   suggestions: readonly string[];
 };
@@ -36,8 +31,6 @@ type Scope = {
 const HOME_SCOPE: Scope = {
   key: "home",
   label: "Front Door",
-  heading: "What do you want to accomplish?",
-  intro: "Start with an outcome. I’ll help you find the right app and carry the work there.",
   greeting:
     "Tell me what you’re trying to accomplish. I’ll help you start here, then take you to the right app when the work needs a dedicated workspace.",
   suggestions: [
@@ -51,14 +44,6 @@ function scopeForSurface(surface: SurfaceApp): Scope {
   return {
     key: surface.id,
     label: surface.label,
-    // Deliberately surface-agnostic: the surface itself owns the domain title
-    // and the primary messaging (see SurfaceProjection's <h1>). The agent is a
-    // constant companion that follows you across surfaces, so its heading must
-    // not restate the surface's name or compete with it for prominence. Which
-    // surface it's pointed at is carried, quietly, by the scope chip below.
-    heading: "How can I help?",
-    intro:
-      "The same agent, wherever you go — your project and context come with you as you move between surfaces.",
     greeting: `Now working in ${surface.label}. ${surface.workspaceDescription}`,
     suggestions: surface.capabilities.map((c) => c),
   };
@@ -82,26 +67,19 @@ function recommendApp(text: string, profile: DemoProfile): SurfaceApp {
   return available.find((surface) => surface.id === preferredId) ?? available[0]!;
 }
 
-// The greeting that seeds a brand-new thread. Fixed id so it's stable across a
-// session; appended messages take ids from the running counter (>= 1).
-function seedThread(scope: Scope): Message[] {
-  return [{ id: 0, role: "agent", text: scope.greeting }];
-}
+const SURFACE_QUESTIONS: Record<SurfaceApp["id"], string> = {
+  build: "What would you like to build or set up? I can help with your data, automations, agents, or app experiences.",
+  code: "What would you like to work on in Code? We can write or review code, build a query, or investigate a failing test.",
+  alm: "What would you like to move forward in ALM? We can plan work, review a release, or investigate a deployment.",
+  govern: "What would you like to review in Govern & Observe? I can help with access, platform health, or policy controls.",
+};
 
-/**
- * The persistent, agent-forward left panel — the same agent on the front door
- * and inside every surface, and it never unmounts across navigation.
- *
- * Its thread is bound to the active {project, worktree} session: switching
- * worktree (or project) swaps to that session's own thread, the way parallel
- * Herdr worktrees each carry their own agent. Moving between *surfaces* within a
- * session keeps the thread and just drops a context marker. Workspace context
- * remains in the status bar, while the front door occupies the agent's stream.
- *
- * Interaction is a wireframe: sending appends the message and a scope-aware
- * canned reply. A message sent from the front door opens a matching surface.
- */
-export function AgentPanel() {
+/** One transcript per project/worktree, shared by Today and every surface. */
+export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
+  homeRequest: number;
+  waitForLayout: (signal: AbortSignal) => Promise<void>;
+  layoutKey: string;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useDemoProfile();
@@ -110,7 +88,7 @@ export function AgentPanel() {
   const returning = profile?.workspaceExperience === "established";
   const dayZero = profile?.onboarding === "org-assessment";
 
-  const { activeProject, activeWorktree, activeOrg, sessionKey, hasProjects } = useWorkspace();
+  const { activeProject, activeWorktree, activeOrg, agentSessions, sessionKey, hasProjects } = useWorkspace();
   const { state: assessment } = useAssessment();
   const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject.id) : undefined;
   const returningSession = profile?.workspaceExperience === "established"
@@ -118,20 +96,14 @@ export function AgentPanel() {
     : undefined;
   const scope: Scope = improvement ? {
     ...baseScope,
-    heading: "Let’s put the plan to work.",
-    intro: "Your assessment, evidence, and next steps stay with this project.",
     greeting: `“${improvement.name}” has ${improvement.workItems.length} planned work items. Each includes the source finding, implementation steps, and acceptance criteria. Start by reviewing a plan and confirming the baseline in a sandbox.`,
     suggestions: ["What should I work on first?", "Walk through the project plan", "How will we validate the improvements?"],
   } : profile?.onboarding ? {
     ...baseScope,
-    heading: "Let’s find your first improvement.",
-    intro: "Your org assessment is the starting point for a practical plan.",
     greeting: assessment.status === "complete" ? `Your demo assessment found ${findingsForScope(assessment.scopeOrgIds).length} opportunities. Return home to review the evidence and turn selected findings into a project.` : "Your demo assessment is underway. It reviews the selected accessible orgs for capacity, process friction, and release readiness. You can follow its progress on the home screen.",
     suggestions: ["What does the assessment cover?", "How do I create a project?"],
   } : returningSession ? {
     ...baseScope,
-    heading: "Let’s pick it up.",
-    intro: "Your agent session follows the project and branch you’re working in.",
     greeting: returningSession.summary,
     suggestions: returningSession.status === "waiting"
       ? ["Summarize the pending approval", "Walk through the release plan", "What should I review first?"]
@@ -139,60 +111,125 @@ export function AgentPanel() {
   } : baseScope;
   const showWorktree = activeProject.worktrees.length > 1;
 
-  const [draft, setDraft] = useState("");
-  // Home and surfaces share this store and the same composer. A session is
-  // seeded when first used, so visiting home doesn't capture a stale greeting.
-  const [sessions, setSessions] = useState<Record<string, Message[]>>({});
-  const nextId = useRef(1);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draft = drafts[sessionKey] ?? "";
+  function setDraft(value: string | ((current: string) => string)) {
+    setDrafts((current) => ({ ...current, [sessionKey]: typeof value === "function" ? value(current[sessionKey] ?? "") : value }));
+  }
+  const [conversationStore] = useState(() => new ConversationStore());
+  const { sessions, scrollRevision, presentation } = useSyncExternalStore(conversationStore.subscribe, conversationStore.getSnapshot, conversationStore.getSnapshot);
   const transcriptRef = useRef<HTMLDivElement>(null);
-  const conversationRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const sequence = useRef<AbortController | null>(null);
+  const openWork = useOpenWork();
+  const thread = sessions[sessionKey]?.messages ?? [];
 
-  const thread = sessions[sessionKey] ?? seedThread(scope);
+  function applyEvent(event: ConversationEvent) {
+    conversationStore.dispatch(sessionKey, event, { deferReveal: !!sessions[sessionKey]?.messages.length });
+  }
 
-  // Preserve existing home-composer deep links as well as the shared id.
-  useEffect(() => {
-    if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) {
-      composerRef.current?.focus();
-    }
-  }, [isHome]);
-
-  // Two transitions to handle, both guarded on refs so they fire on change only:
-  // Switching project/worktree selects its own thread. Surface changes within
-  // a session add a coalesced context marker; home doesn't append to the thread.
-  const prevSession = useRef(sessionKey);
-  const prevScope = useRef(scope.key);
-  useEffect(() => {
-    const sessionChanged = prevSession.current !== sessionKey;
-    const scopeChanged = prevScope.current !== scope.key;
-    prevSession.current = sessionKey;
-    prevScope.current = scope.key;
-
-    if (sessionChanged || isHome) return;
-    if (scopeChanged) {
-      setSessions((current) => {
-        const existing = current[sessionKey];
-        if (!existing) return current;
-        const marker: Message = {
-          id: nextId.current++,
-          role: "context",
-          text: `Now referencing ${scope.label}`,
-        };
-        const last = existing[existing.length - 1];
-        const next =
-          last?.role === "context"
-            ? [...existing.slice(0, -1), marker]
-            : [...existing, marker];
-        return { ...current, [sessionKey]: next };
+  // Route changes are external navigation events. Read the latest workspace
+  // data at that moment, without appending a briefing on every data update.
+  const visit = useEffectEvent(() => {
+    if (!profile) return;
+    if (isHome) {
+      applyEvent({ type: "today", snapshot: {
+        capturedAt: new Date().toISOString(), profile,
+        projectName: activeProject.name, branch: activeWorktree.branch, hasProjects,
+        recent: RETURNING_WORK.filter((work) => work.projectId === activeProject.id && work.worktreeId === activeWorktree.id),
+        working: agentSessions.filter((session) => session.worktreeId === activeWorktree.id && session.status === "working").length,
+        assessment,
+      } });
+    } else {
+      const question = SURFACE_QUESTIONS[baseScope.key as SurfaceApp["id"]];
+      applyEvent({ type: "surface", scopeKey: scope.key, label: scope.label,
+        reply: !sessions[sessionKey]?.messages.some((message) => message.role === "agent") && (returningSession || profile.onboarding)
+          ? `${scope.greeting}\n\n${question}` : question,
       });
     }
-  }, [sessionKey, scope.key, scope.label, isHome]);
+  });
+  useEffect(() => { visit(); }, [sessionKey, scope.key, homeRequest]);
 
-  // Keep the newest content in view as the active thread grows.
+  // The current assessment remains interactive. Its last visible state is
+  // retained when that Today entry becomes history; old cards never rescan.
+  const recordAssessment = useEffectEvent(() => {
+    if (!isHome || !dayZero) return;
+    conversationStore.recordAssessment(sessionKey, assessment);
+  });
+  useEffect(() => { recordAssessment(); }, [assessment, isHome, sessionKey]);
+
   useEffect(() => {
-    const el = window.matchMedia("(max-width: 900px)").matches ? conversationRef.current : transcriptRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [sessions, sessionKey, isHome]);
+    if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) composerRef.current?.focus();
+  }, [isHome]);
+
+  // The shell owns the layout animations. The transcript waits on their real
+  // completion, scrolls on its own timeline, then reveals the pending entries.
+  // A new navigation cancels this sequence, so an old completion cannot pull
+  // the chat back to a destination the user has already left.
+  useEffect(() => {
+    const pending = conversationStore.getSnapshot().presentation;
+    if (!pending || pending.sessionKey !== sessionKey || pending.scopeKey !== scope.key) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    sequence.current = controller;
+    async function present() {
+      await waitForLayout(signal);
+      const container = transcriptRef.current;
+      if (!container) return;
+      container.style.setProperty("--transcript-height", `${container.clientHeight}px`);
+      const messages = conversationStore.getSnapshot().sessions[sessionKey]?.messages ?? [];
+      const last = messages.at(-1);
+      const previous = messages.at(-2);
+      const anchor = last?.role === "agent" && (previous?.role === "user" || previous?.role === "context") ? previous : last;
+      const entry = container.querySelector<HTMLElement>(`[data-message-id="${anchor?.id}"]`);
+      conversationStore.advancePresentation(pending!.revision, "scrolling");
+      await nextFrame(signal);
+      if (entry) await scrollToEntry(container, entry, signal);
+      conversationStore.advancePresentation(pending!.revision, "revealing");
+      await waitForMotion(() => Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]"))
+        .filter((element) => Number(element.dataset.messageId) > pending!.afterId)
+        .flatMap((element) => element.getAnimations()), signal);
+      conversationStore.advancePresentation(pending!.revision, "complete");
+    }
+    void present().catch((error) => {
+      if (!signal.aborted) {
+        conversationStore.advancePresentation(pending.revision, "complete");
+        console.error("Could not complete the conversation transition", error);
+      }
+    });
+    return () => { controller.abort(); };
+  }, [scrollRevision, sessionKey, scope.key, layoutKey, waitForLayout, conversationStore]);
+
+  // Measurement only: resizing must never snap to the incoming message.
+  useEffect(() => {
+    const container = transcriptRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => {
+      container.style.setProperty("--transcript-height", `${container.clientHeight}px`);
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  function interruptScroll() {
+    const pending = conversationStore.getSnapshot().presentation;
+    if (pending?.phase !== "scrolling") return;
+    sequence.current?.abort();
+    conversationStore.advancePresentation(pending.revision, "complete");
+  }
+
+  function explore(surface: SurfaceApp) {
+    applyEvent({ type: "surface", scopeKey: surface.id, label: surface.label, reply: SURFACE_QUESTIONS[surface.id], force: true });
+  }
+
+  function resumeWork(work: ReturningWork) {
+    const surface = surfaceAppById(work.surfaceId);
+    applyEvent({ type: "surface", scopeKey: surface.id, label: surface.label, force: true,
+      reply: `I’ve opened “${work.title}”. ${work.summary} ${work.attention ? "Let’s review what needs your decision." : "What would you like to do next?"}`,
+    });
+    openWork(work);
+  }
 
   function seedPrompt(prompt: string) {
     setDraft((current) => current.trim() && !isStarterPrompt(current) ? `${current.trim()}\n\n${prompt}` : prompt);
@@ -204,7 +241,7 @@ export function AgentPanel() {
     if (!value) return;
 
     if (!profile) return;
-    const destination = isHome ? recommendApp(value, profile) : null;
+    const destination = isHome || isStarterPrompt(value) ? recommendApp(value, profile) : null;
 
     const projectFindings = improvement?.workItems.flatMap((item) => {
       const finding = ASSESSMENT_FINDINGS.find((finding) => finding.id === item.findingId);
@@ -221,7 +258,7 @@ export function AgentPanel() {
       : profile.onboarding
         ? /project/i.test(value) ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, sandbox, and work item plans, then choose Create project."
           : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Each finding includes sample evidence and an approach to investigate. Review the scope and findings on the home screen."
-      : isHome
+      : destination
       ? `I’d start this in ${destination!.label}. I’ll carry your goal and the context we establish here into that workspace.`
       : !hasProjects
         ? `This is a wireframe response scoped to ${scope.label}. In the full experience I’d help you establish the project context as we begin.`
@@ -229,69 +266,53 @@ export function AgentPanel() {
             showWorktree ? ` · ${activeWorktree.label}` : ""
           } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
 
-    setSessions((current) => {
-      const existing = current[sessionKey] ?? (isHome ? [] : seedThread(scope));
-      return {
-        ...current,
-        [sessionKey]: [
-          ...existing,
-          { id: nextId.current++, role: "user", text: value },
-          { id: nextId.current++, role: "agent", text: reply },
-        ],
-      };
+    applyEvent({ type: "send", text: value, reply,
+      destination: destination ? { key: destination.id, label: destination.label } : undefined,
     });
     setDraft("");
-    if (destination) router.push(destination.href);
+    if (destination) router.push(destination.href, { scroll: false });
   }
 
   return (
-    <section className={styles.agent} data-view={isHome ? "home" : "surface"} aria-label="Agent">
-      <div className={styles.streamStage}>
-        <div className={styles.homeStream} aria-hidden={!isHome} inert={!isHome}>
-          <FrontDoor onSeedPrompt={seedPrompt} />
-        </div>
-
-        <div className={styles.conversationStream} ref={conversationRef} aria-hidden={isHome} inert={isHome}>
-          <header className={styles.heading}>
-            <span className={styles.avatar} aria-hidden="true">
-              <SparklesIcon width={21} height={21} />
-            </span>
-            <div className={styles.headingText}>
-              <p className={styles.kicker}>Agent</p>
-              <h2 id="agent-heading">{scope.heading}</h2>
-              <p className={styles.intro}>{scope.intro}</p>
-            </div>
-          </header>
-
-          <div className={styles.transcript} ref={transcriptRef} role="log" aria-live={isHome ? "off" : "polite"}>
-            {thread.map((message) =>
-              message.role === "context" ? (
-                <div key={message.id} className={styles.contextMarker}>
-                  <span>{message.text}</span>
-                </div>
-              ) : (
-                <div key={message.id} className={`${styles.message} ${styles[message.role]}`}>
-                  <div className={styles.bubble}>{message.text}</div>
-                </div>
-              ),
-            )}
-          </div>
-
-          <div className={styles.suggestions} aria-label="Suggested prompts">
-            {scope.suggestions.map((prompt) => (
-              <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>
-            ))}
-          </div>
-          <p className={styles.prototypeNote}>The prototype is not connected to a model yet.</p>
+    <section className={styles.agent} data-view={isHome ? "home" : "surface"} data-motion={presentation?.phase ?? "idle"} aria-label="Agent">
+      <header className={styles.heading}>
+        <span className={styles.avatar} aria-hidden="true"><SparklesIcon width={18} height={18} /></span>
+        <h1>Agent</h1>
+        <span className={styles.scopeChip}>{isHome ? "Today" : scope.label}</span>
+      </header>
+      <div className={styles.transcript} ref={transcriptRef} role="log" aria-label="Conversation" aria-live="polite"
+        onWheel={interruptScroll}
+        onTouchStart={interruptScroll}
+        onPointerDown={interruptScroll}
+        onKeyDown={(event) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interruptScroll(); }}>
+        <div className={styles.thread} ref={threadRef}>
+          {thread.map((message, index) => {
+            const pending = presentation?.sessionKey === sessionKey && presentation.phase !== "revealing" && message.id > presentation.afterId;
+            return <div aria-hidden={pending || undefined} inert={pending} data-pending={pending || undefined} key={`${sessionKey}:${message.id}`} className={styles.entry} data-message-id={message.id} data-kind={message.role}>
+            {message.role === "today" ? <article className={styles.todaySection} aria-label="Today briefing">
+              <header className={styles.todayHeader}>
+                <span><SparklesIcon width={15} height={15} aria-hidden="true" /><strong>Today</strong></span>
+                <time dateTime={message.snapshot.capturedAt} title={new Date(message.snapshot.capturedAt).toLocaleString()}>
+                  {new Date(message.snapshot.capturedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  {" · "}{new Date(message.snapshot.capturedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                </time>
+              </header>
+              <FrontDoor snapshot={message.snapshot} active={isHome && index === thread.length - 1} onSeedPrompt={seedPrompt} onExplore={explore} onOpenWork={resumeWork} />
+            </article> : message.role === "context" ? <div className={styles.contextMarker}><span>{message.text}</span></div>
+              : <div className={`${styles.message} ${styles[message.role]}`}><div className={styles.bubble}>{message.text}</div></div>}
+            {index === thread.length - 1 && message.role !== "today" && <>
+              <div className={styles.suggestions} aria-label="Suggested prompts">
+                {scope.suggestions.map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>)}
+              </div>
+              <p className={styles.prototypeNote}>The prototype is not connected to a model yet.</p>
+            </>}
+          </div>})}
         </div>
       </div>
 
       {/* This form is never keyed, swapped, or faded. Its bounds follow the
           panel's width, retaining the textarea node, selection, and draft. */}
       <div className={styles.composerDock}>
-        <div className={styles.conversationHeading} aria-hidden={!isHome}>
-          <span>{returning ? "What would you like to work on?" : "Or start with a conversation"}</span>
-        </div>
         <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); send(); }}>
           <label className={styles.srOnly} htmlFor="agent-composer">Message the agent</label>
           <textarea
