@@ -230,3 +230,17 @@
   .itemNumber { display: none; }
   .assessmentFoot > span { flex-wrap: wrap; }
 }
+
+.briefingFields { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.briefingFields:disabled input { cursor: default; }
+.hero .briefingTitle { margin: 0.65rem 0; font-size: clamp(1.5rem, 3.2vw, 2.4rem); font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; text-wrap: balance; }
+@container today (max-width: 650px) {
+  .findingGrid, .orgList, .formRow { grid-template-columns: 1fr; }
+  .connection, .assessmentHead, .assessmentFoot, .selectionBar { flex-wrap: wrap; }
+  .assessment { padding: 1rem 1rem 0; }
+  .assessmentHead > div { flex: 1; min-width: 10rem; }
+  .sectionHead { align-items: flex-start; flex-direction: column; }
+  .connection .textButton { margin-inline-start: 0; }
+  .scanStatus { margin-inline-start: 0; }
+  .metric { flex-wrap: wrap; }
+}

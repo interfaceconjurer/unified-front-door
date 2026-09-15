@@ -67,13 +67,9 @@
    rather than the whole viewport. `position: relative` anchors the surface
    overlay; `overflow: hidden` clips it while it's parked off the right edge. */
 .split {
-  /* Both directions: dissolve the stream, move the panel, then refocus. */
-  --agent-stream-duration: var(--shell-motion-duration);
-  --agent-stream-blur: var(--shell-motion-blur);
-  --agent-stream-easing: var(--shell-motion-easing);
+  /* The conversation stays visible as space opens for the surface. */
   --agent-move-duration: 440ms;
-  --agent-move-delay: var(--agent-stream-duration);
-  --agent-reveal-delay: calc(var(--agent-move-delay) + var(--agent-move-duration));
+  --agent-move-delay: 0ms;
   container-type: inline-size;
   position: relative;
   flex: 1 1 0;

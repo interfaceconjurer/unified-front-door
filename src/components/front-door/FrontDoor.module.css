@@ -7,24 +7,16 @@
   width: 100%;
   min-width: 0;
   min-height: 0;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-}
-
-.scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .content {
-  width: min(62rem, 100%);
-  margin-inline: auto;
-  padding: clamp(2rem, 4vh, 3.5rem) 2rem 1.5rem;
+  width: 100%;
+  padding: 1rem 0 1.5rem;
 }
 
 .hero {
   margin-block-end: clamp(1.75rem, 3vh, 2.5rem);
-  text-align: center;
+  text-align: start;
 }
 
 .welcome {
@@ -33,7 +25,7 @@
   font-size: 0.875rem;
 }
 
-.hero h1 {
+.hero > h2 {
   margin: 0;
   color: var(--slds-g-color-on-surface-3, #03234d);
   font-size: clamp(1.75rem, 3.5vw, 2.5rem);
@@ -217,9 +209,9 @@
   border-color: var(--slds-g-color-accent-2, #0176d3);
 }
 
-@media (max-width: 700px) {
+@container today (max-width: 600px) {
   .content {
-    padding: 2rem 1.25rem 1rem;
+    padding: 1rem 0;
   }
 
   .starterGrid {
@@ -247,14 +239,8 @@
   }
 }
 
-@media (max-height: 700px) {
-  .content {
-    padding-block-start: 1.75rem;
-  }
 
-  .hero {
-    margin-block-end: 1.75rem;
-  }
+@container today (max-width: 420px) {
+  .hero > h2 { font-size: 1.5rem; }
+  .cardTop { flex-wrap: wrap; }
 }
-
-.returning .content { padding-block-start: 1.75rem; }

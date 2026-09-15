@@ -1,6 +1,6 @@
 /**
- * The front door's content lives in the persistent AgentPanel's stream, so its
- * composer stays mounted as the shell makes room for a surface.
+ * Today is a briefing in the persistent AgentPanel's conversation. The thread
+ * and composer stay mounted as the shell makes room for a surface.
  * The route itself therefore renders no surface-pane content.
  */
 export default function Home() {

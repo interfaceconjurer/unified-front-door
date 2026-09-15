@@ -8,8 +8,10 @@ import {
   SparklesIcon,
   type IconComponent,
 } from "@/components/icons";
-import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { useId } from "react";
 import { canAccessSurface } from "@/lib/demo-profiles";
+import type { ReturningWork } from "@/lib/workspace/returning-work";
+import type { TodaySnapshot } from "./today-snapshot";
 import { surfaceApps, type SurfaceApp } from "./app-catalog";
 import { ReturningHome } from "./ReturningHome";
 import { DayZeroHome } from "@/components/onboarding/DayZeroHome";
@@ -64,9 +66,16 @@ export function isStarterPrompt(value: string): boolean {
   return STARTERS.some((starter) => starter.prompt === value) || value === EXISTING_PROJECT_PROMPT;
 }
 
-/** The welcome/assessment content occupies the persistent agent's stream area. */
-export function FrontDoor({ onSeedPrompt }: { onSeedPrompt: (prompt: string) => void }) {
-  const { profile } = useDemoProfile();
+/** An interactive briefing embedded in the conversation, with no inner scroll. */
+export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWork }: {
+  snapshot: TodaySnapshot;
+  active: boolean;
+  onSeedPrompt: (prompt: string) => void;
+  onExplore: (surface: SurfaceApp) => void;
+  onOpenWork: (work: ReturningWork) => void;
+}) {
+  const { profile } = snapshot;
+  const id = useId();
   const availableSurfaces = profile
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
@@ -82,25 +91,24 @@ export function FrontDoor({ onSeedPrompt }: { onSeedPrompt: (prompt: string) => 
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
   return (
-    <main className={`${styles.frontDoor} ${returning ? styles.returning : ""}`} aria-labelledby="front-door-heading">
-      <div className={styles.scroll}>
+    <div className={styles.frontDoor}>
         <div className={styles.content}>
-          {dayZero ? <DayZeroHome /> : returning ? <ReturningHome /> : <>
+          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} onExplore={onExplore} /> : returning ? <ReturningHome snapshot={snapshot} onExplore={onExplore} onOpenWork={onOpenWork} /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
             </p>
-            <h1 id="front-door-heading">What will you build first?</h1>
+            <h2>What will you build first?</h2>
             <p className={styles.intro}>
               Your tools, your ideas, and an agent to help you bring them to life.
             </p>
           </header>
 
-          <SurfaceNav />
+          <SurfaceNav onExplore={onExplore} />
 
-          <section className={styles.starters} aria-labelledby="starters-heading">
+          <section className={styles.starters} aria-labelledby={`${id}-starters`}>
             <div className={styles.sectionHeading}>
-              <h2 id="starters-heading">A few ways to get started</h2>
+              <h2 id={`${id}-starters`}>A few ways to get started</h2>
               <p>Pick an idea and make it yours.</p>
             </div>
             <ul className={styles.starterGrid}>
@@ -147,8 +155,6 @@ export function FrontDoor({ onSeedPrompt }: { onSeedPrompt: (prompt: string) => 
           )}
           </>}
         </div>
-      </div>
-
-    </main>
+    </div>
   );
 }
