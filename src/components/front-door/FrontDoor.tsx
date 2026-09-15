@@ -11,8 +11,10 @@ import {
 import { useId } from "react";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
+import type { CanvasSpecInput } from "@/lib/surface-canvas/model";
+import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
 import type { TodaySnapshot } from "./today-snapshot";
-import { surfaceApps, type SurfaceApp } from "./app-catalog";
+import { surfaceApps, surfaceAppById, type SurfaceApp } from "./app-catalog";
 import { ReturningHome } from "./ReturningHome";
 import { DayZeroHome } from "@/components/onboarding/DayZeroHome";
 import { SurfaceNav } from "./SurfaceNav";
@@ -22,7 +24,9 @@ type Starter = {
   title: string;
   description: string;
   surfaceId: SurfaceApp["id"];
+  capabilityId: string;
   fallbackSurfaceId?: SurfaceApp["id"];
+  fallbackCapabilityId?: string;
   Icon: IconComponent;
   prompt: string;
 };
@@ -32,6 +36,7 @@ const STARTERS: readonly Starter[] = [
     title: "Start your first project",
     description: "Define your goal, set up work items, and plan your first steps.",
     surfaceId: "alm",
+    capabilityId: "project",
     Icon: ListCheckIcon,
     prompt: "Help me start my first project. Walk me through defining its goal, creating and prioritizing work items, and choosing the first task to work on.",
   },
@@ -39,6 +44,7 @@ const STARTERS: readonly Starter[] = [
     title: "Build your first agent",
     description: "Give an agent a job to do, connect your data, and try it out.",
     surfaceId: "build",
+    capabilityId: "agent",
     Icon: SparklesIcon,
     prompt: "Help me build an agent that qualifies and routes leads. Walk me through defining its instructions, connecting data, and trying it out.",
   },
@@ -46,7 +52,9 @@ const STARTERS: readonly Starter[] = [
     title: "Build a React app",
     description: "Create a custom app with React, connected to your Salesforce data.",
     surfaceId: "code",
+    capabilityId: "react-app",
     fallbackSurfaceId: "build",
+    fallbackCapabilityId: "experience",
     Icon: PuzzleIcon,
     prompt: "Help me build a React app for browsing and searching Salesforce accounts. Walk me through the app structure, connecting Salesforce data, and adding tests.",
   },
@@ -54,6 +62,7 @@ const STARTERS: readonly Starter[] = [
     title: "Set up a release pipeline",
     description: "Explore how to take your first change from a sandbox to production.",
     surfaceId: "alm",
+    capabilityId: "pipeline",
     Icon: GitBranchIcon,
     prompt: "Help me set up my first release pipeline. Walk me through connecting a repository, validating changes in a sandbox, and adding a production approval step.",
   },
@@ -67,10 +76,10 @@ export function isStarterPrompt(value: string): boolean {
 }
 
 /** An interactive briefing embedded in the conversation, with no inner scroll. */
-export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWork }: {
+export function FrontDoor({ snapshot, active, onOpenCanvas, onExplore, onOpenWork }: {
   snapshot: TodaySnapshot;
   active: boolean;
-  onSeedPrompt: (prompt: string) => void;
+  onOpenCanvas: (surface: SurfaceApp, canvas: CanvasSpecInput, prompt: string) => void;
   onExplore: (surface: SurfaceApp) => void;
   onOpenWork: (work: ReturningWork) => void;
 }) {
@@ -82,7 +91,7 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
   const starters = STARTERS.flatMap((starter) => {
     if (availableSurfaces.some((surface) => surface.id === starter.surfaceId)) return [starter];
     if (starter.fallbackSurfaceId && availableSurfaces.some((surface) => surface.id === starter.fallbackSurfaceId)) {
-      return [{ ...starter, surfaceId: starter.fallbackSurfaceId }];
+      return [{ ...starter, surfaceId: starter.fallbackSurfaceId, capabilityId: starter.fallbackCapabilityId! }];
     }
     return [];
   });
@@ -90,11 +99,18 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
   const dayZero = profile?.onboarding === "org-assessment";
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
+  function openStarter(surfaceId: SurfaceApp["id"], capabilityId: string, prompt: string) {
+    const capability = capabilityForCanvas(surfaceId, capabilityId);
+    if (!capability) return;
+    onOpenCanvas(surfaceAppById(surfaceId), { kind: "capability", title: capability.label,
+      params: { surface: surfaceId, capability: capabilityId } }, prompt);
+  }
+
   return (
     <div className={styles.frontDoor}>
-        <div className={styles.content}>
-          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} onExplore={onExplore} /> : returning ? <ReturningHome snapshot={snapshot} onExplore={onExplore} onOpenWork={onOpenWork} /> : <>
-          <header className={styles.hero}>
+        <fieldset className={styles.content} disabled={!active}>
+          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} onExplore={onExplore} /> : returning ? <ReturningHome snapshot={snapshot} readOnly={!active} onExplore={onExplore} onOpenWork={onOpenWork} /> : <>
+          <header className={styles.hero} data-front-door-row="1">
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
             </p>
@@ -104,9 +120,9 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
             </p>
           </header>
 
-          <SurfaceNav onExplore={onExplore} />
+          <SurfaceNav onExplore={onExplore} revealOrder={2} readOnly={!active} />
 
-          <section className={styles.starters} aria-labelledby={`${id}-starters`}>
+          <section className={styles.starters} data-front-door-row="3" aria-labelledby={`${id}-starters`}>
             <div className={styles.sectionHeading}>
               <h2 id={`${id}-starters`}>A few ways to get started</h2>
               <p>Pick an idea and make it yours.</p>
@@ -118,7 +134,7 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
                     type="button"
                     className={styles.starterCard}
                     data-surface={starter.surfaceId}
-                    onClick={() => onSeedPrompt(starter.prompt)}
+                    onClick={() => openStarter(starter.surfaceId, starter.capabilityId, starter.prompt)}
                   >
                     <span className={styles.cardTop}>
                       <span className={styles.starterIcon} aria-hidden="true">
@@ -130,8 +146,8 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
                     </span>
                     <strong className={styles.starterTitle}>{starter.title}</strong>
                     <span className={styles.starterDescription}>{starter.description}</span>
-                    <span className={styles.starterAction}>
-                      Try with the agent
+                    <span className={styles.starterAction} data-today-action>
+                      Open in {surfaceAppById(starter.surfaceId).label}
                       <ChevronRightIcon width={15} height={15} aria-hidden="true" />
                     </span>
                   </button>
@@ -141,20 +157,20 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
           </section>
 
           {canUseCode && (
-            <div className={styles.existingProject}>
+            <div className={styles.existingProject} data-front-door-row="4">
               <GitBranchIcon className={styles.existingIcon} width={20} height={20} aria-hidden="true" />
               <div className={styles.existingCopy}>
                 <h2>Have a project already?</h2>
                 <p>Start with your codebase and get to know what you can do here.</p>
               </div>
-              <button type="button" onClick={() => onSeedPrompt(EXISTING_PROJECT_PROMPT)}>
+              <button type="button" data-today-action onClick={() => openStarter("code", "sfdx-project", EXISTING_PROJECT_PROMPT)}>
                 Bring your project
                 <ChevronRightIcon width={15} height={15} aria-hidden="true" />
               </button>
             </div>
           )}
           </>}
-        </div>
+        </fieldset>
     </div>
   );
 }

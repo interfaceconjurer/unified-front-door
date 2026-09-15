@@ -1,18 +1,22 @@
 /* Browser snapshots preserve the outgoing canvas without mounting two live
    surfaces. The incoming canvas lands above it inside the same pane. */
-::view-transition-group(.surface-swap) {
+::view-transition-group(.surface-swap),
+html[data-canvas-switch]::view-transition-group(canvas-content) {
   animation-duration: 500ms;
   animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
   overflow: clip;
   pointer-events: none;
 }
 
-::view-transition-image-pair(.surface-swap) {
+::view-transition-image-pair(.surface-swap),
+html[data-canvas-switch]::view-transition-image-pair(canvas-content) {
   isolation: isolate;
 }
 
 ::view-transition-old(.surface-swap),
-::view-transition-new(.surface-swap) {
+::view-transition-new(.surface-swap),
+html[data-canvas-switch]::view-transition-old(canvas-content),
+html[data-canvas-switch]::view-transition-new(canvas-content) {
   height: 100%;
   mix-blend-mode: normal;
   object-fit: none;
@@ -20,14 +24,27 @@
   transform-origin: center;
 }
 
-::view-transition-old(.surface-swap) {
+::view-transition-old(.surface-swap),
+html[data-canvas-switch]::view-transition-old(canvas-content) {
   z-index: 1;
   animation: surface-recede 400ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
-::view-transition-new(.surface-swap) {
+::view-transition-new(.surface-swap),
+html[data-canvas-switch]::view-transition-new(canvas-content) {
   z-index: 2;
   animation: surface-land 500ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+/* Tab changes capture only the raised canvas, leaving all shell controls live. */
+html[data-canvas-switch]::view-transition {
+  pointer-events: none;
+}
+html[data-canvas-switch]::view-transition-group(canvas-content) {
+  border-radius: 12px;
+}
+[data-workspace-content="surface"][data-canvas-switch] {
+  pointer-events: none;
 }
 
 @keyframes surface-recede {
@@ -63,7 +80,10 @@
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(.surface-swap),
   ::view-transition-old(.surface-swap),
-  ::view-transition-new(.surface-swap) {
+  ::view-transition-new(.surface-swap),
+  html[data-canvas-switch]::view-transition-group(canvas-content),
+  html[data-canvas-switch]::view-transition-old(canvas-content),
+  html[data-canvas-switch]::view-transition-new(canvas-content) {
     animation: none;
   }
 }

@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import type { SurfaceId } from "@/lib/workspace/model";
-import { OVERVIEW_CANVAS, type CanvasSpec, type CanvasSpecInput } from "@/lib/surface-canvas/model";
+import { canvasesForProject, OVERVIEW_CANVAS, type CanvasSpec, type CanvasSpecInput } from "@/lib/surface-canvas/model";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getSurfaceCanvasStore } from "@/lib/surface-canvas/persistence";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 
 type SurfaceCanvasContextValue = {
   /** The full tab list for a surface, overview synthesized at index 0. */
@@ -37,25 +38,35 @@ const SurfaceCanvasContext = createContext<SurfaceCanvasContextValue | null>(nul
  */
 export function SurfaceCanvasProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useDemoProfile();
+  const { activeProject, hasProjects } = useWorkspace();
+  const projectId = hasProjects ? activeProject.id : null;
   const surfaceCanvasStore = getSurfaceCanvasStore(profile?.id ?? "jw");
   const state = useSyncExternalStore(
     surfaceCanvasStore.subscribe,
     surfaceCanvasStore.getSnapshot,
     surfaceCanvasStore.getServerSnapshot,
   );
+  useEffect(() => {
+    if (projectId) surfaceCanvasStore.adoptUnscopedCanvases(projectId);
+  }, [projectId, surfaceCanvasStore]);
 
   const value = useMemo<SurfaceCanvasContextValue>(
     () => ({
       // The overview is prepended here, not stored, so index 0 is always the
       // pinned launch pad and the persisted list holds only launched canvases.
-      canvasesFor: (surfaceId) => [OVERVIEW_CANVAS, ...state[surfaceId].canvases],
-      activeCanvasIdFor: (surfaceId) => state[surfaceId].activeCanvasId,
-      openCanvas: surfaceCanvasStore.openCanvas,
+      canvasesFor: (surfaceId) => [OVERVIEW_CANVAS, ...canvasesForProject(state[surfaceId].canvases, projectId)],
+      activeCanvasIdFor: (surfaceId) => {
+        const slice = state[surfaceId];
+        return canvasesForProject(slice.canvases, projectId).some((canvas) => canvas.id === slice.activeCanvasId)
+          ? slice.activeCanvasId : OVERVIEW_CANVAS.id;
+      },
+      openCanvas: (surfaceId, spec) => surfaceCanvasStore.openCanvas(surfaceId, projectId && !spec.params?.projectId
+        ? { ...spec, params: { ...spec.params, projectId } } : spec),
       closeCanvas: surfaceCanvasStore.closeCanvas,
       setActiveCanvas: surfaceCanvasStore.setActiveCanvas,
       updateDraft: surfaceCanvasStore.updateDraft,
     }),
-    [state, surfaceCanvasStore],
+    [state, surfaceCanvasStore, projectId],
   );
 
   return <SurfaceCanvasContext.Provider value={value}>{children}</SurfaceCanvasContext.Provider>;

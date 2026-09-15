@@ -7,7 +7,7 @@
   min-height: 3.5rem;
   flex: 0 0 auto;
   padding-inline: var(--slds-g-spacing-4, 1rem);
-  background: var(--slds-g-color-surface-1, #fff);
+  background: var(--workspace-background-chrome);
   border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
 }
@@ -93,6 +93,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--slds-g-spacing-2, 0.5rem);
+  width: 26rem;
   min-height: 2rem;
   padding: 0.25rem 0.4rem 0.25rem 0.65rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
@@ -114,9 +115,12 @@
 
 .commandLabel {
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .commandKbd {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-1, 0.25rem);
@@ -203,6 +207,10 @@
   .commandLabel,
   .commandKbd {
     display: none;
+  }
+
+  .commandTrigger {
+    width: auto;
   }
 }
 

@@ -126,6 +126,12 @@ export type ProjectDraft = {
   findingIds: string[];
 };
 
+export function projectCreatedReply(project: ImprovementProject): string {
+  const count = project.workItems.length;
+  const target = ASSESSMENT_ORGS.find((org) => org.id === project.targetOrgId)?.label ?? "your sandbox";
+  return `I’ve created “${project.name}” from the opportunities you selected.\n\n${project.goal}\n\nYour plan has ${count} work ${count === 1 ? "item" : "items"}, with implementation steps and acceptance criteria. We’ll use ${target} to validate the changes.\n\nWhat would you like to do next? We can review the plan, choose the first work item, or work through how we’ll validate the improvements.`;
+}
+
 export function workspaceProject(project: ImprovementProject): Project {
   return {
     id: project.id, name: project.name, description: project.goal,

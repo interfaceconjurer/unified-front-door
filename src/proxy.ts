@@ -1,10 +1,11 @@
 // Server-side HTTP Basic Auth gate for the whole app, mirroring the Express
 // gate used by the sf-heroku-compute prototype but expressed as a Next.js
 // proxy (the Next 16 successor to `middleware`; runs before every request).
+// Local development skips this gate; production always requires credentials.
 //
 // Credentials come from environment (Heroku config vars), never committed:
 //   BASIC_AUTH_USER      username for the browser prompt (default: "guest")
-//   BASIC_AUTH_PASSWORD  shared password (required; the gate fails closed if unset)
+//   BASIC_AUTH_PASSWORD  shared password (required outside development)
 import { NextRequest, NextResponse } from "next/server";
 
 const REALM = "Unified Front Door prototype";
@@ -32,6 +33,10 @@ function challenge(): NextResponse {
 }
 
 export function proxy(req: NextRequest): NextResponse {
+  if (process.env.NODE_ENV === "development") {
+    return NextResponse.next();
+  }
+
   const expectedUser = process.env.BASIC_AUTH_USER || "guest";
   const expectedPass = process.env.BASIC_AUTH_PASSWORD;
 

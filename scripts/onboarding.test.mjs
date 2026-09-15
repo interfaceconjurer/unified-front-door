@@ -16,7 +16,7 @@ for (const name of ["assessment", "persistence"]) {
 }
 const require = createRequire(import.meta.url);
 const { AssessmentStore, parseAssessment } = require(join(output, "persistence.js"));
-const { findingsForScope, ASSESSMENT_STEPS } = require(join(output, "assessment.js"));
+const { findingsForScope, ASSESSMENT_STEPS, projectCreatedReply } = require(join(output, "assessment.js"));
 
 let storage;
 beforeEach(() => {
@@ -101,6 +101,39 @@ test("repeated creation does not duplicate work and rescans preserve existing pr
   store.rescan(["sit"]);
   assert.equal(store.getSnapshot().projects.length, 1);
   assert.equal(store.getSnapshot().draft, null);
+});
+
+test("project creation prepares its context before subscribers can select it", () => {
+  const store = completedStore();
+  draft(store);
+  let preparedId;
+  let calls = 0;
+  store.subscribe(() => {
+    assert.equal(store.getSnapshot().projects.at(-1).id, preparedId);
+  });
+  const beforePublish = project => {
+    calls++;
+    assert.equal(store.getSnapshot().projects.length, 0);
+    preparedId = project.id;
+  };
+  const project = store.createProject("Sam Patel", beforePublish);
+  assert.equal(preparedId, project.id);
+  assert.equal(store.createProject("Sam Patel", beforePublish), null);
+  assert.equal(calls, 1);
+});
+
+test("the creation welcome describes the saved project and offers a next step", () => {
+  const store = completedStore();
+  draft(store);
+  const project = store.createProject("Sam Patel");
+  const reply = projectCreatedReply(project);
+  assert.ok(reply.includes(`I’ve created “${project.name}”`));
+  assert.ok(reply.includes(project.goal));
+  assert.ok(reply.includes("2 work items"));
+  assert.ok(reply.includes("SIT Sandbox"));
+  assert.ok(reply.includes("What would you like to do next?"));
+  draft(store, ["release-drift"]);
+  assert.ok(projectCreatedReply(store.createProject("Sam Patel")).includes("1 work item,"));
 });
 
 test("malformed saved state is sanitized without exposing inaccessible findings", () => {

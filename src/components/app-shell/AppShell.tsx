@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AgentPanel } from "@/components/chat/AgentPanel";
+import { ConversationProvider } from "@/components/chat/ConversationProvider";
 import { surfaceAppById, surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
@@ -149,11 +150,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkspaceProvider key={profile.id}>
+      <ConversationProvider>
       {/* Peer of the workspace: per-surface canvas ("workstage") state, mounted
           above the router outlet so a surface's open tabs survive route content
           swaps (and, via its persisted store, a reload). */}
       <SurfaceCanvasProvider>
-      <div className={styles.shell} ref={shellRef}>
+      <div className={styles.shell} ref={shellRef} data-workspace-shell>
         <TopBar
           onOpenHome={() => { if (isFrontDoor) setHomeRequest((value) => value + 1); }}
           onOpenPalette={() => openPalette("surfaces")}
@@ -174,7 +176,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`}
+                data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
@@ -212,6 +215,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
       </SurfaceCanvasProvider>
+      </ConversationProvider>
     </WorkspaceProvider>
   );
 }

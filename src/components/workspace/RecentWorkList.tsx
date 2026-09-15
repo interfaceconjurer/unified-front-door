@@ -10,13 +10,13 @@ import styles from "./RecentWorkList.module.css";
 
 export function useOpenWork() {
   const router = useRouter();
-  const { setActiveProject, setActiveWorktree } = useWorkspace();
+  const { switchWorkspace } = useWorkspace();
   const { openCanvas } = useSurfaceCanvases("code");
   return (work: ReturningWork) => {
-    setActiveProject(work.projectId);
-    setActiveWorktree(work.worktreeId, work.projectId);
-    openCanvas(work.surfaceId, workCanvasInput(work));
-    router.push(surfaceAppById(work.surfaceId).href);
+    switchWorkspace(work.projectId, work.worktreeId, () => {
+      openCanvas(work.surfaceId, workCanvasInput(work));
+      router.push(surfaceAppById(work.surfaceId).href);
+    }, work.surfaceId);
   };
 }
 
@@ -45,7 +45,7 @@ export function RecentWorkList({ items, onOpenWork }: {
               <span>{work.kind} · {project?.worktrees.find((tree) => tree.id === work.worktreeId)?.branch ?? work.worktreeId}</span>
             </span>
             <span className={styles.meta}><WorkStatusBadge work={work} /><span className={styles.updated}>{work.updated}</span></span>
-            <ChevronRightIcon className={styles.arrow} width={15} height={15} aria-hidden="true" />
+            <ChevronRightIcon className={styles.arrow} data-today-action width={15} height={15} aria-hidden="true" />
           </button>
         </li>;
       })}

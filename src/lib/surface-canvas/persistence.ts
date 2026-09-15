@@ -108,6 +108,43 @@ function parseSlice(value: unknown): SurfaceCanvasSlice {
   return { canvases, activeCanvasId, closedDrafts };
 }
 
+/** Keep owned canvas kinds on their surface, including tabs from older builds. */
+function canvasSurface(surfaceId: SurfaceId, kind: string, id: string): SurfaceId {
+  if (["app", "improvement-project", "project-creation"].includes(kind)) return "alm";
+  if (kind === "org-assessment") return "govern";
+  if (kind === "work") {
+    const work = RETURNING_WORK.find((work) => {
+      const input = workCanvasInput(work);
+      return canvasId(input.kind, input.params) === id;
+    });
+    if (work) return work.surfaceId;
+  }
+  return surfaceId;
+}
+
+function migrateSurfaces(saved: PersistedCanvases): PersistedCanvases {
+  const result = emptyState();
+  for (const source of SURFACE_IDS) {
+    for (const canvas of saved[source].canvases) {
+      const target = result[canvasSurface(source, canvas.kind, canvas.id)];
+      const existing = target.canvases.find((entry) => entry.id === canvas.id);
+      if (existing) existing.draft = { ...existing.draft, ...canvas.draft };
+      else target.canvases.push({ ...canvas });
+      if (saved[source].activeCanvasId === canvas.id) target.activeCanvasId = canvas.id;
+    }
+    for (const [id, draft] of Object.entries(saved[source].closedDrafts ?? {})) {
+      const target = result[canvasSurface(source, id.split(":")[0]!, id)];
+      target.closedDrafts = { ...target.closedDrafts, [id]: { ...target.closedDrafts?.[id], ...draft } };
+    }
+  }
+  // Prefer an existing selection in the destination over an incoming tab.
+  for (const surface of SURFACE_IDS) {
+    const active = saved[surface].activeCanvasId;
+    if (result[surface].canvases.some((canvas) => canvas.id === active)) result[surface].activeCanvasId = active;
+  }
+  return result;
+}
+
 /** A corrupt/unparseable/wrong-shape blob is treated as "no saved state." The
  *  result always has an entry for every surface, so consumers never index a
  *  hole. This is the only place we deserialize this store's localStorage. */
@@ -115,9 +152,9 @@ function parseState(raw: string): PersistedCanvases {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) return EMPTY_STATE;
-    return Object.fromEntries(
+    return migrateSurfaces(Object.fromEntries(
       SURFACE_IDS.map((id) => [id, parseSlice(parsed[id])]),
-    ) as PersistedCanvases;
+    ) as PersistedCanvases);
   } catch {
     return EMPTY_STATE;
   }
@@ -186,6 +223,26 @@ class SurfaceCanvasStore {
     this.update(() => this.initialState);
   };
 
+  /** Older tool tabs had no owner. Assign them once to the current project,
+   * preserving drafts and selection instead of sharing them across projects. */
+  adoptUnscopedCanvases = (projectId: string): void => {
+    if (!SURFACE_IDS.some((id) => this.getSnapshot()[id].canvases.some((canvas) => !canvas.params?.projectId))) return;
+    this.update((current) => Object.fromEntries(SURFACE_IDS.map((surfaceId) => {
+      const slice = current[surfaceId];
+      let activeCanvasId = slice.activeCanvasId;
+      const owned = new Map<string, CanvasSpec>();
+      for (const canvas of slice.canvases) {
+        const params = canvas.params?.projectId ? canvas.params : { ...canvas.params, projectId };
+        const id = canvasId(canvas.kind as CanvasSpecInput["kind"], params);
+        if (activeCanvasId === canvas.id) activeCanvasId = id;
+        const existing = owned.get(id);
+        owned.set(id, { ...canvas, params, id,
+          draft: existing ? { ...existing.draft, ...canvas.draft } : canvas.draft });
+      }
+      return [surfaceId, { ...slice, canvases: [...owned.values()], activeCanvasId }];
+    })) as PersistedCanvases);
+  };
+
   private updateSlice(
     surfaceId: SurfaceId,
     update: (slice: SurfaceCanvasSlice) => SurfaceCanvasSlice,
@@ -198,7 +255,7 @@ class SurfaceCanvasStore {
    *  otherwise the new canvas is appended and activated. */
   openCanvas = (surfaceId: SurfaceId, input: CanvasSpecInput): void => {
     const id = canvasId(input.kind, input.params);
-    this.updateSlice(surfaceId, (slice) => {
+    this.updateSlice(canvasSurface(surfaceId, input.kind, id), (slice) => {
       const existing = slice.canvases.some((c) => c.id === id);
       return {
         ...slice,

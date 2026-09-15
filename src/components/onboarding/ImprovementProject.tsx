@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { CheckIcon, ChevronRightIcon, LayersIcon, SparklesIcon } from "@/components/icons";
 import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -12,12 +12,13 @@ import styles from "./onboarding.module.css";
 
 export function useOpenImprovementProject() {
   const router = useRouter();
+  const pathname = usePathname();
   const { openCanvas } = useSurfaceCanvases("alm");
   const { setActiveProject } = useWorkspace();
   return (project: ImprovementProject) => {
     setActiveProject(project.id);
     openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
-    router.push("/alm");
+    if (pathname !== "/alm") router.push("/alm", { scroll: false });
   };
 }
 

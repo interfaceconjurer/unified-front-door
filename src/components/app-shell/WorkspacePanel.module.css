@@ -5,7 +5,7 @@
   flex-direction: column;
   overflow: hidden;
   border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  background: var(--slds-g-color-surface-1, #fff);
+  background: var(--workspace-background-chrome);
 }
 
 .section {

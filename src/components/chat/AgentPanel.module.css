@@ -1,5 +1,6 @@
 .agent {
   --agent-content-inset: 1.5rem;
+  --chat-entry-inset: 1.25rem;
   --chat-scroll-duration: 650ms;
   --chat-scroll-easing: cubic-bezier(0.45, 0, 0.2, 1);
   --chat-reveal-duration: 240ms;
@@ -9,16 +10,17 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  background: var(--workspace-background-chat);
 }
 
 .heading {
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 0 0 var(--workspace-heading-height);
+  block-size: var(--workspace-heading-height);
   gap: 0.65rem;
-  padding: 0.85rem var(--agent-content-inset);
-  border-block-end: 1px solid color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 65%, transparent);
+  padding: 0 var(--agent-content-inset);
+  border-block-end: 1px solid var(--workspace-heading-border);
 }
 .heading h1 { margin: 0; font-size: 0.875rem; font-weight: 600; }
 .avatar { display: grid; place-items: center; color: var(--slds-g-color-accent-2, #0176d3); }
@@ -40,23 +42,57 @@
   overflow-x: hidden;
   overflow-anchor: auto;
   overscroll-behavior: contain;
+  scroll-padding-block-start: var(--chat-entry-inset);
   scrollbar-gutter: stable;
 }
 .thread {
-  width: min(62rem, 100%);
-  margin-inline: auto;
-  padding: 1.25rem var(--agent-content-inset);
+  width: min(var(--chat-content-width, 1200px), 100%);
+  margin-inline: var(--chat-content-offset, 0px) 0;
+  padding: var(--chat-entry-inset) var(--agent-content-inset);
+}
+
+/* Keep resizing and alignment on the panel timeline, including when the width
+   stays capped and only the centered column's left margin changes. */
+.thread, .composerDock {
+  transition: width var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    margin-inline-start var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease);
 }
 .entry {
-  padding-block-end: 1rem;
+  /* Clear the top inset, with room for fractional pixel rounding. */
+  padding-block-end: calc(var(--chat-entry-inset) + 0.25rem);
   opacity: 1;
   transition: opacity var(--chat-reveal-duration) ease;
 }
 .entry[data-pending] { opacity: 0; overflow-anchor: none; }
+/* Today reveals its rows individually once layout and scrolling have settled. */
+.entry[data-kind="today"] { transition: none; }
 /* Room below the newest turn lets it scroll to the top without discarding
    earlier entries. ResizeObserver measures the actual available chat height. */
-.entry:last-child { min-height: calc(var(--transcript-height, 0px) - 2.5rem); }
+.entry:last-child { min-height: calc(var(--transcript-height, 0px) - 2 * var(--chat-entry-inset)); }
 .todaySection { container: today / inline-size; }
+.todaySection [data-front-door-row="0"] { --front-door-order: 0; }
+.todaySection [data-front-door-row="1"] { --front-door-order: 1; }
+.todaySection [data-front-door-row="2"] { --front-door-order: 2; }
+.todaySection [data-front-door-row="3"] { --front-door-order: 3; }
+.todaySection [data-front-door-row="4"] { --front-door-order: 4; }
+.todaySection [data-front-door-row="5"] { --front-door-order: 5; }
+.todaySection [data-front-door-row="6"] { --front-door-order: 6; }
+.todaySection [data-front-door-row="7"] { --front-door-order: 7; }
+.todaySection[data-front-door-reveal="true"] [data-front-door-row] {
+  transform-origin: center top;
+  animation: front-door-row-in var(--shell-motion-duration, 500ms)
+    var(--shell-motion-easing, ease) calc(var(--front-door-order) * 75ms) both;
+}
+.entry[data-pending] [data-front-door-row],
+.transcript[data-workspace-switch="loading"] [data-front-door-row],
+.transcript[data-workspace-switch="leaving"] [data-front-door-row] {
+  animation-play-state: paused;
+}
+@keyframes front-door-row-in {
+  from { opacity: 0; filter: blur(6px); transform: translateY(10px) scale(0.985); }
+  72% { opacity: 1; filter: blur(0); transform: translateY(-1px) scale(1.003); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
 .todayHeader {
   display: flex;
   align-items: center;
@@ -70,6 +106,40 @@
 .todayHeader > span { display: inline-flex; align-items: center; gap: 0.5rem; }
 .todayHeader strong { color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.75rem; }
 .todayHeader svg { color: var(--slds-g-color-accent-2, #0176d3); }
+
+/* History changes only paint. Keep the same elements, grids, type, padding,
+   and transparent border widths so the briefing never changes shape. The
+   scoped overrides also cover selected cards and their hover treatments. */
+.todaySection[data-front-door-active="false"],
+.todaySection[data-front-door-active="false"] * {
+  color: light-dark(#6b6b6b, #8e8e8e) !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  text-decoration-color: transparent !important;
+  transition: color var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    background-color var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    border-color var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    box-shadow var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    opacity var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease),
+    visibility 0s var(--shell-motion-duration, 500ms) !important;
+}
+.todaySection[data-front-door-active="false"] [data-today-action] {
+  opacity: 0 !important;
+  visibility: hidden;
+}
+/* Surface navigation retains faint containers as a disabled navigation row. */
+.todaySection[data-front-door-active="false"] [data-today-surface-link] {
+  background-color: color-mix(in srgb, var(--slds-g-color-surface-1, #fff) 55%, transparent) !important;
+  border-color: color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 55%, transparent) !important;
+}
+.todaySection[data-front-door-active="false"] *::before,
+.todaySection[data-front-door-active="false"] *::after {
+  opacity: 0;
+  transition: opacity var(--shell-motion-duration, 500ms) var(--shell-motion-easing, ease);
+}
+.todaySection[data-front-door-reveal="false"] * { animation: none !important; }
 
 .message {
   display: flex;
@@ -97,6 +167,21 @@
   background: var(--slds-g-color-accent-1, #0176d3);
   color: var(--slds-g-color-on-accent-1, #fff);
 }
+
+.agentReply {
+  display: grid;
+  max-width: 100%;
+  min-width: 0;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.replyText, .replySizer { grid-area: 1 / 1; min-width: 0; }
+.replySizer { visibility: hidden; user-select: none; pointer-events: none; }
+.replyActions { opacity: 1; transition: opacity var(--chat-reveal-duration) ease; }
+.replyActions[data-waiting] { opacity: 0; visibility: hidden; }
 
 /* A slim divider in the thread that names the surface the agent just followed
    you into — the transcript-level echo of the header chip. */
@@ -145,8 +230,8 @@
 
 .composerDock {
   flex: 0 0 auto;
-  width: min(62rem, 100%);
-  margin-inline: auto;
+  width: min(var(--chat-content-width, 1200px), 100%);
+  margin-inline: var(--chat-content-offset, 0px) 0;
   padding: 0.5rem var(--agent-content-inset) 1rem;
 }
 
@@ -266,5 +351,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entry { transition: none; }
+  .entry, .replyActions, .thread, .composerDock, .agentReply { transition: none; }
+  .todaySection[data-front-door-active="false"],
+  .todaySection[data-front-door-active="false"] *,
+  .todaySection[data-front-door-active="false"] *::before,
+  .todaySection[data-front-door-active="false"] *::after { transition: none !important; }
 }

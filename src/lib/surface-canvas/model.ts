@@ -16,10 +16,10 @@
  * tab every surface always has at index 0, synthesized by the provider rather
  * than stored (so it can't be closed, reordered, or corrupted in persistence).
  * The rest are the launchable kinds any affordance can `openCanvas` — the
- * overview's launch region opens `capability` (and, on Build, `app`); the
+ * overview's launch region opens `capability` (and, on ALM, `app`); the
  * workspace panel's app rows also open `app`.
  */
-export type CanvasKind = "overview" | "app" | "capability" | "work" | "improvement-project";
+export type CanvasKind = "overview" | LaunchableCanvasKind;
 
 /** The reserved id/kind of the pinned overview tab. Never persisted; the
  *  provider prepends it to every surface's list at index 0. */
@@ -28,7 +28,7 @@ export const OVERVIEW_CANVAS_ID = "overview";
 /** Openable (persistable) kinds. Excludes `"overview"`, which is not launchable
  *  — it always exists. Drives both the registry's exhaustiveness and the
  *  parser's "drop specs of an unknown kind" sanitization. */
-export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "project-creation", "org-assessment"] as const;
 
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 
@@ -68,6 +68,12 @@ export const OVERVIEW_CANVAS: CanvasSpec = {
   kind: "overview",
   title: "Overview",
 };
+
+/** Project tabs stay local; the project-free onboarding workspace has its own
+ * tools until a project exists. The pinned overview is supplied separately. */
+export function canvasesForProject(canvases: readonly CanvasSpec[], projectId: string | null): CanvasSpec[] {
+  return canvases.filter((canvas) => (canvas.params?.projectId ?? null) === projectId);
+}
 
 /**
  * Deterministic id for a spec, derived from kind + params so that "open X" is

@@ -1,19 +1,23 @@
 "use client";
 
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   primaryWorktree,
   sessionKey,
   type AgentSession,
   type Org,
   type Project,
+  type SurfaceId,
   type Worktree,
 } from "@/lib/workspace/model";
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getWorkspaceSelectionStore } from "@/lib/workspace/persistence";
+import { WorkspaceTransition } from "@/lib/workspace/transition";
 import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
 import { ASSESSMENT_ORGS, workspaceProject } from "@/lib/onboarding/assessment";
+
+export type WorkspacePanelFilter = "all" | "projects" | "apps";
 
 type WorkspaceContextValue = {
   hasProjects: boolean;
@@ -37,6 +41,17 @@ type WorkspaceContextValue = {
    *  switch made earlier in the same synchronous call. */
   setActiveWorktree: (worktreeId: string, projectId?: string) => void;
   setActiveOrg: (orgId: string) => void;
+  /** Load a workspace after its content dissolves. A routed selection also
+   *  waits for that surface to mount before revealing the incoming state. */
+  switchWorkspace: (projectId: string, worktreeId?: string, afterSelection?: () => void, destination?: SurfaceId) => void;
+  /** Create the project and its initial canvas only after the outgoing content
+   *  dissolves, then select its primary worktree before revealing the new chat. */
+  createWorkspace: (create: () => Project | null) => void;
+  workspaceSwitching: boolean;
+  panelFilter: WorkspacePanelFilter;
+  setPanelFilter: (filter: WorkspacePanelFilter) => void;
+  projectPanelRequest: number;
+  openProjectPanel: () => void;
 };
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -69,6 +84,11 @@ const EMPTY_PROJECT: Project = {
  */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useDemoProfile();
+  const [panelFilter, setPanelFilter] = useState<WorkspacePanelFilter>("all");
+  const [projectPanelRequest, setProjectPanelRequest] = useState(0);
+  const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
+  const [workspaceTransition] = useState(() => new WorkspaceTransition(setWorkspaceSwitching));
+  useEffect(() => () => workspaceTransition.cancel(), [workspaceTransition]);
   const assessment = useAssessmentRunner();
   const dayZero = profile?.onboarding === "org-assessment";
   const projects = useMemo(() => dayZero ? assessment.projects.map(workspaceProject) : PROJECTS, [dayZero, assessment.projects]);
@@ -102,9 +122,38 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       activeProject,
       activeWorktree,
       activeOrg,
+      panelFilter,
+      setPanelFilter,
+      projectPanelRequest,
+      openProjectPanel: () => {
+        workspaceSelectionStore.setPanelOpen(true);
+        setPanelFilter("projects");
+        setProjectPanelRequest((request) => request + 1);
+      },
       agentSessions: activeProject.agentSessions,
       sessionKey: sessionKey(activeProject.id, activeWorktree.id),
       setActiveProject: workspaceSelectionStore.setActiveProjectId,
+      workspaceSwitching,
+      createWorkspace: (create) => {
+        workspaceTransition.request(() => {
+          const project = create();
+          if (project) workspaceSelectionStore.selectWorkspace(project.id, primaryWorktree(project).id);
+        });
+      },
+      switchWorkspace: (projectId, worktreeId, afterSelection, destination) => {
+        const project = projects.find((candidate) => candidate.id === projectId);
+        if (!project) return;
+        const treeId = worktreeId ?? selection.worktreeByProject[projectId] ?? primaryWorktree(project).id;
+        if (!project.worktrees.some((tree) => tree.id === treeId)) return;
+        if (projectId === activeProject.id && treeId === activeWorktree.id && !workspaceTransition.active) {
+          afterSelection?.();
+          return;
+        }
+        workspaceTransition.request(() => {
+          workspaceSelectionStore.selectWorkspace(projectId, treeId);
+          afterSelection?.();
+        }, destination ? () => !!document.querySelector(`[data-workspace-content="surface"][data-surface-id="${destination}"]`) : undefined);
+      },
       setActiveWorktree: (id, projectId) =>
         workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
       setActiveOrg: (id) => {
@@ -113,7 +162,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         }
       },
     };
-  }, [projects, orgs, hasProjects, selection, workspaceSelectionStore]);
+  }, [projects, orgs, hasProjects, selection, workspaceSelectionStore, workspaceTransition, workspaceSwitching, panelFilter, projectPanelRequest]);
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
