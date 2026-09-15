@@ -21,8 +21,9 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-Local development (`npm run dev`) skips the browser's Basic Auth prompt; no
-username or password is needed. Choose a demo profile on the sign-in screen.
+Local development (`npm run dev`) skips the browser's Basic Auth prompt when
+`BASIC_AUTH_PASSWORD` is unset. If a password is configured, development requires
+the same credentials as production. Choose a demo profile on the sign-in screen.
 
 Production requires `BASIC_AUTH_PASSWORD` in the server environment. Set it to
 your chosen password; the username defaults to `guest` (`BASIC_AUTH_USER`
@@ -55,7 +56,8 @@ drafting a point of view and first steps. Planning answers remain with that
 project/worktree conversation. Topic words such as “build,” “code,” or “release”
 do not navigate. A direct request such as “Open Build & Setup” or a surface/canvas
 action opens that workspace; requesting an unavailable surface keeps the chat
-in place. This guided planning flow uses prototype responses.
+in place. This guided planning flow uses prototype responses. Day-zero profiles
+keep assessment guidance and project-specific plans in both Today and surfaces.
 
 Earlier Today briefings keep the same mounted content, grid, spacing, and
 typography. Backgrounds, borders, shadows, and calls to action fade away over
@@ -165,7 +167,8 @@ demo profiles retain their existing first-visit and returning experiences.
 
 Run `npm run test:onboarding` for scope, lifecycle, persistence, profile isolation,
 duplicate creation, malformed data, and unavailable-storage checks. Run
-`npm run lint` and `npm run build` for the app checks.
+`npm run test:auth` for the development bypass and credential gate checks.
+Run `npm run lint` and `npm run build` for the app checks.
 
 The app runs without a database. To connect Neon:
 

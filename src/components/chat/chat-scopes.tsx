@@ -39,7 +39,7 @@ const GLOBAL_SESSION: ChatMessage[] = [
   {
     id: 1,
     role: "agent",
-    text: "I'm your workspace agent, working across every project in the org. Ask me about policy, governance, or pipeline health.",
+    text: "I’m your workspace agent, working across every project in the org. Ask me about policy, governance, or pipeline health.",
   },
   {
     id: 2,
@@ -54,7 +54,7 @@ const GLOBAL_SESSION: ChatMessage[] = [
   {
     id: 4,
     role: "agent",
-    text: "Three are enforced org-wide: every production deploy needs one approval, the FIT gate must pass before Deploy, and main is protected — no direct pushes. Acme's Release 26.8 is sitting on that FIT gate right now.",
+    text: "Three are enforced org-wide: every production deploy needs one approval, the FIT gate must pass before Deploy, and main is protected — no direct pushes. Acme’s Release 26.8 is sitting on that FIT gate right now.",
   },
   {
     id: 5,
@@ -69,7 +69,7 @@ const GLOBAL_SESSION: ChatMessage[] = [
   {
     id: 7,
     role: "agent",
-    text: "One: Acme Onboarding · Release 26.8, failed at FIT 2h ago. Billing's hotfix 26.7.3 is mid-deploy, and everything else is green or queued.",
+    text: "One: Acme Onboarding · Release 26.8, failed at FIT 2h ago. Billing’s hotfix 26.7.3 is mid-deploy, and everything else is green or queued.",
   },
 ];
 
@@ -95,21 +95,21 @@ const PROJECT_SESSIONS: Record<string, ChatMessage[]> = {
     {
       id: 1,
       role: "agent",
-      text: "Scoped to Billing Platform. Coverage fell to 74% after yesterday's merge, and hotfix 26.7.3 is mid-deploy.",
+      text: "Scoped to Billing Platform. Coverage fell to 74% after yesterday’s merge, and hotfix 26.7.3 is mid-deploy.",
     },
     { id: 2, role: "user", text: "What dropped the coverage?" },
     { id: 3, role: "tool", text: 'diff_coverage(project: "billing", since: "yesterday")' },
     {
       id: 4,
       role: "agent",
-      text: "The refund paths merged without tests — W-10212 covers them and it's in review. Payments · unit is still healthy at 91%.",
+      text: "The refund paths merged without tests — W-10212 covers them and it’s in review. Payments · unit is still healthy at 91%.",
     },
   ],
   "data-migration": [
     {
       id: 1,
       role: "agent",
-      text: "Scoped to Data Migration. This one's blocked — Sam requested elevated access to billing-db and it's awaiting your approval.",
+      text: "Scoped to Data Migration. This one’s blocked — Sam requested elevated access to billing-db and it’s awaiting your approval.",
     },
     { id: 2, role: "user", text: "What does approving it unblock?" },
     { id: 3, role: "tool", text: 'get_work_item(id: "W-10225")' },
@@ -130,35 +130,35 @@ const PROJECT_SESSIONS: Record<string, ChatMessage[]> = {
     {
       id: 4,
       role: "agent",
-      text: "W-10219 · Partner SSO handshake is Done and the client's registered. Next up is W-10216 · Portal shell layout, in progress; the preview build is running.",
+      text: "W-10219 · Partner SSO handshake is Done and the client’s registered. Next up is W-10216 · Portal shell layout, in progress; the preview build is running.",
     },
   ],
   "support-console": [
     {
       id: 1,
       role: "agent",
-      text: "Scoped to Support Console. Steady state — nightly's green and 12 items are open.",
+      text: "Scoped to Support Console. Steady state — nightly’s green and 12 items are open.",
     },
     { id: 2, role: "user", text: "Anything need me today?" },
     { id: 3, role: "tool", text: 'list_work_items(project: "support-console", assignee: "you")' },
     {
       id: 4,
       role: "agent",
-      text: "One's on you: W-10199 · Macro editor a11y, in progress. No approvals pending, and tests are at 89% and trending up.",
+      text: "One’s on you: W-10199 · Macro editor a11y, in progress. No approvals pending, and tests are at 89% and trending up.",
     },
   ],
   "analytics-hub": [
     {
       id: 1,
       role: "agent",
-      text: "Scoped to Analytics Hub. Launching next week — a couple of items are at risk before Friday's go/no-go.",
+      text: "Scoped to Analytics Hub. Launching next week — a couple of items are at risk before Friday’s go/no-go.",
     },
-    { id: 2, role: "user", text: "What's the risk to launch?" },
+    { id: 2, role: "user", text: "What’s the risk to launch?" },
     { id: 3, role: "tool", text: 'list_work_items(project: "analytics-hub", risk: "high")' },
     {
       id: 4,
       role: "agent",
-      text: "W-10260 · Cohort explorer (P1) is the critical path, still in progress. The 1.2 pipeline is queued and two dashboards are pending Priya's review.",
+      text: "W-10260 · Cohort explorer (P1) is the critical path, still in progress. The 1.2 pipeline is queued and two dashboards are pending Priya’s review.",
     },
   ],
 };

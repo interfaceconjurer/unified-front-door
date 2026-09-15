@@ -20,6 +20,7 @@ import { RETURNING_WORK, workCanvasInput } from "@/lib/workspace/returning-work"
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
   canvasId,
+  parseCanvasId,
   isLaunchableKind,
   OVERVIEW_CANVAS_ID,
   type CanvasSpec,
@@ -133,7 +134,8 @@ function migrateSurfaces(saved: PersistedCanvases): PersistedCanvases {
       if (saved[source].activeCanvasId === canvas.id) target.activeCanvasId = canvas.id;
     }
     for (const [id, draft] of Object.entries(saved[source].closedDrafts ?? {})) {
-      const target = result[canvasSurface(source, id.split(":")[0]!, id)];
+      const parsed = parseCanvasId(id);
+      const target = result[parsed ? canvasSurface(source, parsed.kind, id) : source];
       target.closedDrafts = { ...target.closedDrafts, [id]: { ...target.closedDrafts?.[id], ...draft } };
     }
   }

@@ -16,6 +16,8 @@ export function AgentReply({ text, streaming, ready, onComplete }: {
   ), [text]);
   const [visibleCount, setVisibleCount] = useState(0);
   const progress = useRef(0);
+  // React 19.2 Effect Events let the timer use the latest callback without
+  // restarting the stream when its parent renders.
   const complete = useEffectEvent(onComplete);
 
   useEffect(() => {

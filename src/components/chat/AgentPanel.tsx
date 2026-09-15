@@ -84,6 +84,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   const { activeProject, activeWorktree, activeOrg, agentSessions, sessionKey, hasProjects, workspaceSwitching } = useWorkspace();
   const { state: assessment } = useAssessment();
   const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject.id) : undefined;
+  const homePlanning = isHome && !profile?.onboarding && !improvement;
   const returningSession = profile?.workspaceExperience === "established"
     ? activeProject.agentSessions.find((session) => session.worktreeId === activeWorktree.id)
     : undefined;
@@ -125,6 +126,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
 
   // Route changes are external navigation events. Read the latest workspace
   // data at that moment, without appending a briefing on every data update.
+  // useEffectEvent is stable in React 19.2; only effects call these callbacks.
   const visit = useEffectEvent(() => {
     if (!profile) return;
     const deferReveal = !workspaceSwitching && visitedSession.current === sessionKey && !!sessions[sessionKey]?.messages.length;
@@ -149,6 +151,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
 
   // The current assessment remains interactive. Its last visible state is
   // retained when that Today entry becomes history; old cards never rescan.
+  // Read current navigation state without recording on unrelated chat updates.
   const recordAssessment = useEffectEvent(() => {
     if (!isHome || !dayZero) return;
     conversationStore.recordAssessment(sessionKey, assessment);
@@ -244,7 +247,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
     const currentPlanning = sessions[sessionKey]?.planning;
     const requested = requestedSurface(value);
     const destination = requested && canAccessSurface(profile, requested) ? surfaceAppById(requested) : null;
-    const planningTurn = isHome && !requested ? nextPlanningTurn(currentPlanning, value) : null;
+    const planningTurn = homePlanning && !requested ? nextPlanningTurn(currentPlanning, value) : null;
 
     const projectFindings = improvement?.workItems.flatMap((item) => {
       const finding = ASSESSMENT_FINDINGS.find((finding) => finding.id === item.findingId);
@@ -309,7 +312,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
             {index === thread.length - 1 && message.role !== "today" && <div className={styles.replyActions}
               data-waiting={streaming || undefined} aria-hidden={streaming || undefined} inert={streaming}>
               <div className={styles.suggestions} aria-label="Suggested prompts">
-                {(isHome ? planningSuggestions(sessions[sessionKey]?.planning) : scope.suggestions).map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>)}
+                {(homePlanning ? planningSuggestions(sessions[sessionKey]?.planning) : scope.suggestions).map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>)}
               </div>
               <p className={styles.prototypeNote}>The prototype is not connected to a model yet.</p>
             </div>}

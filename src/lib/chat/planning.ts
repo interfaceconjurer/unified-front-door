@@ -45,6 +45,9 @@ export function nextPlanningTurn(current: PlanningState | undefined, text: strin
   if (command === "start a new plan") {
     return { planning: { goal: "", phase: "goal" }, reply: "Let’s start a new plan. What are you trying to accomplish, and what prompted the idea?" };
   }
+  if (!current?.goal && ["draft a first plan", "refine the goal", "break this into tasks"].includes(command)) {
+    return { planning: current ?? { goal: "", phase: "goal" }, reply: "Tell me what you’d like to accomplish first. Then we can draft a plan, refine the goal, or break it into tasks." };
+  }
   if (current?.goal) {
     if (command === "draft a first plan") return review(current);
     if (command === "refine the goal") {

@@ -81,6 +81,21 @@ test("planning collects the user's context and produces a point of view and acti
   assert.match(tasks.reply, /walkthrough/);
 });
 
+test("planning shortcuts ask for a goal before drafting, refining, or splitting tasks", () => {
+  const reset = nextPlanningTurn(undefined, "Start a new plan").planning;
+  for (const current of [undefined, reset]) {
+    for (const command of ["Draft a first plan", "Refine the goal", "Break this into tasks"]) {
+      const result = nextPlanningTurn(current, `  ${command.toUpperCase()}!  `);
+      assert.deepEqual(result.planning, { goal: "", phase: "goal" });
+      if (current) assert.equal(result.planning, current, "a shortcut does not change an empty plan");
+      assert.match(result.reply, /accomplish first/);
+      const next = nextPlanningTurn(result.planning, "Improve lead routing");
+      assert.equal(next.planning.goal, "Improve lead routing");
+      assert.equal(next.planning.phase, "audience");
+    }
+  }
+});
+
 test("an early draft leaves unknowns open, and users can refine or restart their plan", () => {
   const initial = nextPlanningTurn(undefined, "Improve releases");
   const early = nextPlanningTurn(initial.planning, "Draft a first plan");

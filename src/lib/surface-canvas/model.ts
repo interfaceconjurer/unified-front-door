@@ -75,6 +75,8 @@ export function canvasesForProject(canvases: readonly CanvasSpec[], projectId: s
   return canvases.filter((canvas) => (canvas.params?.projectId ?? null) === projectId);
 }
 
+const CANVAS_ID_SEPARATOR = ":";
+
 /**
  * Deterministic id for a spec, derived from kind + params so that "open X" is
  * idempotent: the same kind and params always map to the same id, which is how
@@ -86,7 +88,15 @@ export function canvasId(kind: LaunchableCanvasKind, params?: Record<string, str
   const entries = Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) return kind;
   const suffix = entries.map(([key, value]) => `${key}=${value}`).join("&");
-  return `${kind}:${suffix}`;
+  return `${kind}${CANVAS_ID_SEPARATOR}${suffix}`;
+}
+
+/** Read the kind of a persisted id; the params suffix is opaque because its
+ * values can contain separators. Keep legacy id formats readable here. */
+export function parseCanvasId(id: string): { kind: LaunchableCanvasKind } | null {
+  const separator = id.indexOf(CANVAS_ID_SEPARATOR);
+  const kind = separator === -1 ? id : id.slice(0, separator);
+  return isLaunchableKind(kind) ? { kind } : null;
 }
 
 /** Type guard used by the parser: is this a launchable (persistable) kind? The

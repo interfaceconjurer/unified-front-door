@@ -132,3 +132,29 @@ test("closed app drafts reopen in ALM and new onboarding canvases survive reload
   restored.adoptUnscopedCanvases("new-project");
   assert.equal(canvasesForProject(restored.getSnapshot().alm.canvases, "new-project")[0].kind, "project-creation");
 });
+
+test("closed drafts migrate by kind with bare ids and separators in parameter values", () => {
+  const inputs = [
+    ["alm", { kind: "app", title: "App", params: { appId: "store:front&preview=true" } }],
+    ["alm", { kind: "project-creation", title: "New project" }],
+    ["govern", { kind: "org-assessment", title: "Assessment", params: { findingId: "api:headroom" } }],
+    ["code", query("crm:main")],
+  ];
+  // Literal legacy ids ensure changes to canvasId keep existing saved drafts readable.
+  storage.set("ufd.surface-canvas.v1.sp", JSON.stringify({
+    code: { canvases: [], activeCanvasId: "overview", closedDrafts: {
+      "app:appId=store:front&preview=true": { notes: "App notes" },
+      "project-creation": { notes: "New project notes" },
+      "org-assessment:findingId=api:headroom": { notes: "Assessment notes" },
+      "capability:capability=query&projectId=crm:main&surface=code": { notes: "SOQL query notes" },
+      "future-kind:projectId=crm": { notes: "Preserve unknown drafts" },
+    } },
+  }));
+  const store = getSurfaceCanvasStore("sp");
+  assert.deepEqual(store.getSnapshot().code.closedDrafts["future-kind:projectId=crm"], { notes: "Preserve unknown drafts" });
+  for (const [surface, input] of inputs) {
+    store.openCanvas(surface, input);
+    const canvas = store.getSnapshot()[surface].canvases.find(canvas => canvas.id === canvasId(input.kind, input.params));
+    assert.equal(canvas.draft.notes, `${input.title} notes`);
+  }
+});
