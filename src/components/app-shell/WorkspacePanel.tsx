@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BoxIcon,
@@ -13,7 +13,7 @@ import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
 import { surfaceAppById, surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
-import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useWorkspace, type WorkspacePanelFilter } from "@/components/workspace/workspace-context";
 import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
@@ -26,12 +26,10 @@ import {
 import styles from "./WorkspacePanel.module.css";
 
 /** The Projects section's own filter — rendered as a segmented control at the
- *  top of that section. Local, ephemeral UI state (not persisted, not shared
+ *  top of that section. Ephemeral workspace UI state (not persisted, not shared
  *  with the palette): unlike the project/worktree/org selection, "what am I
  *  looking at right now" resets fine on reload. */
-type PanelFilter = "all" | "projects" | "apps";
-
-const FILTER_LABEL: Record<PanelFilter, string> = {
+const FILTER_LABEL: Record<WorkspacePanelFilter, string> = {
   all: "All",
   projects: "Projects",
   apps: "Apps",
@@ -89,14 +87,14 @@ function AppRow({
  * Top ("Projects"): every project and its tree-connected worktrees, same
  * idiom as the palette's Projects tab, PLUS each project's deployed apps —
  * a project is the hub for everything it owns: source (worktrees), work in
- * flight (sessions, below), and now outputs (apps). A local All/Projects/Apps
- * filter (not persisted — see `PanelFilter`) governs this section only:
+ * flight (sessions, below), and now outputs (apps). An All/Projects/Apps
+ * filter (not persisted) governs this section only:
  * "all" nests app rows under their project, "projects" hides them for the
  * plain source tree, "apps" flattens every app across every project into one
  * list (the "what's running right now" view) instead of grouping by project.
  * Picking a project/worktree row re-points workspace context and STAYS on
  * the current surface — this section is ambient wayfinding, not a jump list.
- * An app row is the exception: it jumps to Build & Setup (see `AppRow`'s
+ * An app row is the exception: it jumps to ALM (see `AppRow`'s
  * caller below) since an app isn't a place you navigate context within, it's
  * a deployed thing you go look at.
  *
@@ -116,20 +114,36 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const { profile } = useDemoProfile();
   const { openCanvas, setActiveCanvas } = useSurfaceCanvases("build");
   const currentSurface = surfaceAppForPath(pathname);
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects } =
+  const { projects, activeProject, activeWorktree, switchWorkspace, hasProjects,
+    panelFilter: filter, setPanelFilter: setFilter, projectPanelRequest } =
     useWorkspace();
-  const [filter, setFilter] = useState<PanelFilter>("all");
+  const activeProjectRow = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!projectPanelRequest) return;
+    const row = activeProjectRow.current;
+    const section = row?.closest("section");
+    if (!row || !section) return;
+    row.focus({ preventScroll: true });
+    // Scroll only the Projects list; the panel is still sliding horizontally.
+    const bounds = row.getBoundingClientRect();
+    const viewport = section.getBoundingClientRect();
+    if (bounds.top < viewport.top) section.scrollTop += bounds.top - viewport.top;
+    else if (bounds.bottom > viewport.bottom) section.scrollTop += bounds.bottom - viewport.bottom;
+  }, [projectPanelRequest]);
 
   const tree = buildProjectTree(projects);
   const sessions = allSessionRows(projects);
   const apps = allAppRows(projects);
   const codeHref = surfaceAppById("code").href;
-  const buildHref = surfaceAppById("build").href;
+  const almHref = surfaceAppById("alm").href;
 
-  function goToBuild() {
+  function startProject() {
     onClose();
-    if (profile?.onboarding) { router.push("/"); return; }
-    if (pathname !== buildHref) router.push(buildHref);
+    openCanvas("alm", profile?.onboarding
+      ? { kind: "project-creation", title: "New project" }
+      : { kind: "capability", title: "Start a new project", params: { surface: "alm", capability: "project" } });
+    if (pathname !== almHref) router.push(almHref);
   }
 
   function startConversation() {
@@ -150,7 +164,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
         <section className={styles.section} aria-label="Projects">
           <h2 className={styles.heading}>Projects</h2>
           <div className={styles.guidedEmpty}>
-            <button type="button" className={styles.emptyAction} onClick={goToBuild}>
+            <button type="button" className={styles.emptyAction} onClick={startProject}>
               <PlusIcon width={15} height={15} aria-hidden="true" />
               Start your first project
             </button>
@@ -170,15 +184,13 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     );
   }
 
-  // Open the app in this profile’s Build canvas and focus its project.
+  // Open the deployed app in ALM and focus its project.
   function openApp(project: Project, app: DeployedApp) {
-    openCanvas("build", {
-      kind: "app",
-      title: app.label,
-      params: { projectId: project.id, appId: app.id },
-    });
-    setActiveProject(project.id);
-    if (pathname !== buildHref) router.push(buildHref);
+    switchWorkspace(project.id, undefined, () => {
+      openCanvas("alm", { kind: "app", title: app.label,
+        params: { projectId: project.id, appId: app.id } });
+      if (pathname !== almHref) router.push(almHref);
+    }, "alm");
   }
 
   return (
@@ -188,9 +200,9 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
         <h2 className={styles.heading}>Projects</h2>
 
         {/* Segmented filter — governs this section only, the Sessions section
-            below is untouched. Local state, not persisted (see `PanelFilter`). */}
+            below is untouched. Project labels also request the Projects view. */}
         <div className={styles.filterBar} role="group" aria-label="Filter projects panel">
-          {(Object.keys(FILTER_LABEL) as PanelFilter[]).map((mode) => (
+          {(Object.keys(FILTER_LABEL) as WorkspacePanelFilter[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -245,18 +257,17 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                       the Active list below; no status dot here. */}
                   <button
                     type="button"
-                    className={`${styles.row} ${isBaseCurrent ? styles.rowCurrent : ""}`}
+                    ref={isProjectCurrent ? activeProjectRow : undefined}
+                    className={`${styles.row} ${isProjectCurrent ? styles.rowCurrent : ""}`}
                     aria-current={isBaseCurrent}
-                    onClick={() => {
-                      setActiveProject(project.id);
-                      setActiveWorktree(base.worktree.id, project.id);
+                    onClick={() => switchWorkspace(project.id, base.worktree.id, () => {
                       if (profile.onboarding) {
                         openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
                         router.push("/alm");
                         return;
                       }
                       if (currentSurface) setActiveCanvas(currentSurface.id, OVERVIEW_CANVAS_ID);
-                    }}
+                    }, profile.onboarding ? "alm" : undefined)}
                   >
                     <LayersIcon className={styles.rowIcon} width={16} height={16} />
                     <span className={styles.rowCopy}>
@@ -277,17 +288,9 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                                 lastChild ? styles.worktreeRowLast : ""
                               } ${isCurrent ? styles.rowCurrent : ""}`}
                               aria-current={isCurrent}
-                              // Pass project.id explicitly: setActiveProject above
-                              // doesn't take effect until the next render, so
-                              // setActiveWorktree's own default (the *current*
-                              // activeProject) would target the wrong project when
-                              // picking a worktree in a project that isn't active
-                              // yet — same fix as the palette's worktree row.
-                              onClick={() => {
-                                setActiveProject(project.id);
-                                setActiveWorktree(worktree.id, project.id);
+                              onClick={() => switchWorkspace(project.id, worktree.id, () => {
                                 if (currentSurface) setActiveCanvas(currentSurface.id, OVERVIEW_CANVAS_ID);
-                              }}
+                              })}
                             >
                               <StatusDot status={status} />
                               <span className={styles.worktreeLabel}>{worktree.label}</span>
@@ -343,12 +346,10 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     // A session is somewhere to jump TO, unlike the top
                     // section — teleport to Code, same contract as the
                     // palette's Sessions tab.
-                    onClick={() => {
-                      setActiveProject(project.id);
-                      setActiveWorktree(worktree.id, project.id);
+                    onClick={() => switchWorkspace(project.id, worktree.id, () => {
                       setActiveCanvas("code", OVERVIEW_CANVAS_ID);
                       if (pathname !== codeHref) router.push(codeHref);
-                    }}
+                    }, "code")}
                   >
                     <StatusDot status={session.status} className={styles.sessionDot} />
                     <span className={styles.sessionCopy}>

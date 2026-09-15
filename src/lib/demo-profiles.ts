@@ -24,7 +24,7 @@ export const DEMO_PROFILES: readonly DemoProfile[] = [
     experience: "new",
     workspaceExperience: "empty",
     onboarding: "org-assessment",
-    surfaceAccess: ["build", "alm"],
+    surfaceAccess: ["build", "govern", "alm"],
   },
   {
     id: "jw",

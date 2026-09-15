@@ -52,9 +52,9 @@ export const surfaceApps: readonly SurfaceApp[] = [
     id: "alm",
     href: "/alm",
     label: "ALM",
-    description: "Plan, validate, release, and operate change.",
+    description: "Plan projects, release changes, and manage deployed apps.",
     workspaceDescription:
-      "Plan your work, validate changes, and build a path to release.",
+      "Plan projects, validate changes, and manage your releases and deployed apps.",
     Icon: GitBranchIcon,
     capabilities: ["Work planning", "Delivery pipelines", "Release health"],
   },

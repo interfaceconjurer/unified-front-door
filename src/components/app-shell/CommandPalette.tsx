@@ -130,7 +130,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
   const { profile } = useDemoProfile();
   const { setActiveCanvas, openCanvas } = useSurfaceCanvases("code");
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects,
+  const { projects, activeProject, activeWorktree, switchWorkspace, hasProjects,
     orgs, activeOrg, setActiveOrg } =
     useWorkspace();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -244,21 +244,15 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           // if a feature worktree is active, its own child row carries "Current".
           isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
           // Project is shell-level, not a route — switch it in place and stay put.
-          // Selecting the node lands on main (its subtitle). Pass project.id
-          // explicitly to setActiveWorktree: setActiveProject doesn't take effect
-          // until the next render, so the setter's own default (the *current*
-          // activeProject) would target the wrong project when the project isn't
-          // active yet.
-          select: () => {
-            setActiveProject(project.id);
-            setActiveWorktree(base.worktree.id, project.id);
+          // Selecting the node loads its primary worktree after the dissolve.
+          select: () => switchWorkspace(project.id, base.worktree.id, () => {
             if (profile?.onboarding) {
               openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
               router.push("/alm");
               return;
             }
             if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-          },
+          }, profile?.onboarding ? "alm" : undefined),
         });
 
         matchingChildren.forEach(({ worktree, status }) => {
@@ -272,11 +266,9 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
             isCurrent,
             indent: !isCurrent,
             status,
-            select: () => {
-              setActiveProject(project.id);
-              setActiveWorktree(worktree.id, project.id);
+            select: () => switchWorkspace(project.id, worktree.id, () => {
               if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
-            },
+            }),
           });
         });
       }
@@ -299,15 +291,11 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
         status: session.status,
         // A session is somewhere to jump TO — unlike Projects, this teleports.
-        // Sessions are the primary case for jumping into a project that isn't
-        // active yet, so the explicit project.id here (see the worktree-row
-        // select above for why) is load-bearing, not defensive.
-        select: () => {
-          setActiveProject(project.id);
-          setActiveWorktree(worktree.id, project.id);
+        // Load the session's project, worktree, and Code canvas together.
+        select: () => switchWorkspace(project.id, worktree.id, () => {
           setActiveCanvas("code", OVERVIEW_CANVAS_ID);
           if (pathname !== codeHref) router.push(codeHref);
-        },
+        }, "code"),
       })).sort(currentFirst);
   }, [
     tab,
@@ -320,8 +308,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
     activeProject.id,
     activeWorktree.id,
     router,
-    setActiveProject,
-    setActiveWorktree,
+    switchWorkspace,
     setActiveCanvas,
     currentSurfaceId,
     orgs,
@@ -370,8 +357,13 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
 
   const showGuidedEmpty = !hasProjects && (tab === "projects" || tab === "sessions");
 
-  function goToBuild() {
-    onClose(() => router.push(profile?.onboarding ? "/" : surfaceAppById("build").href));
+  function startProject() {
+    onClose(() => {
+      openCanvas("alm", profile?.onboarding
+        ? { kind: "project-creation", title: "New project" }
+        : { kind: "capability", title: "Start a new project", params: { surface: "alm", capability: "project" } });
+      router.push(surfaceAppById("alm").href);
+    });
   }
 
   function startConversation() {
@@ -448,7 +440,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         {showGuidedEmpty && (
           <div className={styles.guidedEmpty} id="command-palette-results" role="status">
             <strong>No {tab} yet</strong>
-            <button type="button" onClick={tab === "projects" ? goToBuild : startConversation}>
+            <button type="button" onClick={tab === "projects" ? startProject : startConversation}>
               {tab === "projects" ? (
                 <>
                   <PlusIcon width={15} height={15} aria-hidden="true" />

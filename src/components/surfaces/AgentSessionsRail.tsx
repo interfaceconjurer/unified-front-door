@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<AgentSessionStatus, string> = {
  * and command palette.
  */
 export function AgentSessionsRail() {
-  const { activeProject, activeWorktree, agentSessions, setActiveWorktree } = useWorkspace();
+  const { activeProject, activeWorktree, agentSessions, switchWorkspace } = useWorkspace();
 
   if (activeProject.worktrees.length < 2) return null;
 
@@ -46,7 +46,7 @@ export function AgentSessionsRail() {
                 className={`${styles.row} ${isFocused ? styles.rowFocused : ""}`}
                 aria-current={isFocused}
                 onClick={() => {
-                  if (!isFocused) setActiveWorktree(worktree.id);
+                  if (!isFocused) switchWorkspace(activeProject.id, worktree.id);
                 }}
               >
                 <span className={`${styles.statusDot} ${styles[status]}`} aria-hidden="true" />

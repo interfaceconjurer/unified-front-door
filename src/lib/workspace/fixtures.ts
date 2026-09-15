@@ -38,10 +38,9 @@ export const PROJECTS: readonly Project[] = [
     // Single worktree → the rail stays hidden (progressive disclosure), but the
     // session still exists so the seam is exercised even where the UI hides it.
     agentSessions: [
-      { worktreeId: "main", status: "idle", summary: "No active work; last session ended 2h ago." },
+      { worktreeId: "main", status: "waiting", summary: "Storefront release passed SIT checks; review the UAT rollout and search performance findings." },
     ],
-    // One live app — the simple case: a single deployed output, nothing to
-    // triage.
+    // One live app, with follow-up performance and release reviews in its work.
     apps: [
       {
         id: "storefront-prod",
@@ -65,7 +64,7 @@ export const PROJECTS: readonly Project[] = [
     defaultOrgId: "uat",
     facets: { objects: 48, flows: 22, apexClasses: 61, lwc: 34, permissionSets: 11 },
     // Deliberately varied — this is the case the sessions rail exists to show:
-    // three worktrees, three different states a super user needs to triage at once.
+    // three worktrees with ongoing implementation, approval, and code review.
     agentSessions: [
       {
         worktreeId: "main",
@@ -79,8 +78,8 @@ export const PROJECTS: readonly Project[] = [
       },
       {
         worktreeId: "hotfix-9821",
-        status: "idle",
-        summary: "Fix for W-9821 is ready for review; no activity in 25 min.",
+        status: "waiting",
+        summary: "Fix for W-9821 and its regression coverage are waiting for your code review.",
       },
     ],
     // Two apps, deliberately mixed status — the case that exercises the

@@ -12,6 +12,9 @@
     "lint": "eslint",
     "test:conversation": "node --test scripts/conversation.test.mjs",
     "test:onboarding": "node --test scripts/onboarding.test.mjs",
+    "test:workspace": "node --test scripts/workspace.test.mjs",
+    "test:surface-canvas": "node --test scripts/surface-canvas.test.mjs",
+    "test:auth": "node --test scripts/auth.test.mjs",
     "predev": "node scripts/copy-slds.mjs",
     "prebuild": "node scripts/copy-slds.mjs"
   },

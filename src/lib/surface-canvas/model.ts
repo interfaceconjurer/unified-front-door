@@ -16,10 +16,10 @@
  * tab every surface always has at index 0, synthesized by the provider rather
  * than stored (so it can't be closed, reordered, or corrupted in persistence).
  * The rest are the launchable kinds any affordance can `openCanvas` — the
- * overview's launch region opens `capability` (and, on Build, `app`); the
+ * overview's launch region opens `capability` (and, on ALM, `app`); the
  * workspace panel's app rows also open `app`.
  */
-export type CanvasKind = "overview" | "app" | "capability" | "work" | "improvement-project";
+export type CanvasKind = "overview" | LaunchableCanvasKind;
 
 /** The reserved id/kind of the pinned overview tab. Never persisted; the
  *  provider prepends it to every surface's list at index 0. */
@@ -28,7 +28,7 @@ export const OVERVIEW_CANVAS_ID = "overview";
 /** Openable (persistable) kinds. Excludes `"overview"`, which is not launchable
  *  — it always exists. Drives both the registry's exhaustiveness and the
  *  parser's "drop specs of an unknown kind" sanitization. */
-export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "project-creation", "org-assessment"] as const;
 
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 
@@ -69,6 +69,14 @@ export const OVERVIEW_CANVAS: CanvasSpec = {
   title: "Overview",
 };
 
+/** Project tabs stay local; the project-free onboarding workspace has its own
+ * tools until a project exists. The pinned overview is supplied separately. */
+export function canvasesForProject(canvases: readonly CanvasSpec[], projectId: string | null): CanvasSpec[] {
+  return canvases.filter((canvas) => (canvas.params?.projectId ?? null) === projectId);
+}
+
+const CANVAS_ID_SEPARATOR = ":";
+
 /**
  * Deterministic id for a spec, derived from kind + params so that "open X" is
  * idempotent: the same kind and params always map to the same id, which is how
@@ -80,7 +88,15 @@ export function canvasId(kind: LaunchableCanvasKind, params?: Record<string, str
   const entries = Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) return kind;
   const suffix = entries.map(([key, value]) => `${key}=${value}`).join("&");
-  return `${kind}:${suffix}`;
+  return `${kind}${CANVAS_ID_SEPARATOR}${suffix}`;
+}
+
+/** Read the kind of a persisted id; the params suffix is opaque because its
+ * values can contain separators. Keep legacy id formats readable here. */
+export function parseCanvasId(id: string): { kind: LaunchableCanvasKind } | null {
+  const separator = id.indexOf(CANVAS_ID_SEPARATOR);
+  const kind = separator === -1 ? id : id.slice(0, separator);
+  return isLaunchableKind(kind) ? { kind } : null;
 }
 
 /** Type guard used by the parser: is this a launchable (persistable) kind? The

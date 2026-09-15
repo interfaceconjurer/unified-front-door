@@ -119,7 +119,7 @@ export function ChatPanel() {
     const reply: ChatMessage = {
       id: nextId.current++,
       role: "agent",
-      text: `This panel is a wireframe — I'm not wired to a model yet. (Scoped to ${meta.label}.)`,
+      text: `This panel is a wireframe — I’m not wired to a model yet. (Scoped to ${meta.label}.)`,
     };
     setHistoryByScope((prev) => {
       const base = prev[scopeKey] ?? seedMessages;

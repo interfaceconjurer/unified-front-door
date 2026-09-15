@@ -146,7 +146,7 @@ export class AssessmentStore {
   saveDraft = (draft: ProjectDraft | null) => {
     this.update({ ...this.getSnapshot(), draft });
   };
-  createProject = (owner: string): ImprovementProject | null => {
+  createProject = (owner: string, beforePublish?: (project: ImprovementProject) => void): ImprovementProject | null => {
     const state = this.getSnapshot();
     const draft = state.draft;
     if (state.status !== "complete" || !draft || !draft.name.trim() || !draft.goal.trim() || !validTarget(draft.targetOrgId)) return null;
@@ -158,6 +158,9 @@ export class AssessmentStore {
       owner, targetOrgId: draft.targetOrgId, scopeOrgIds: [...state.scopeOrgIds], createdAt: new Date().toISOString(),
       workItems: findings.map((finding, index) => ({ id: `WI-${index + 1}`, findingId: finding.id, title: finding.title, priority: finding.priority, status: "todo" })),
     };
+    // Let the creation workflow prepare its conversation before subscribers can
+    // select the new project (including the first project's automatic selection).
+    beforePublish?.(project);
     this.update({ ...state, draft: null, projects: [...state.projects, project] });
     return project;
   };

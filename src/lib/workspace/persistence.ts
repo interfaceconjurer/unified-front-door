@@ -143,6 +143,12 @@ class WorkspaceSelectionStore {
     this.update((current) => ({ ...current, activeProjectId: projectId }));
   };
 
+  selectWorkspace = (projectId: string, worktreeId: string): void => {
+    this.update((current) => ({ ...current, activeProjectId: projectId,
+      worktreeByProject: { ...current.worktreeByProject, [projectId]: worktreeId },
+    }));
+  };
+
   setWorktreeForProject = (projectId: string, worktreeId: string): void => {
     this.update((current) => ({
       ...current,
