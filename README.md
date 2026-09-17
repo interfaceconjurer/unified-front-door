@@ -85,8 +85,10 @@ The browser's Basic Auth username defaults to `guest` (`BASIC_AUTH_USER` overrid
 it). Set `BASIC_AUTH_PASSWORD`, pass that gate, then choose a demo profile.
 
 For local production behavior, run `npm run build`, then `npm run start`, and
-start `npm run worker` in another terminal. `APP_ORIGIN` must match the browser
-origin exactly. Production startup rejects missing/blank authentication, invalid
+start `npm run worker` in another terminal. In development, `localhost`,
+`127.0.0.1`, and `[::1]` are interchangeable on the configured origin's protocol
+and port, provided the request matches its browser host. In production,
+`APP_ORIGIN` must match the browser origin exactly. Production startup rejects missing/blank authentication, invalid
 origin/database configuration, and an unsupported Node version. Worker startup
 also checks database schema readiness. A successful web process start alone does
 not establish database or worker readiness.
@@ -387,10 +389,9 @@ and original browser import sources. The page stays on login. A lost response ca
 be retried explicitly with the same saved command; loading the page or signing in
 does not clear data.
 
-While signed in, use the profile menu's **Reset this profile’s demo data**,
-review the scope, then choose **Confirm reset of this profile**. Reset removes the
-current profile's saved application records in this namespace and seeds its demo
-state. Other profiles/namespaces and original browser import sources stay intact.
+While signed in, choose **Sign out** in the profile menu to return to the user
+selection screen. Data clearing is available there beside each profile, with a
+confirmation naming the user whose saved data will be removed.
 Session generation changes prevent an older pending operation from silently
 acquiring the new workspace's authority.
 
@@ -478,7 +479,9 @@ server-validated snapshot. Navigation cannot retarget accepted work. Conversatio
 are shared by the project's worktree thread across Today and its surfaces;
 unbound threads have explicit org context. Today/visit entries are server-derived,
 and historical briefings keep their captured content. Presentation state such as
-scroll position and reveal animations remains local.
+scroll position and reveal animations remains local. Reload restores the message
+and history page last being read in this tab; a chat without a saved position
+opens at its latest turn. Positions are isolated by profile and workspace epoch.
 
 An acknowledged request saves the user message, response placeholder, run, and
 receipt in one transaction. Conversation/turn/run/result history survives reload,
@@ -489,14 +492,20 @@ logical turn; ordered events retain their run identity and sequence.
 
 The UI shows waiting, preparing, replying, completed, failed, and cancelled states.
 Use **Cancel reply** to stop further publication, or **Retry reply** for an eligible
-cancelled/failed attempt. **Retry request** confirms an uncertain HTTP result using
+cancelled/failed attempt. **Retry message**, shown inside the composer only for
+a user request that needs attention, confirms an uncertain HTTP result using
 the original request ID, payload, and captured scope; a changed payload cannot
 reuse that identity. Submitted request recovery uses this tab's session storage,
 separate from unsent composer text. If browser recovery storage is unavailable,
 unconfirmed requests may exist only in memory; keep that tab open until confirmed.
 
-If a saved request cannot be parsed, **Export saved request** preserves its original
-text. **Discard unreadable request** removes only the exact version displayed for
+Background navigation requests recover automatically using their original IDs;
+they never start model work. Connection diagnostics remain in the server logs
+and do not render above the app shell or as a persistent composer banner.
+
+If a saved request cannot be parsed, **Recover a saved message** in the composer
+offers **Download saved message** to preserve its original text.
+**Remove saved message** removes only the exact version displayed for
 recovery; changed stored content is preserved for another review. A recovered
 connection clears its read error, while a definite request rejection keeps the
 composer draft available for correction.

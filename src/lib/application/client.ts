@@ -35,6 +35,7 @@ class ApplicationClient {
   private started = false;
   private request = 0;
   private changing = false;
+  private needsSessionAdoption = false;
   private resettingProfile = false;
   private profileResets = new Map<string, ProfileResetCommand>();
   private archives = new Map<string, RecoverableBuffer>();
@@ -47,8 +48,8 @@ class ApplicationClient {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(value: Partial<ClientView>) { this.view = { ...this.view, ...value }; for (const listener of this.listeners) listener(); }
   private adopt(session: SessionView | null) {
-    if (!this.changing && stableJson(session) === stableJson(this.view.session)) { this.publish({ resolved: true, message: "" }); return; }
-    this.changing = false;
+    if (!this.needsSessionAdoption && stableJson(session) === stableJson(this.view.session)) { this.publish({ resolved: true, message: "" }); return; }
+    this.needsSessionAdoption = false;
     this.archivePending(); this.workspace?.deactivate(); this.canvases?.dispose(); this.agent?.deactivate(); this.workspace = null; this.canvases = null; this.selection = null; this.agent = null;
     if (session?.profileId) {
       let storage: Storage | null = null; try { storage = window.sessionStorage; } catch { /* Queue remains in memory. */ }
@@ -83,7 +84,10 @@ class ApplicationClient {
     window.setInterval(() => { if (document.visibilityState === "visible" && !this.workspace?.hasPending()) { void this.reconnect(); } }, 5000);
   };
   reconnect = async () => {
-    if (this.resettingProfile) return;
+    if (this.resettingProfile || this.changing) return;
+    await this.readSession();
+  };
+  private readSession = async () => {
     const request = ++this.request;
     try {
       let response = await api<{ session: SessionView | null }>("/api/session");
@@ -94,10 +98,12 @@ class ApplicationClient {
     } catch (error) { if (request === this.request) this.publish({ resolved: true, message: error instanceof Error ? error.message : "Database connection is unavailable." }); }
   };
   change = async (action: "select" | "signout" | "reset", profileId?: DemoProfileId): Promise<boolean> => {
-    if (this.resettingProfile) return false;
+    if (this.resettingProfile || this.changing) return false;
     if (!this.view.session) { await this.reconnect(); if (!this.view.session) return false; }
+    if (this.resettingProfile || this.changing) return false;
     const request = ++this.request, current = this.view.session;
-    this.changing = true; this.workspace?.flushEdits(); this.archivePending(); this.workspace?.deactivate(); this.agent?.deactivate(); this.publish({ resolved: false });
+    this.changing = true; this.needsSessionAdoption = true;
+    this.workspace?.flushEdits(); this.archivePending(); this.workspace?.deactivate(); this.agent?.deactivate();
     try {
       const response = await api<{ session: SessionView }>("/api/session", { action, generation: current.generation, commandId: crypto.randomUUID(), ...(profileId ? { profileId } : {}) });
       if (request !== this.request) return false;
@@ -106,13 +112,13 @@ class ApplicationClient {
       return true;
     } catch (error) {
       if (request === this.request) {
-        await this.reconnect();
+        await this.readSession();
         this.publish({ message: this.view.session?.generation !== current.generation
           ? "Reconnected to the current demo session. The previous session change may have completed; review the current workspace before requesting another change."
           : error instanceof Error ? error.message : "The session change could not be confirmed." });
       }
       return false;
-    }
+    } finally { this.changing = false; }
   };
   clearProfile = async (profileId: DemoProfileId, expectedNamespaceId: string | undefined): Promise<ProfileResetResult> => {
     const current = this.view.session;
@@ -140,7 +146,8 @@ class ApplicationClient {
     ++this.request; this.resettingProfile = true;
     // Clearing another profile must not interrupt the selected workspace.
     if (current.profileId === profileId) {
-      this.changing = true; this.workspace?.flushEdits(); this.archivePending(); this.workspace?.deactivate(); this.agent?.deactivate();
+      this.changing = true; this.needsSessionAdoption = true;
+      this.workspace?.flushEdits(); this.archivePending(); this.workspace?.deactivate(); this.agent?.deactivate();
     }
     try {
       const response = await api<{ session: SessionView }>("/api/session", command);
@@ -150,12 +157,11 @@ class ApplicationClient {
     } catch (error) {
       const rejected = error instanceof ApplicationError && error.status < 500;
       if (rejected) forget();
-      this.resettingProfile = false;
-      await this.reconnect();
+      await this.readSession();
       return { ok: false, retryable: !rejected, message: rejected
         ? "Your demo session changed or the request was rejected. Close this dialog and choose Clear data again."
         : "We couldn’t confirm whether the data was cleared. Retry clear to check the same request safely." };
-    } finally { this.resettingProfile = false; }
+    } finally { this.resettingProfile = false; this.changing = false; }
   };
   previewImport = async () => {
     const { session, legacy } = this.view; if (!session || !legacy) return;

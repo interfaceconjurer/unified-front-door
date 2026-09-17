@@ -22,6 +22,7 @@ import { inactiveAgent } from "@/lib/agent/client";
 import { activeRun, type AgentContext } from "@/lib/agent/contracts";
 import { nextFrame, scrollToEntry, waitForMotion } from "@/lib/motion";
 import { Transcript } from "./Transcript";
+import { useTranscriptPosition } from "./use-transcript-position";
 import styles from "./AgentPanel.module.css";
 
 const SUGGESTIONS_0 = ["What should I work on first?", "Walk through the project plan", "How will we validate the improvements?"];
@@ -95,7 +96,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
       ? SUGGESTIONS_2
       : SUGGESTIONS_3,
   } : baseScope;
-  useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
+  const application = useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
   const agent = applicationClient.agent ?? inactiveAgent;
   const remote = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
   const capturedContext = useMemo<AgentContext>(() => ({ target, surface: baseScope.key as AgentContext["surface"] }), [target, baseScope.key]);
@@ -138,14 +139,20 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   const followingReply = useRef<{ key: string; following: boolean; pausedAt: number | null }>({ key: "", following: true, pausedAt: null });
   const openWork = useOpenWork();
   const thread = sessions[sessionKey]?.messages ?? EMPTY_THREAD;
-  const [historyEnds, setHistoryEnds] = useState<Record<string, number | null>>({});
-  const selectedEnd = historyEnds[sessionKey];
+  const { end: selectedEnd, showPage: selectHistoryPage } = useTranscriptPosition({
+    identity: `${application.session?.namespaceId}.${profile?.id}.${application.session?.workspaceEpoch}`,
+    threadKey: sessionKey, messages: thread, containerRef: transcriptRef, transitioning: !!presentation,
+    onRestore: (scrollTop) => {
+      const last = thread.at(-1);
+      if (last?.role === "agent" && last.runId) followingReply.current = { key: `${sessionKey}:${last.runId}`, following: false, pausedAt: scrollTop };
+    },
+  });
   const endIndex = selectedEnd == null ? thread.length : Math.max(1, thread.findIndex(message => message.id === selectedEnd) + 1);
   const startIndex = Math.max(0, endIndex - 40);
   const visibleThread = useMemo(() => thread.slice(startIndex, endIndex), [thread, startIndex, endIndex]);
   function showPage(end: number | null) {
     interruptScroll();
-    setHistoryEnds(current => ({ ...current, [sessionKey]: end }));
+    selectHistoryPage(end);
   }
 
 
@@ -318,13 +325,13 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
           panel's width, retaining the textarea node, selection, and draft. */}
       <div className={styles.composerDock}>
         {composerProblem && <p role="status">{composerProblem}</p>}
-        {remote.error && <div role="status" className={styles.requestError}>{remote.error}
-          {remote.recovery !== null ? <>
-            <button type="button" onClick={() => { const url = URL.createObjectURL(new Blob([remote.recovery!], { type: "text/plain" })); const link = document.createElement("a"); link.href = url; link.download = "agent-request-recovery.txt"; link.click(); URL.revokeObjectURL(url); }}>Export saved request</button>
-            <button type="button" onClick={agent.discardRecovery}>Discard unreadable request</button>
-          </> : <button type="button" onClick={agent.retry}>{remote.pending ? "Retry request" : "Reconnect agent"}</button>}
-        </div>}
         <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); send(); }}>
+          {remote.recovery !== null && <details className={styles.requestRecovery}>
+            <summary>Recover a saved message</summary>
+            <p>A saved message couldn’t be restored. You can download a copy before removing it.</p>
+            <button type="button" onClick={() => { const url = URL.createObjectURL(new Blob([remote.recovery!], { type: "text/plain" })); const link = document.createElement("a"); link.href = url; link.download = "agent-request-recovery.txt"; link.click(); URL.revokeObjectURL(url); }}>Download saved message</button>
+            <button type="button" onClick={agent.discardRecovery}>Remove saved message</button>
+          </details>}
           <label className={styles.srOnly} htmlFor="agent-composer">Message the agent</label>
           <textarea
             id="agent-composer"
@@ -349,7 +356,9 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
           />
           <div className={styles.composerTools}>
             <span className={styles.agentLabel}><SparklesIcon width={16} height={16} aria-hidden="true" />Agent</span>
-            <span id="agent-composer-hint" className={styles.composerHint}>Enter to send · Shift + Enter for a new line</span>
+            {remote.requestIssue ? <span id="agent-composer-hint" className={styles.requestNotice} role="status">
+              {remote.requestIssue === "retry" ? <>Couldn’t confirm your message. <button type="button" onClick={agent.retry}>Retry message</button></> : "Message wasn’t sent. Please try again."}
+            </span> : <span id="agent-composer-hint" className={styles.composerHint}>Enter to send · Shift + Enter for a new line</span>}
             <button className={styles.send} type="submit" disabled={!draft.trim() || !remote.ready || remote.pending} aria-label="Send message"><SendIcon width={18} height={18} aria-hidden="true" /></button>
           </div>
         </form>

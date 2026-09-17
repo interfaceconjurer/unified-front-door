@@ -119,3 +119,40 @@ test("malformed saved clear requests retain their bytes and never send a new des
   }
   assert.deepEqual(h.posts, []); assert.equal(h.state.clears, 0);
 });
+
+test("background reconnect and repeated clicks cannot overtake a pending sign-out", async () => {
+  const h = harness({ profileId: "am" }), client = await h.connect(), fetch = globalThis.fetch;
+  let release, reads = 0, writes = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  globalThis.fetch = async (path, options = {}) => {
+    if (path === "/api/session" && options.method === "GET") reads++;
+    if (path === "/api/session" && options.method === "POST") {
+      writes++; assert.equal(JSON.parse(options.body).action, "signout");
+      await gate;
+      h.state.session = { ...h.state.session, profileId: null, workspaceEpoch: undefined, generation: randomUUID() };
+      return Response.json({ session: h.state.session });
+    }
+    return fetch(path, options);
+  };
+  const signout = client.change("signout");
+  assert.equal(client.getSnapshot().resolved, true, "Keep the current interface mounted while awaiting an account action");
+  await client.reconnect();
+  assert.equal(await client.change("select", "sp"), false);
+  assert.equal(reads, 0); assert.equal(writes, 1);
+  release(); assert.equal(await signout, true);
+  assert.equal(client.getSnapshot().session.profileId, null);
+  assert.equal(client.workspace, null); assert.equal(client.agent, null);
+});
+
+test("failed session changes restore usable stores once a later reconnect succeeds", async () => {
+  const h = harness({ profileId: "am" }), client = await h.connect(), fetch = globalThis.fetch, previous = client.workspace;
+  globalThis.fetch = async () => { throw Error("Disconnected"); };
+  assert.equal(await client.change("signout"), false);
+  globalThis.fetch = fetch;
+  await client.reconnect();
+  assert.notEqual(client.workspace, previous, "A deactivated store must not be reused after reconnect");
+  await client.workspace.load();
+  assert.equal(client.workspace.isReady(), true);
+  assert.equal(client.getSnapshot().session.profileId, "am");
+  assert.equal(client.getSnapshot().message, "");
+});

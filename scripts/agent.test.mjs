@@ -73,6 +73,39 @@ test("a recovered observer clears its read error without discarding unconfirmed 
   const client = new AgentClient({ namespaceId: "n", profileId: "jw", generation: "g", workspaceEpoch: "e", expiresAt: "future" }, { read: async () => { if (offline) throw Error("Offline"); return { conversations: [], runs: [] }; }, send: async () => ({}) }, () => {}, () => {});
   await client.refresh(); assert.equal(client.getSnapshot().error, "Offline"); offline = false; await client.refresh(); assert.equal(client.getSnapshot().error, ""); client.deactivate();
 });
+
+test("restored navigation requests recover quietly and finish at the latest chosen surface", async () => {
+  const previousWindow = globalThis.window, session = { namespaceId: "n", profileId: "jw", generation: "g", workspaceEpoch: "e", expiresAt: "future" };
+  const original = { kind: "visit", requestId: "original-visit", context: { target: context.target, surface: "home" } };
+  let disk = JSON.stringify({ session, commands: [original] }), offline = true;
+  globalThis.window = { sessionStorage: { getItem: () => disk, setItem: (_key, value) => { disk = value; }, removeItem: () => { disk = null; } } };
+  const sent = [], client = new AgentClient(session, { read: async () => ({ conversations: [], runs: [] }), send: async command => { sent.push(structuredClone(command)); if (offline) throw Error("Disconnected"); return { conversationId: "conversation" }; } }, () => {}, () => {});
+  try {
+    assert.equal(client.getSnapshot().requestIssue, null);
+    await client.refresh(); await new Promise(resolve => setTimeout(resolve, 0));
+    const obsolete = client.command({ ...original, requestId: "obsolete", context: { ...original.context, surface: "code" } });
+    const latest = client.command({ ...original, requestId: "latest", context: { ...original.context, surface: "build" } });
+    assert.equal(await obsolete, null);
+    offline = false; await client.refresh(); await latest;
+    assert.deepEqual(sent.map(command => command.requestId), ["original-visit", "original-visit", "latest"]);
+    assert.deepEqual(sent[0], sent[1]); assert.equal(client.getSnapshot().pending, false);
+    assert.equal(client.getSnapshot().requestIssue, null); assert.equal(disk, null);
+  } finally { client.deactivate(); if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
+
+test("restored user messages require an explicit retry and keep the original request identity", async () => {
+  const previousWindow = globalThis.window, session = { namespaceId: "n", profileId: "jw", generation: "g", workspaceEpoch: "e", expiresAt: "future" };
+  const original = { kind: "submit", requestId: "original-message", context: { target: context.target, surface: "home" }, text: "Keep this message" };
+  let disk = JSON.stringify({ session, commands: [original] });
+  globalThis.window = { sessionStorage: { getItem: () => disk, setItem: (_key, value) => { disk = value; }, removeItem: () => { disk = null; } } };
+  const sent = [], client = new AgentClient(session, { read: async () => ({ conversations: [], runs: [] }), send: async command => { sent.push(structuredClone(command)); return { runId: "accepted" }; } }, () => {}, () => {});
+  try {
+    await client.refresh(); await client.refresh();
+    assert.deepEqual(sent, []); assert.equal(client.getSnapshot().requestIssue, "retry");
+    client.retry(); await new Promise(resolve => setTimeout(resolve, 0));
+    assert.deepEqual(sent, [original]); assert.equal(client.getSnapshot().requestIssue, null); assert.equal(disk, null);
+  } finally { client.deactivate(); if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow; }
+});
 test("durable transcript replacement keeps presentation separate and ignores identical observations", () => {
   const store = new ConversationStore(); const first = { scopeKey: "build", messages: [{ id: 1, role: "agent", text: "Ready" }] };
   store.adopt("thread", first); const unchanged = store.getSnapshot(); store.adopt("thread", structuredClone(first)); assert.equal(store.getSnapshot(), unchanged);

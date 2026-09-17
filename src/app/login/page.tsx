@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<{ message: string; retryable: boolean } | null>(null);
   const [notice, setNotice] = useState("");
+  const [signInProblem, setSignInProblem] = useState("");
   const cancelRef = useRef<HTMLButtonElement>(null);
   function dismiss() { if (!busy) { setConfirmation(null); setProblem(null); } }
   async function confirmClear() {
@@ -47,8 +48,11 @@ export default function LoginPage() {
               className={styles.account}
               disabled={!resolved || busy}
               onClick={async () => {
-                if (!await signIn(profile.id)) return;
-                router.replace(normalizeDestinationHref(new URLSearchParams(window.location.search).get("returnTo")) ?? "/");
+                setBusy(true); setSignInProblem("");
+                try {
+                  if (!await signIn(profile.id)) { setSignInProblem("We couldn’t sign in. Please try again."); return; }
+                  router.replace(normalizeDestinationHref(new URLSearchParams(window.location.search).get("returnTo")) ?? "/");
+                } finally { setBusy(false); }
               }}
             >
               <span className={styles.avatar} data-profile={profile.id} aria-hidden="true">
@@ -71,6 +75,7 @@ export default function LoginPage() {
         </div>
 
         <p className={styles.note}>Demo environment</p>
+        {signInProblem && <p className={styles.notice} role="alert">{signInProblem}</p>}
         {notice && <p className={styles.notice} role="status">{notice}</p>}
       </section>
       {confirmation && <Modal open onDismiss={dismiss} onExited={() => {}} initialFocus={cancelRef}

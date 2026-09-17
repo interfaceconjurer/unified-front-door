@@ -3,7 +3,7 @@ import { activeRun, parseAgentCommand, type AgentCommand, type AgentReceipt, typ
 import { mergeAgentSnapshot, mergeRunProgress } from "./progress";
 
 export const EMPTY_AGENT: AgentSnapshot = { conversations: [], runs: [] };
-const INITIAL: { data: AgentSnapshot; ready: boolean; error: string; pending: boolean; recovery: string | null; acknowledged: { command: AgentCommand; receipt: AgentReceipt } | null } = { data: EMPTY_AGENT, ready: false, error: "", pending: false, recovery: null, acknowledged: null };
+const INITIAL: { data: AgentSnapshot; ready: boolean; error: string; pending: boolean; requestIssue: "retry" | "rejected" | null; recovery: string | null; acknowledged: { command: AgentCommand; receipt: AgentReceipt } | null } = { data: EMPTY_AGENT, ready: false, error: "", pending: false, requestIssue: null, recovery: null, acknowledged: null };
 export const inactiveAgent = { getSnapshot: () => INITIAL, getServerSnapshot: () => INITIAL, subscribe: (listener: () => void) => { void listener; return () => {}; }, start: () => {}, setThread: (threadKey: string) => { void threadKey; }, command: async (command: AgentCommand): Promise<AgentReceipt | null> => { void command; return null; }, retry: () => {}, discardRecovery: () => {} };
 type Transport = { read(): Promise<AgentSnapshot>; readRun?(runId: string, after: number): Promise<{ run: RunView }>; send(command: AgentCommand): Promise<AgentReceipt> };
 type Pending = { command: AgentCommand; resolve?: (receipt: AgentReceipt | null) => void };
@@ -38,7 +38,7 @@ export class AgentClient {
         if (stableJson(saved.session) !== stableJson(session) || !Array.isArray(saved.commands) || saved.commands.length > 32) throw new Error("Invalid requests");
         this.queue = saved.commands.map((command: unknown) => ({ command: parseAgentCommand(command) }));
         this.blocked = this.queue.length > 0;
-        this.view = { ...this.view, pending: this.blocked, error: this.blocked ? "A previous request needs confirmation. Retry keeps its original message and context." : "" };
+        this.view = { ...this.view, pending: this.blocked, requestIssue: this.queue.some(item => item.command.kind !== "visit") ? "retry" : null };
       }
     } catch { this.blocked = true; this.view = { ...this.view, recovery: raw, error: "The saved agent request could not be read. Export its original bytes before discarding it to resume messaging." }; }
   }
@@ -107,6 +107,7 @@ export class AgentClient {
   }
   refresh = async () => {
     if (!this.active || this.reading) return; this.reading = true;
+    let refreshed = false;
     try {
       const incoming = await this.transport.read(); if (!this.active) return;
       const data = mergeAgentSnapshot(this.view.data, incoming);
@@ -116,18 +117,32 @@ export class AgentClient {
       const changed = stableJson(before) !== stableJson(after);
       this.publish({ ready: true, data: stableJson(data) === stableJson(this.view.data) ? this.view.data : data, ...(this.readFailed && !this.blocked ? { error: "" } : {}) });
       this.readFailed = false;
+      refreshed = true;
       if (changed) this.businessChanged();
     } catch (error) {
       if (this.active) { this.readFailed = true; this.publish({ error: error instanceof Error ? error.message : "Agent history is unavailable." }); if (error instanceof ApplicationError && ["session_changed", "unauthorized"].includes(error.code)) this.sessionChanged(); }
-    } finally { this.reading = false; this.scheduleProgress(); }
+    } finally {
+      this.reading = false; this.scheduleProgress();
+      // Visits only update navigation context; they never start model work.
+      // Recover them after connectivity returns, preserving their receipt IDs.
+      // User commands still require an explicit retry after an uncertain result.
+      if (refreshed && this.active && this.blocked && this.queue.length && this.queue.every(item => item.command.kind === "visit")) {
+        this.blocked = false; void this.drain();
+      }
+    }
   };
   command(command: AgentCommand): Promise<AgentReceipt | null> {
-    if (!this.active || !this.view.ready || this.blocked) return Promise.resolve(null);
-    if (command.kind === "visit" && this.queue.some(item => item.command.kind === "visit" && stableJson(item.command.context) === stableJson(command.context) && item.command.workId === command.workId)) return Promise.resolve(null);
+    const recoveringVisits = this.blocked && command.kind === "visit" && this.queue.length > 0 && this.queue.every(item => item.command.kind === "visit");
+    if (!this.active || !this.view.ready || this.blocked && !recoveringVisits) return Promise.resolve(null);
+    const last = this.queue.at(-1)?.command;
+    if (command.kind === "visit" && last?.kind === "visit" && stableJson(last.context) === stableJson(command.context) && last.workId === command.workId) return Promise.resolve(null);
+    // Retain the uncertain first visit, but only the newest not-yet-sent
+    // destination behind it. Recovery must finish in the currently chosen surface.
+    if (recoveringVisits) for (const superseded of this.queue.splice(1)) superseded.resolve?.(null);
     const result = new Promise<AgentReceipt | null>(resolve => this.queue.push({ command, resolve }));
-    this.persist(); this.publish({ pending: true }); void this.drain(); return result;
+    this.persist(); this.publish({ pending: true, ...(command.kind !== "visit" ? { requestIssue: null } : {}) }); void this.drain(); return result;
   }
-  retry = () => { if (!this.active || !this.queue.length) { void this.refresh(); return; } this.blocked = false; this.publish({ error: "" }); void this.drain(); };
+  retry = () => { if (!this.active || !this.queue.length) { void this.refresh(); return; } this.blocked = false; this.publish({ error: "", requestIssue: null }); void this.drain(); };
   discardRecovery = () => {
     const raw = this.view.recovery; if (!this.active || raw === null) return;
     try {
@@ -143,13 +158,14 @@ export class AgentClient {
         const pending = this.queue[0]!;
         try {
           const receipt = await this.transport.send(pending.command); if (!this.active) return;
-          this.queue.shift(); this.persist(); this.publish({ pending: this.queue.length > 0, error: "", acknowledged: { command: pending.command, receipt } });
+          this.queue.shift(); this.persist(); this.publish({ pending: this.queue.length > 0, error: "", requestIssue: null, acknowledged: { command: pending.command, receipt } });
           await this.refresh(); pending.resolve?.(this.active ? receipt : null);
         } catch (error) {
           if (!this.active) return;
-          const rejected = error instanceof ApplicationError && ["conflict", "invalid"].includes(error.code);
+          const rejected = error instanceof ApplicationError && error.status < 500;
           if (rejected) { this.queue.shift(); this.persist(); }
-          this.blocked = !rejected; this.publish({ pending: this.queue.length > 0, error: error instanceof Error ? error.message : "The request could not be confirmed. Retry keeps its identity." });
+          this.blocked = !rejected; this.publish({ pending: this.queue.length > 0, error: error instanceof Error ? error.message : "The request could not be confirmed. Retry keeps its identity.",
+            requestIssue: pending.command.kind === "visit" ? this.view.requestIssue : rejected ? "rejected" : "retry" });
           pending.resolve?.(null); pending.resolve = undefined;
           if (error instanceof ApplicationError && ["session_changed", "unauthorized"].includes(error.code)) this.sessionChanged();
           if (!rejected) break;

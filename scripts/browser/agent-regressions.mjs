@@ -64,12 +64,12 @@ try {
             out.checks.push('One ACK clears once; retyped identical draft survives held refresh and polling');
         }
         else if (test === 'lost-ack-reload') {
-            await p.getByRole('button', { name: 'Retry request', exact: true }).waitFor();
+            await p.getByRole('button', { name: 'Retry message', exact: true }).waitFor();
             const first = submits[0];
             await p.reload();
-            await p.getByRole('button', { name: 'Retry request', exact: true }).waitFor();
-            await p.getByRole('button', { name: 'Retry request', exact: true }).click();
-            await p.waitForFunction(() => !Array.from(document.querySelectorAll('button')).some(n => n.textContent === 'Retry request'));
+            await p.getByRole('button', { name: 'Retry message', exact: true }).waitFor();
+            await p.getByRole('button', { name: 'Retry message', exact: true }).click();
+            await p.waitForFunction(() => !Array.from(document.querySelectorAll('button')).some(n => n.textContent === 'Retry message'));
             assert.equal(submits.length, 2);
             assert.deepEqual(submits[1], first);
             assert.equal(await p.locator('[data-kind=user]').filter({ hasText: text }).count(), 1);

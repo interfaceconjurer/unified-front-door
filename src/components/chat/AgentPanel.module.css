@@ -273,7 +273,7 @@
   color: var(--text-secondary, #5c6570);
   font-size: 12px;
 }
-.runStatus button, .requestError button {
+.runStatus button, .requestNotice button, .requestRecovery button {
   margin-left: 10px;
   color: inherit;
   text-decoration: underline;
@@ -281,4 +281,12 @@
   border: 0;
   cursor: pointer;
 }
-.requestError { padding: 8px 12px; font-size: 13px; }
+.requestNotice, .requestRecovery {
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.requestNotice { margin-inline-start: auto; }
+.requestNotice button { margin-inline-start: 0.25rem; }
+.requestRecovery summary { cursor: pointer; }
+.requestRecovery button + button { margin-inline-start: 0.75rem; }

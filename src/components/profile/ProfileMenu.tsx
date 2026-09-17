@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DEMO_PROFILES, type DemoProfileId } from "@/lib/demo-profiles";
-import { applicationClient } from "@/lib/application/client";
 import { useDemoProfile } from "./ProfileProvider";
 import styles from "./ProfileMenu.module.css";
 
@@ -11,7 +10,8 @@ export function ProfileMenu() {
   const router = useRouter();
   const { profile, signIn, signOut } = useDemoProfile();
   const [open, setOpen] = useState(false);
-  const [resetReview, setResetReview] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [problem, setProblem] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -43,15 +43,23 @@ export function ProfileMenu() {
   const experienceLabel = profile.onboarding ? "Day zero" : profile.experience === "returning" ? "Returning user" : "New user";
 
   async function switchUser(profileId: DemoProfileId) {
-    if (!await signIn(profileId)) return;
-    setOpen(false);
-    router.replace("/");
+    if (pending) return;
+    setPending(true); setProblem("");
+    try {
+      if (!await signIn(profileId)) { setProblem("We couldn’t switch users. Please try again."); return; }
+      setOpen(false);
+      router.replace("/");
+    } finally { setPending(false); }
   }
 
   async function logout() {
-    if (!await signOut()) return;
-    setOpen(false);
-    router.replace("/login");
+    if (pending) return;
+    setPending(true); setProblem("");
+    try {
+      if (!await signOut()) { setProblem("We couldn’t sign out. Please try again."); return; }
+      setOpen(false);
+      router.replace("/login");
+    } finally { setPending(false); }
   }
 
   return (
@@ -81,7 +89,7 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.people}>
-            {alternateProfiles.map((alternateProfile) => <button key={alternateProfile.id} type="button" onClick={() => switchUser(alternateProfile.id)}>
+            {alternateProfiles.map((alternateProfile) => <button key={alternateProfile.id} type="button" disabled={pending} onClick={() => switchUser(alternateProfile.id)}>
               <span className={styles.personCopy}>
                 <strong>Switch to {alternateProfile.name}</strong>
                 <small>
@@ -92,9 +100,9 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.logout}>
-            {resetReview ? <><p>Reset saved projects, findings and drafts for {profile.name} in this demo workspace? Other profiles and browser import sources stay intact.</p><button type="button" onClick={async () => { if (await applicationClient.change("reset")) { setResetReview(false); setOpen(false); router.replace("/"); } }}>Confirm reset of this profile</button><button type="button" onClick={() => setResetReview(false)}>Cancel reset</button></> : <button type="button" onClick={() => setResetReview(true)}>Reset this profile’s demo data</button>}
-            <button type="button" onClick={logout}>
-              Sign out
+            {problem && <p className={styles.problem} role="alert">{problem}</p>}
+            <button type="button" disabled={pending} onClick={logout}>
+              {pending ? "Please wait…" : "Sign out"}
             </button>
           </div>
         </div>

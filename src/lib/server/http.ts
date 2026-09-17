@@ -4,9 +4,20 @@ import { diagnoseError } from "./diagnostics";
 import { applicationOrigin } from "./configuration";
 
 export const PRIVATE_HEADERS = { "Cache-Control": "private, no-store, max-age=0", Vary: "Cookie" };
-export function assertSameOrigin(request: Request): void {
-  const expected = applicationOrigin();
-  if (request.headers.get("origin") !== expected || request.headers.get("x-ufd-mutation") !== "1"
+export function assertSameOrigin(request: Request, env: Record<string, string | undefined> = process.env): void {
+  const expected = applicationOrigin(env), origin = request.headers.get("origin");
+  let allowed = origin === expected;
+  // Forwarded development previews use either loopback spelling. Require the
+  // browser's actual host and the configured protocol/port; hosted origins stay exact.
+  if (!allowed && env.NODE_ENV === "development" && origin) {
+    try {
+      const configured = new URL(expected), incoming = new URL(origin);
+      const loopback = ["localhost", "127.0.0.1", "[::1]"];
+      allowed = incoming.origin === origin && loopback.includes(configured.hostname) && loopback.includes(incoming.hostname)
+        && incoming.protocol === configured.protocol && incoming.port === configured.port && request.headers.get("host") === incoming.host;
+    } catch { /* Invalid origins are rejected below. */ }
+  }
+  if (!allowed || request.headers.get("x-ufd-mutation") !== "1"
     || (request.headers.get("sec-fetch-site") && request.headers.get("sec-fetch-site") !== "same-origin")) {
     throw new ApplicationError("unauthorized", "This mutation must originate from this application.", 403);
   }

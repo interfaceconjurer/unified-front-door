@@ -14,6 +14,18 @@ const diagnostics = modules.load("lib/server/diagnostics");
 const { responseError } = modules.load("lib/server/http"), { ApplicationError } = modules.load("lib/application/contracts");
 const valid = { NODE_ENV: "production", BASIC_AUTH_PASSWORD: "test-password", APP_ORIGIN: "http://localhost:3000", DATABASE_URL: "postgres://test:fake@localhost:5432/app" };
 
+test("development loopback aliases accept only the actual browser host and configured port; production keeps one exact origin", () => {
+  const { assertSameOrigin } = modules.load("lib/server/http");
+  const request = (origin, patch = {}) => new Request("http://127.0.0.1:3000/api/session", { method: "POST", headers: { origin, host: new URL(origin).host, "x-ufd-mutation": "1", "sec-fetch-site": "same-origin", ...patch } });
+  const dev = { ...valid, NODE_ENV: "development" };
+  for (const origin of ["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"]) assert.doesNotThrow(() => assertSameOrigin(request(origin), dev));
+  for (const origin of ["http://127.0.0.1:3001", "https://127.0.0.1:3000", "http://localhost.evil.test:3000", "http://192.168.1.2:3000", "http://127.0.0.1:3000/path"]) assert.throws(() => assertSameOrigin(request(origin), dev), error => error.status === 403);
+  for (const patch of [{ host: "elsewhere.test:3000" }, { host: "localhost:3000" }, { "sec-fetch-site": "cross-site" }, { "x-ufd-mutation": "0" }]) assert.throws(() => assertSameOrigin(request("http://127.0.0.1:3000", patch), dev), error => error.status === 403);
+  assert.throws(() => assertSameOrigin(request("http://127.0.0.1:3000"), valid), error => error.status === 403);
+  assert.throws(() => assertSameOrigin(request("http://127.0.0.1:3000"), { ...dev, APP_ORIGIN: "https://app.example.com" }), error => error.status === 403);
+  assert.doesNotThrow(() => assertSameOrigin(request("http://localhost:3000"), valid));
+});
+
 test("runtime configuration rejects incomplete credentials, invalid origin and invalid database without leaking values", () => {
   assert.doesNotThrow(() => validateRuntimeConfiguration(valid));
   assert.equal(basicAuth(valid).user, "guest");
