@@ -1,4 +1,8 @@
-import type { Org, Project } from "../workspace/model";
+import type { Org } from "../workspace/model";
+import type { Finding } from "../assessment/model";
+export type { Finding } from "../assessment/model";
+export type { ImprovementProject, PlannedWorkItem, ProjectDraft } from "../projects/model";
+export { workspaceProject } from "../projects/model";
 
 // This is an explicit demo adapter. A real adapter must discover orgs through
 // granted connections and permissions; a My Domain login is not blanket access.
@@ -21,24 +25,6 @@ export const ASSESSMENT_STEPS = [
   { title: "Check release readiness", detail: "Review metadata differences and validation results." },
   { title: "Prioritize opportunities", detail: "Connect the evidence to practical improvements and a plan." },
 ] as const;
-
-export type Finding = {
-  id: string;
-  orgId: string;
-  category: "Limits" | "Automation" | "Release readiness";
-  priority: "High" | "Medium";
-  title: string;
-  summary: string;
-  metric: string;
-  metricLabel: string;
-  effort: string;
-  impact: string;
-  evidence: readonly string[];
-  source: string;
-  hypothesis: string;
-  steps: readonly string[];
-  validation: string;
-};
 
 export const ASSESSMENT_FINDINGS: readonly Finding[] = [
   {
@@ -98,46 +84,4 @@ export function accessibleScope(ids: readonly string[]): string[] {
 export function findingsForScope(ids: readonly string[]): Finding[] {
   const scope = accessibleScope(ids);
   return ASSESSMENT_FINDINGS.filter((finding) => scope.includes(finding.orgId));
-}
-
-export type PlannedWorkItem = {
-  id: string;
-  findingId: string;
-  title: string;
-  priority: Finding["priority"];
-  status: "todo" | "in-progress" | "done";
-};
-
-export type ImprovementProject = {
-  id: string;
-  name: string;
-  goal: string;
-  owner: string;
-  targetOrgId: string;
-  scopeOrgIds: string[];
-  createdAt: string;
-  workItems: PlannedWorkItem[];
-};
-
-export type ProjectDraft = {
-  name: string;
-  goal: string;
-  targetOrgId: string;
-  findingIds: string[];
-};
-
-export function projectCreatedReply(project: ImprovementProject): string {
-  const count = project.workItems.length;
-  const target = ASSESSMENT_ORGS.find((org) => org.id === project.targetOrgId)?.label ?? "your sandbox";
-  return `I’ve created “${project.name}” from the opportunities you selected.\n\n${project.goal}\n\nYour plan has ${count} work ${count === 1 ? "item" : "items"}, with implementation steps and acceptance criteria. We’ll use ${target} to validate the changes.\n\nWhat would you like to do next? We can review the plan, choose the first work item, or work through how we’ll validate the improvements.`;
-}
-
-export function workspaceProject(project: ImprovementProject): Project {
-  return {
-    id: project.id, name: project.name, description: project.goal,
-    defaultOrgId: project.targetOrgId,
-    worktrees: [{ id: "main", label: "Project plan", branch: "main", isPrimary: true }],
-    facets: { objects: 0, flows: 0, apexClasses: 0, lwc: 0, permissionSets: 0 },
-    agentSessions: [], apps: [],
-  };
 }

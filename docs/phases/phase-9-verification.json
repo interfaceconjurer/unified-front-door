@@ -1,0 +1,436 @@
+{
+  "phase": 9,
+  "status": "approved",
+  "phaseApproved": true,
+  "authorization": "User said lets continue after approved Phase 8",
+  "baseline": {
+    "userBranchHead": "4e52aa1d813d80eef6f1ba88e2d42a3b0e82e8bf",
+    "historicalManifest": "/tmp/ufd-phase9/historical-sha256.json",
+    "immutableFiles": 18,
+    "preservationVerified": true,
+    "historicalManifestSha256": "e29fb94a69aa2212f535bc313f198f9f2c4fad696ccf26e5bb90d300ec60ea94",
+    "independentPreservationEvidence": "/tmp/ufd-phase9-reviewer/historical-preservation.json",
+    "independentPreservationEvidenceSha256": "0db3fcf02a96c87224f69a01cd11cf95c99dfa139f7ee8b99a15adbdd5b791b6"
+  },
+  "acceptance": {
+    "P9-A1": "accepted",
+    "P9-A2": "accepted",
+    "P9-A3": "accepted",
+    "P9-A4": "accepted",
+    "P9-A5": "accepted",
+    "P9-A6": "accepted"
+  },
+  "findings": [
+    {
+      "id": "P9-R1",
+      "status": "closed_approved",
+      "title": "Repeatable-read session conflict",
+      "reportedBy": "phase9_implementer",
+      "reproducedSafeCode": "40001",
+      "historicalIndividualAttribution": "unproved"
+    },
+    {
+      "id": "P9-R2",
+      "status": "closed_approved",
+      "title": "Basic Auth challenge/retry request-body lifetime",
+      "reportedBy": "phase9_implementer",
+      "reproduction": "Five Playwright invalid POST challenge/retry requests produce uncaught ECONNRESET without Neon",
+      "evidence": "/tmp/ufd-phase9-implementer/playwright-baseline.log",
+      "historicalIndividualAttribution": "unproved"
+    },
+    {
+      "id": "P9-R3",
+      "status": "closed_approved",
+      "title": "Unsupported production upgrade lifetime",
+      "reportedBy": "phase9_reviewer",
+      "evidence": "/tmp/ufd-phase9-reviewer/upgrade-review-before.json",
+      "failure": "Authenticated production HMR upgrade gives no response for >3s; harness forces SIGKILL after10s",
+      "requiredCorrection": "Reject unsupported production upgrades before Next and verify graceful shutdown",
+      "originalFailureEvidence": "/tmp/ufd-phase9-reviewer/upgrade-review-before.json"
+    },
+    {
+      "id": "P9-R4",
+      "status": "closed_approved",
+      "title": "Development shutdown lifecycle",
+      "reportedBy": "phase9_implementer",
+      "failure": "HTTP and public Next cleanup resolve while development handles keep process alive",
+      "evidence": "/tmp/ufd-phase9-implementer/http-development/fourth-server.log",
+      "correction": "Sequential HTTP drain, public app.close, owned HMR close, explicit successful exit only after cleanup; retain20s failure deadline"
+    }
+  ],
+  "validation": [
+    {
+      "check": "Diagnostic reproduction",
+      "status": "implementer_reported",
+      "source": "uncorrected",
+      "providerCalls": 0,
+      "originalFailures": [
+        "Initial owned-database cleanup failed with 23503 from foreign-key ordering; repository cleanup order subsequently removed exact owned namespace"
+      ]
+    },
+    {
+      "check": "Five-request corrected challenge/retry trace",
+      "status": "preliminary_reviewer_accepted",
+      "monitoredUncaughtBlocks": 0,
+      "source": "evolving",
+      "finalRegression": "Final10-group production and development evidence recorded separately"
+    },
+    {
+      "check": "Independent production upgrade probe",
+      "status": "failed",
+      "authStatuses": [
+        401,
+        426,
+        401,
+        401
+      ],
+      "unsupportedAuthenticatedUpgrade": "no_response_over_3_seconds",
+      "shutdownSignal": "SIGKILL",
+      "shutdownDeadlineMs": 10000,
+      "evidence": "/tmp/ufd-phase9-reviewer/upgrade-review-before.json"
+    },
+    {
+      "check": "Independent Phase8 invariant source comparison",
+      "status": "passed",
+      "matchingFiles": 9,
+      "evidence": "/tmp/ufd-phase9-reviewer/phase8-invariants-source.json",
+      "evidenceSha256": "85c371ee17867f1d536d371b6acd4599aebea7ae285f265caaeec5c49b42f1aa",
+      "limit": "Source preservation only; retained regression still required"
+    },
+    {
+      "check": "Independent corrected production upgrade probe",
+      "status": "passed",
+      "authMissingOrInvalid": 401,
+      "authenticatedUnsupported": 426,
+      "coversBeforeAndAfterFrameworkInitialization": true,
+      "uncaughtBlocks": 0,
+      "shutdownMs": 13,
+      "exitCode": 0,
+      "evidence": "/tmp/ufd-phase9-reviewer/upgrade-review.json",
+      "evidenceSha256": "41a3b14aebf8e5c9f9190516ea9c5799df75c2689ed4814a7b677cdfb3b851d2"
+    },
+    {
+      "check": "Development HTTP regression first attempt",
+      "status": "failed_harness",
+      "cause": "Obsolete hot-reload URL; installed Next16.3.5 uses /_next/hmr",
+      "correctedRun": "Final10-group development pass recorded separately"
+    },
+    {
+      "check": "snapshot-database-corrected",
+      "status": "coordinator_pass",
+      "nodeTests": 1,
+      "evidence": "/tmp/ufd-phase9/snapshot-database-corrected.log",
+      "evidenceSha256": "e197d360bdee36c3b1175bb1d4847ba88ba35c1a5180ed921e15577c74f3bb2f",
+      "scenarios": 6,
+      "resultStatuses": [
+        409,
+        401
+      ],
+      "retriesPerScenario": 1,
+      "staleDataReturned": false,
+      "testGroupDurationMs": 11340,
+      "totalDurationMs": 14328,
+      "cleanupJournalEmpty": true
+    },
+    {
+      "check": "operations",
+      "status": "coordinator_pass",
+      "nodeTests": 14,
+      "evidence": "/tmp/ufd-phase9/operations.log",
+      "evidenceSha256": "02be749fc9f17fd764b2c4f52372eaaa35768d6bf7fc498b399acbde48e0f7de"
+    },
+    {
+      "check": "Snapshot database initial observer",
+      "status": "failed_test_observer",
+      "durationMs": 5533,
+      "cause": "pg_stat_activity cached within writer transaction",
+      "correction": "Use live pg_locks observer; assertions, timeouts, and runtime unchanged",
+      "cleanupJournalEmpty": true,
+      "evidence": "/tmp/ufd-phase9/snapshot-database.log"
+    },
+    {
+      "check": "Final focused HTTP production",
+      "status": "reviewer_accepted",
+      "groups": 10,
+      "evidence": "/tmp/ufd-phase9-implementer/http-production/result.json",
+      "evidenceSha256": "51c8f2233b1c91797ce9b65a0a7ee8f62acb815d6dfdeece8332ad968a5d67a4",
+      "shutdownMs": 4127,
+      "cleanup": true,
+      "inFlightPostDrained": true,
+      "exitCode": 0,
+      "uncaughtBlocks": 0,
+      "transportDeadlines": {
+        "incompleteHeaders": {
+          "status": 408,
+          "durationMs": 10740
+        },
+        "incompleteBody": {
+          "status": 408,
+          "durationMs": 15751
+        }
+      },
+      "hmrStatus": null
+    },
+    {
+      "check": "Final focused HTTP development",
+      "status": "reviewer_accepted",
+      "groups": 10,
+      "evidence": "/tmp/ufd-phase9-implementer/http-development/result.json",
+      "evidenceSha256": "1ada067e98de942d226f1c98ee536e194a5e952e3de30d468fa59cf6c75aa124",
+      "shutdownMs": 4151,
+      "cleanup": true,
+      "inFlightPostDrained": true,
+      "exitCode": 0,
+      "uncaughtBlocks": 0,
+      "transportDeadlines": null,
+      "hmrStatus": 101
+    }
+  ],
+  "hosted": {
+    "preflight": "read_only_completed",
+    "recordedAt": "2026-09-17T01:55:08.499138+00:00",
+    "source": "/tmp/ufd-phase9/hosted-preflight.json",
+    "sourceSha256": "edb3acfb224140ee75d2f57768c5cd4f26e99dab75a0a82dffb37d84a1b2a859",
+    "app": "unified-front-door",
+    "stack": "heroku-24",
+    "region": "us",
+    "currentRelease": 11,
+    "currentReleaseStatus": "succeeded",
+    "runningProcesses": [
+      {
+        "type": "web",
+        "size": "Basic",
+        "state": "up",
+        "release": 11
+      }
+    ],
+    "configPresent": {
+      "DATABASE_URL": false,
+      "DATABASE_URL_UNPOOLED": false,
+      "APP_ORIGIN": false,
+      "BASIC_AUTH_USER": false,
+      "BASIC_AUTH_PASSWORD": true,
+      "AGENT_PROVIDER": false,
+      "ANTHROPIC_API_KEY": false,
+      "ANTHROPIC_MODEL": false,
+      "AGENT_GLOBAL_DAILY_CALLS": false,
+      "AGENT_NAMESPACE_DAILY_CALLS": false
+    },
+    "githubEnvironment": {
+      "name": "heroku",
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    "githubSecretPresent": {
+      "HEROKU_API_KEY": true,
+      "HEROKU_BASIC_AUTH_PASSWORD": false
+    },
+    "candidateMonthlyUsd": {
+      "additionalBasicWorker": 7,
+      "existingBasicWebPlusBasicWorker": 14,
+      "excludes": [
+        "Neon",
+        "Anthropic",
+        "taxes"
+      ],
+      "authorized": false
+    },
+    "requirements": [
+      "Exact committed revision and fresh passing release attestation",
+      "Separate hosted database paired URLs, schema and recovery proof",
+      "Exact HTTPS APP_ORIGIN, Basic Auth and approved provider config",
+      "Before publishing or merging to main: GitHub required reviewer and main-only deployment policy; configure matching smoke password",
+      "Approved worker plan and activation after compatible slug",
+      "Matching web/worker release and actual hosted acceptance"
+    ],
+    "mutated": false,
+    "deployed": false,
+    "acceptance": "unperformed"
+  },
+  "paidProviderCalls": 0,
+  "userBranchCommitted": false,
+  "finalIndependentApproval": {
+    "phase": 9,
+    "decision": "APPROVED",
+    "approver": "/root/phase9_reviewer",
+    "recordedAt": "2026-09-17T02:39:41.627969+00:00",
+    "criteria": {
+      "P9-A1": "accepted",
+      "P9-A2": "accepted",
+      "P9-A3": "accepted",
+      "P9-A4": "accepted",
+      "P9-A5": "accepted",
+      "P9-A6": "accepted"
+    },
+    "reviewedRevision": "9d8c4db17bad283fce8d25abe480bc35c3e09d2f",
+    "reviewedBuildId": "Us4C1d3BjRMulNOQ2-vMd",
+    "technicalEvidence": "/tmp/ufd-phase9-reviewer/final-technical-audit.json",
+    "cleanupEvidence": "/tmp/ufd-phase9-reviewer/final-cleanup-browser.json",
+    "outstandingWithinPhase": [],
+    "scopeLimits": [
+      "Historical individual errors cannot be conclusively attributed from original logs",
+      "Hosted deployment and acceptance remain unperformed",
+      "No new paid provider calls, hosted mutations, or user-branch commit authorized or performed in this phase"
+    ],
+    "decisionText": "APPROVED: all six agreed Phase 9 acceptance criteria are satisfied. No open findings remain within this phase. Stop at the user checkpoint before further work.",
+    "evidence": "/tmp/ufd-phase9-reviewer/approval.json",
+    "evidenceSha256": "159f33a3f20b668a382b8fe04ef150481a7202355187f3b8f679eef2a74e80ca"
+  },
+  "historicalAttributionLimits": [
+    "Original agent.read errors record unavailable without SQLSTATE",
+    "Original abort stacks omit internal frames and request correlation",
+    "New reproduction does not prove causes of individual historical occurrences"
+  ],
+  "decisions": [
+    {
+      "decision": "Uniform Basic Auth before Next routing through supported custom HTTP entrypoint",
+      "approvedBy": [
+        "root",
+        "phase9_reviewer"
+      ],
+      "status": "source_freeze_accepted",
+      "excludes": [
+        "URL authentication exemptions",
+        "Framework patch",
+        "Blanket error suppression"
+      ],
+      "additionalValidation": [
+        "Development/production/test parity",
+        "Page/asset/API/upgrade authentication",
+        "Request limits and CSRF",
+        "Disconnect handling",
+        "Bounded shutdown"
+      ]
+    },
+    {
+      "decision": "Private observational snapshot retries40001 once; no write or paid-work replay",
+      "snapshotWorkBudgetMs": 20000,
+      "additionalPoolAcquisitionMs": 5000,
+      "strict20SecondWallClockBound": false,
+      "status": "focused_regression_passed_source_frozen"
+    }
+  ],
+  "releaseGate": {
+    "status": "passed",
+    "stages": 14,
+    "fixture": "/tmp/ufd-phase9-verification",
+    "temporaryRevision": "9d8c4db17bad283fce8d25abe480bc35c3e09d2f",
+    "copiedFiles": 230,
+    "sourceManifest": "/tmp/ufd-phase9/fixture-source.json",
+    "sourceManifestSha256": "dea62cbe47ca7d28fa0b3778a4fd6858c52d7c4f413ff6b144bb139f28199d5c",
+    "log": "/tmp/ufd-phase9/release-gate.log",
+    "providerMode": "demo",
+    "providerKeyExcluded": true,
+    "userBranchCommitted": false,
+    "currentResultDocumentationOutsideFixture": true,
+    "initialIndependentSourceMatchFiles": 210,
+    "fixtureEnvLocalAbsent": true,
+    "exitCode": 0,
+    "attestation": {
+      "version": 1,
+      "revision": "9d8c4db17bad283fce8d25abe480bc35c3e09d2f",
+      "treeSha": "3b7a23a5bd2404d266566a089ab079d0daad53e3",
+      "sourceTreeSha256": "88e9d740220ee79c83b010c8e39d8064929843c38746398a49f46adb471f42f0",
+      "lockSha256": "80691a1810d6f59e75827e63aefb035dd00ffc2f91191373cf8a9c97ffdca9dc",
+      "sourceSha256": "ce45e9072b6512540392bed172d5a56a54b640894305baeec49c5464634a1dca",
+      "nodeVersion": "22.23.2",
+      "verified": true,
+      "releasable": true,
+      "completedAt": "2026-09-17T02:34:28.989Z",
+      "buildId": "Us4C1d3BjRMulNOQ2-vMd",
+      "checks": [
+        "locked-install",
+        "dependency-audit",
+        "pure-tests",
+        "lint",
+        "typecheck",
+        "production-build",
+        "database-migrations",
+        "database-tests",
+        "agent-database-tests",
+        "runtime-smoke",
+        "browser-regressions",
+        "browser-database",
+        "worker-recovery",
+        "browser-performance"
+      ]
+    },
+    "attestationEvidence": "/tmp/ufd-phase9-verification/.release/verification.json",
+    "attestationSha256": "eb3b6790503c3364af38c70f00225191b778bf3df2903a93a38ed2cb95327153",
+    "nodeTests": 205,
+    "nodeTestBatches": [
+      123,
+      45,
+      10,
+      27
+    ],
+    "browserChecks": 29,
+    "neonBrowserChecks": [
+      4,
+      4
+    ],
+    "workerChecks": 3,
+    "performanceSamples": 15,
+    "performanceErrors": [],
+    "allCleanupJournalsEmpty": true,
+    "finalIndependentSourceMatchFiles": 210,
+    "archiveChecksumMatches": true
+  },
+  "finalTechnicalAudit": {
+    "evidence": "/tmp/ufd-phase9-reviewer/final-technical-audit.json",
+    "evidenceSha256": "c5a39b56449b670d93a0fb7e89cbc5263ba3f23fd97d3320fbb828b8ee975e2b",
+    "ordinaryProductionDiagnostics": {
+      "structuredHttpOperations": 200,
+      "agentRead503": 0,
+      "anyHttp5xx": 0,
+      "uncaughtExceptionBlocks": 0,
+      "frameworkAbortedBlocks": 0,
+      "operationErrorCodes": [
+        "session_changed"
+      ],
+      "safeTransportCategories": [
+        "request_reset"
+      ],
+      "httpStatusCounts": {
+        "200": 195,
+        "409": 5
+      },
+      "transportCategoryCounts": {
+        "request_reset": 11
+      },
+      "snapshotRetries": 3
+    },
+    "injectedHttpRegression": {
+      "passed": true,
+      "groups": 10,
+      "uncaughtExceptionBlocks": 0,
+      "frameworkAbortedBlocks": 0,
+      "transportCategories": [
+        "request_cancelled",
+        "request_reset"
+      ],
+      "shutdownMs": 4131,
+      "transportDeadlines": {
+        "incompleteHeaders": {
+          "status": 408,
+          "durationMs": 10746
+        },
+        "incompleteBody": {
+          "status": 408,
+          "durationMs": 15757
+        }
+      }
+    },
+    "cleanupBrowserEvidence": "/tmp/ufd-phase9-reviewer/final-cleanup-browser.json",
+    "cleanupBrowserEvidenceSha256": "1a001b46e06e87b4fb2516cfa6bc8fb48b57c12fe177b7ff185197afe6ce6f68"
+  },
+  "localReadiness": {
+    "ignoredBuildRefreshed": true,
+    "buildId": "CMudXc8Qljxc1JX0Q4dEd",
+    "log": "/tmp/ufd-phase9/local-build.log",
+    "sameRuntimeSource": true,
+    "separateFromVerifiedFixtureBuild": true,
+    "serverOrWorkerLeftRunning": false,
+    "credentialsEdited": false
+  }
+}

@@ -1,23 +1,20 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { SampleTimestamp } from "@/components/workspace/SampleTimestamp";
+
+import { useCallback } from "react";
 import { ChevronRightIcon } from "@/components/icons";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
-import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
+import { useNavigationActions } from "@/components/navigation/NavigationProvider";
 import { workCanvasInput, type ReturningWork } from "@/lib/workspace/returning-work";
 import { useWorkspace } from "./workspace-context";
 import styles from "./RecentWorkList.module.css";
 
 export function useOpenWork() {
-  const router = useRouter();
-  const { switchWorkspace } = useWorkspace();
-  const { openCanvas } = useSurfaceCanvases("code");
-  return (work: ReturningWork) => {
-    switchWorkspace(work.projectId, work.worktreeId, () => {
-      openCanvas(work.surfaceId, workCanvasInput(work));
-      router.push(surfaceAppById(work.surfaceId).href);
-    }, work.surfaceId);
-  };
+  const { openCanvas } = useNavigationActions();
+  return useCallback((work: ReturningWork) => {
+    openCanvas(work.surfaceId, workCanvasInput(work));
+  }, [openCanvas]);
 }
 
 export function WorkStatusBadge({ work }: { work: ReturningWork }) {
@@ -26,26 +23,31 @@ export function WorkStatusBadge({ work }: { work: ReturningWork }) {
   </span>;
 }
 
-export function RecentWorkList({ items, onOpenWork }: {
-  items: readonly ReturningWork[];
-  onOpenWork?: (work: ReturningWork) => void;
+export function RecentWorkList({ items, onOpenWork, branch }: {
+  items: readonly ReturningWork[]; onOpenWork?: (work: ReturningWork) => void; branch?: string;
 }) {
+  return onOpenWork ? <WorkRows items={items} openWork={onOpenWork} branchFor={work => branch ?? work.worktreeId} />
+    : <LiveWorkRows items={items} />;
+}
+function LiveWorkRows({ items }: { items: readonly ReturningWork[] }) {
   const { projects } = useWorkspace();
   const openWork = useOpenWork();
+  return <WorkRows items={items} openWork={openWork} branchFor={work => projects.find(project => project.id === work.projectId)?.worktrees.find(tree => tree.id === work.worktreeId)?.branch ?? work.worktreeId} />;
+}
+function WorkRows({ items, openWork, branchFor }: { items: readonly ReturningWork[]; openWork: (work: ReturningWork) => void; branchFor: (work: ReturningWork) => string }) {
   return (
     <ul className={styles.list}>
       {items.map((work) => {
         const surface = surfaceAppById(work.surfaceId);
-        const project = projects.find((candidate) => candidate.id === work.projectId);
         return <li key={work.id}>
-          <button className={styles.row} type="button" onClick={() => (onOpenWork ?? openWork)(work)} aria-label={`Resume ${work.title}`}>
+          <button className={styles.row} type="button" onClick={() => openWork(work)} aria-label={`Resume ${work.title}`}>
             <span className={styles.icon} data-surface={work.surfaceId} aria-hidden="true"><surface.Icon width={18} height={18} /></span>
             <span className={styles.copy}>
               <strong>{work.title}</strong>
-              <span>{work.kind} · {project?.worktrees.find((tree) => tree.id === work.worktreeId)?.branch ?? work.worktreeId}</span>
+              <span>{work.kind} · {branchFor(work)}</span>
             </span>
-            <span className={styles.meta}><WorkStatusBadge work={work} /><span className={styles.updated}>{work.updated}</span></span>
-            <ChevronRightIcon className={styles.arrow} data-today-action width={15} height={15} aria-hidden="true" />
+            <span className={styles.meta}><WorkStatusBadge work={work} /><span className={styles.updated}><SampleTimestamp value={work.updated} /></span></span>
+            <ChevronRightIcon className={styles.arrow} width={15} height={15} aria-hidden="true" />
           </button>
         </li>;
       })}

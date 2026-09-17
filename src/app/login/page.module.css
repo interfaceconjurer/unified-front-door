@@ -42,6 +42,43 @@
   gap: var(--slds-g-spacing-3, 0.75rem);
 }
 
+.accountRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.clear {
+  border: 0;
+  border-radius: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.clear:hover { color: var(--slds-g-color-error-1, #ba0517); text-decoration: underline; }
+.clear:focus-visible, .dialogActions button:focus-visible { outline: 2px solid var(--slds-g-color-accent-1, #0176d3); outline-offset: 2px; }
+.account:disabled, .clear:disabled, .dialogActions button:disabled { opacity: 0.55; cursor: default; }
+.notice { margin: 0; color: var(--slds-g-color-on-surface-2, #2e2e2e); font-size: 0.875rem; text-align: center; }
+.dialog {
+  width: min(30rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: 0.75rem;
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+.dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.dialogContent { padding: 1.5rem; }
+.dialogContent h2 { margin: 0 0 1rem; font-size: 1.25rem; color: var(--slds-g-color-on-surface-3, #03234d); }
+.dialogContent p { margin: 0 0 1rem; font-size: 0.875rem; line-height: 1.5; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.dialogActions button { padding: 0.5rem 0.875rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 0.375rem; background: transparent; color: inherit; font: inherit; font-size: 0.875rem; cursor: pointer; }
+.dialogActions .confirmClear { background: var(--slds-g-color-error-1, #ba0517); border-color: var(--slds-g-color-error-1, #ba0517); color: #fff; }
+
 .account {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

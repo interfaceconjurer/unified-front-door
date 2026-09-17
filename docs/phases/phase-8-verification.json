@@ -1,0 +1,412 @@
+{
+  "artifactVersion": 1,
+  "phase": 8,
+  "status": "approved",
+  "phaseApproved": true,
+  "updatedAt": "2026-09-17T01:48:29.980483+00:00",
+  "scope": "One optional Anthropic text explanation/planning call over captured application/demo evidence; no model tools, private-org access, or external writes.",
+  "userBranch": {
+    "head": "4e52aa1d813d80eef6f1ba88e2d42a3b0e82e8bf",
+    "committedByPhase": false
+  },
+  "historyPreservation": {
+    "originalTemporaryBaselineAvailable": false,
+    "limitation": "Recovery hashes cannot establish equality across the interruption with the unavailable original baseline.",
+    "recoverySnapshot": {
+      "snapshotType": "post-interruption recovery snapshot; not the original phase-8 baseline",
+      "capturedAt": "2026-09-17T01:01:09.236738+00:00",
+      "files": {
+        "db/migrations/001_application.sql": "a0a6511a3a34e489304078bbf5ef7e1b6705fd5d76d1d3c1463204592262a4e2",
+        "db/migrations/002_project_run_ownership.sql": "d4fb66c2e0b73930dc92880b53beba9e22d6d1435e30ea3405eb55991b9d4234",
+        "db/migrations/003_import_sources.sql": "9dabef483827b71f17d5eedf389f796cedd1889e8cd12942fa61eee403e81b10",
+        "db/migrations/004_atomic_workspace_reset.sql": "c92ed716233904527748d641e43838c4d9c070bc45c6b29db395201ebd5f82da",
+        "db/migrations/005_workspace_reset_epoch.sql": "28550c916f67807bd0d063e35f81fd5f5c961b90260d7253a017e31db445a490",
+        "db/migrations/006_agent_lifecycle.sql": "7b22b47f2368605f3c32b088a422e9a034ad7c8f6d7cfa53a75e5a25c512181e",
+        "docs/phases/phase-1-persistence.md": "64d524a53430f9309235ae61ca07e79a7c6ff2878b3a0dfb1b7517db07f6c707",
+        "docs/phases/phase-2-domain-identities.md": "7e2c6fe6ab1c7bbc3e71632a0ecb396ef95ace8fee32161710cfba54c2e38e25",
+        "docs/phases/phase-3-navigation.md": "15afde61efde645bf7bde00a49f2f17d29c800c297f69f88124847d9ee8338ee",
+        "docs/phases/phase-4-neon.md": "a9e233e2b6f82c40620aff2b5d24e8e7ac7ccde24067652fac033a985d4ac448",
+        "docs/phases/phase-5-agent-interfaces.md": "68a1752e612a3afbec43e738719b30e52ee9d336954932929bb27d0d13d873b5",
+        "docs/phases/phase-6-ui-reliability.md": "77ca2d66aaf5365945aedf3a4e0715aab0cc26a1eb73715d5adac2447c0f6eae",
+        "docs/phases/phase-7-delivery-readiness.md": "754c946a453d0f1e81987cbad533b1a95a503dfe7befe96df48aa8318054d83d",
+        "docs/phases/phase-6-client-measurements.json": "6efef50516c4dfb33ac4e4df1e0188a608cac3913b90bdd8b566c8e287eee0f2",
+        "docs/phases/phase-7-verification.json": "0dcab3854cd797a2f8045e9876918f36a99757462e43c7a70717e4853586551b"
+      }
+    },
+    "changedSinceRecovery": []
+  },
+  "provider": {
+    "name": "anthropic",
+    "model": "claude-sonnet-5",
+    "promptVersion": "workspace-explainer-v1",
+    "maxRequestBytes": 32768,
+    "maxOutputTokens": 1024,
+    "timeoutMs": 60000,
+    "metadataAuthentication": {
+      "method": "GET",
+      "path": "/v1/models/claude-sonnet-5",
+      "status": 200,
+      "generatedResponse": false,
+      "paidCall": false
+    }
+  },
+  "liveAcceptance": {
+    "status": "passed",
+    "paidRequests": 2,
+    "authorizedMaximumUsd": 5,
+    "maximumAttempts": 2,
+    "conservativeReservePerAttemptUsd": 2.02,
+    "maximumReserveUsd": 4.04,
+    "keyValuesRecorded": false,
+    "exitCode": 0,
+    "result": {
+      "privateHarnessSha256": "572e6877970925a170fb79d07e0129b12c0c0acff73d99cf718eb5e86e0c62d4",
+      "startedAt": "2026-09-17T01:34:45.481Z",
+      "nodeVersion": "22.23.2",
+      "sourceSha256": "a8e0f5f86949b5192c1141fbeb8da5d805ca5909bd485ee39fa93a8a98988f85",
+      "buildId": "ytO7G9Mf9wmQ9Lm2qLt_M",
+      "checks": [
+        "Actual production browser labels the restored completion with Anthropic and the configured model.",
+        "Real Anthropic completion and token usage persist; the production browser restores the same text after reload; duplicate submission returns the same run.",
+        "Cancellation after entering the real transport remains terminal; worker exits; polling the cancelled run makes no additional provider call. Remote work and cost remain unknown."
+      ],
+      "paidDispatches": 2,
+      "cleanup": true,
+      "stage": "complete",
+      "passed": true,
+      "firstRun": {
+        "status": "completed",
+        "errorCode": null,
+        "attemptStatus": "succeeded"
+      },
+      "policy": {
+        "model": "claude-sonnet-5",
+        "provider": "anthropic",
+        "timeoutMs": 60000,
+        "promptVersion": "workspace-explainer-v1",
+        "maxOutputTokens": 1024,
+        "maxRequestBytes": 32768
+      },
+      "completionSha256": "0b8f699b80ff3b55f41a997b1a3fd873470e02832b5f505a3c1543edf18eefef",
+      "cancelToWorkerExitMs": 5809
+    },
+    "spendLedger": {
+      "allowanceUsd": 5,
+      "reservedUsd": 4.04,
+      "attempts": [
+        {
+          "runId": "410fa475-a355-4877-840a-dd982a07decc",
+          "reservedUsd": 2.02,
+          "outcome": "succeeded",
+          "inputTokens": 3181,
+          "outputTokens": 599,
+          "usageCostUsd": 0.012351999999999998
+        },
+        {
+          "runId": "86b3f32a-986e-49f3-83f6-d14b5bb826c2",
+          "reservedUsd": 2.02,
+          "outcome": "cancelled_remote_cost_unknown"
+        }
+      ]
+    },
+    "firstCallUsageEstimateUsd": 0.012352,
+    "totalCostUsd": null,
+    "costLimitation": "Cancelled request remote cost unknown; $4.04 reserved is conservative accounting, not an exact charge.",
+    "namespaceCleanup": true,
+    "namespaceJournal": [],
+    "independentTechnicalReview": "accepted",
+    "diagnostics": {
+      "structuredHttpOperations": 58,
+      "structuredHttpStatusCounts": {
+        "200": 58
+      },
+      "safeOperationErrors": 0,
+      "nextAbortedOrUncaughtExceptionBlocks": 4,
+      "ECONNRESETTextMentions": 8,
+      "causes": "unestablished",
+      "errorFreeClaim": false,
+      "countingBoundary": "Separate live-server log from release-gate diagnostics."
+    }
+  },
+  "databaseMigrations": {
+    "target": "User-configured disposable development database; credentials and endpoint omitted",
+    "fromVersion": 0,
+    "toVersion": 7,
+    "status": "passed"
+  },
+  "modelDatabase": {
+    "realDatabase": true,
+    "providerTransport": "fake",
+    "paidCalls": 0,
+    "firstRun": {
+      "tests": 14,
+      "passed": 12,
+      "failed": 1,
+      "cancelled": 1,
+      "status": "failed",
+      "log": "/tmp/ufd-phase8-model-database-first.log",
+      "logSha256": "610f3e25e06eee2e93ebc461f87031af148e70358f5538f5c892f4320d1c6b4f",
+      "fixtureDefects": [
+        "Revocation/expiry used absent public-session id, updated zero rows, and allowed workers to reach their real deadline.",
+        "Project-history test selected an empty-workspace persona instead of the established fixture persona."
+      ]
+    },
+    "correctedRun": {
+      "tests": 14,
+      "passed": 14,
+      "failed": 0,
+      "cancelled": 0,
+      "exitCode": 0,
+      "durationMs": 138459.480802,
+      "status": "passed",
+      "log": "/tmp/ufd-phase8-model-database-corrected.log",
+      "logSha256": "7c3698ae0468241297001e40dc17943c3bf1f472ebeb25d96acc89cd9c1f24e7",
+      "changes": "Owned-session id plus rowCount/invalidation assertions; established persona am. No runtime, migration, or timeout changes.",
+      "coveredChecks": [
+        "duplicate model submissions and competing workers dispatch once after durable intent",
+        "pre-intent crash can reclaim; durable intent crash never automatically redispatches",
+        "killed model worker is restarted without redispatching its durable paid intent",
+        "uncertain intent commit acknowledgement cannot send a provider request",
+        "failed result commit rolls back transcript and keeps charged outcome uncertain",
+        "lost acknowledgement after atomic result commit preserves success without another charge",
+        "disabled current configuration blocks queued model calls despite captured settings",
+        "provider failures preserve safe classification, uncertain cost and no automatic retry",
+        "concurrent daily reservations obey global and namespace limits across reset and new namespaces",
+        "cap2 dispatch slots survive workspace reset and serialize reservations across UTC days",
+        "actual worker renews the lease while a provider call waits and suppresses a second claim",
+        "cancel, reset, persona, revocation, expiry and shutdown abort I/O and reject late replies",
+        "captured findings and acknowledged history obey target, persona and namespace boundaries",
+        "one project conversation does not share model history across different selected orgs"
+      ],
+      "cleanup": {
+        "namespaces": [],
+        "scopes": []
+      },
+      "cleanupJournal": "/home/omarchy/.cache/omarchy-herdr/build-tmp/ufd-phase8-model-tests-22775-2d88d93a-2a32-41aa-9ab1-e166da78d0ee.json"
+    },
+    "independentReview": {
+      "decision": "Model database evidence accepted; full phase approval pending final gate and live provider acceptance",
+      "reviewMethod": "Independent source, failure-cause, complete log, and cleanup review; suite executed by implementer",
+      "correctedResult": {
+        "tests": 14,
+        "passed": 14,
+        "failed": 0,
+        "cancelled": 0
+      },
+      "cleanup": {
+        "namespaces": [],
+        "scopes": []
+      },
+      "runtimeSourceChangedSinceOfflineReview": false,
+      "hashes": {
+        "/tmp/ufd-phase8-model-database-first.log": "610f3e25e06eee2e93ebc461f87031af148e70358f5538f5c892f4320d1c6b4f",
+        "/tmp/ufd-phase8-model-database-corrected.log": "7c3698ae0468241297001e40dc17943c3bf1f472ebeb25d96acc89cd9c1f24e7",
+        "scripts/model-database.test.mjs": "b853ca17e6e0bb4308c29e73164830b3c4b787f199643ce07dce49eddf3f2f1e"
+      }
+    }
+  },
+  "reviewedSourceSlice": {
+    "status": "Approved after final technical and documentation review.",
+    "sourceSha256": {
+      "src/lib/server/model-provider.ts": "95ef35befc86c407e65afd0d1d0bef51856a89bf4378600c3e847cb2d5e48226",
+      "src/lib/server/model-worker.ts": "8ff7bb0807baa445b813546055bb9929536615bce52dac05d8133140f0c561e6",
+      "src/lib/server/model-context.ts": "2ea0b5a3b7d35e9d354457368a952e877280a6c478ccfd28293c46ae76348b82",
+      "src/lib/server/model-attempts.ts": "8a72ac4ed6d9dd80e8ea664e37bf00929350df69968bf5177a28823ad26c0131",
+      "src/lib/server/agent.ts": "e22761261136d50f2f8dabff35722b699292e3858ae9fd6ba74b66762237bbc5",
+      "src/lib/server/agent-runs.ts": "810f008d368222d028b4745e9e0ec86a89139a658d92f3fdbc7f7ba0979f4998",
+      "src/lib/server/agent-worker.ts": "71bcd5e4f8157c8c06ab20de20f413a2f85849e7ddaf75d292c80a7675a94aa6",
+      "src/lib/server/readiness.ts": "bf3b5bcf378fa9da11f2cc20d7d3ccf520c4f25a04c8c48f1daf2c5a2dbb6c43",
+      "src/lib/agent/contracts.ts": "761b9e9b4a57dbaabab1f800493be5c37946c8b7ddb400eff7ededd1a0c058f9",
+      "src/worker.ts": "215b9392b4b5bcf296d18a6275b3055423955df8b7d95b451092acb7fa8cdac5",
+      "src/components/chat/Transcript.tsx": "b5841f8921669fac98e1d910c8d90f20129a76163750e4ba40dbc707f78c8640",
+      "db/migrations/007_model_reasoning.sql": "c62beb40367fc7cc4e501dfddef448db74b985b7a1dd9f2f0e6e7c22f2fa3779",
+      "scripts/model-provider.test.mjs": "d7f5ba68c7d199dd0649dec708da27b6de9c81ff82188b57d9842a9abc440d8a",
+      "scripts/model-context.test.mjs": "dd920fffc8b2cf2177d2757cdfccb88b8d19cb3c5a6c5f3b4ea1a65fd885fc0a",
+      "scripts/model-worker.test.mjs": "1ae82231f97095ff5872cd47598fb0386f7f7a83f34cba2ec25a55f0e256d53e",
+      "scripts/model-database.test.mjs": "b853ca17e6e0bb4308c29e73164830b3c4b787f199643ce07dce49eddf3f2f1e",
+      "scripts/model-worker-child.mjs": "ce4dee47c4a2f5e6898311fc9d8b6e38dbae9e1dc14db9bf2f92608dde58bb87",
+      "scripts/model-live.mjs": "6ba8cbb3f456feb2018694dad77a7052fa982098a39290841dd259e59b15aa48",
+      "scripts/model-live-worker.mjs": "bb9a4b24a91fbd8d0895e4d2708f131935aa1d5aeab8a8c7cc9b4adb13988906",
+      "scripts/verify-release.mjs": "a78b6a53da5fcf32461cfb2b0580fc21cef87fb1aebcc2ab5896d31cc0dcd7d3"
+    },
+    "limitation": "This twenty-file slice is not the complete release source manifest.",
+    "matchesFixtureRevision": "7a71824bcffb8002e1311cc45b995ab3fbd56f20",
+    "independentlyMatchedFiles": 20
+  },
+  "offlineBuilds": [
+    {
+      "buildId": "mZUwWESK_WPy63KMxBWOs",
+      "status": "passed",
+      "scope": "Before final transcript changes",
+      "log": "/tmp/ufd-phase8-checkpoint/build.log"
+    },
+    {
+      "buildId": "mIfKcyTJXHubRpR2W7Ya4",
+      "status": "passed",
+      "scope": "After final transcript changes",
+      "log": "/tmp/ufd-phase8-checkpoint/build-final-ui.log"
+    }
+  ],
+  "releaseGate": {
+    "status": "passed",
+    "fixture": "/tmp/ufd-phase8-verification",
+    "revision": "7a71824bcffb8002e1311cc45b995ab3fbd56f20",
+    "expectedStages": 14,
+    "log": "/tmp/ufd-phase8-checkpoint/release-gate.log",
+    "providerMode": "demo",
+    "paidCalls": 0,
+    "documentationBoundary": "All 209 non-documentation files match the working tree; final result documentation is separate from earlier fixture documentation.",
+    "progress": {
+      "nodeTestsPassed": 201,
+      "nodeTestBatches": [
+        123,
+        42,
+        9,
+        27
+      ],
+      "runtimeSmoke": "passed",
+      "browserRegressions": "passed",
+      "browserDatabase": "passed",
+      "browserChecksPassed": 29,
+      "neonBrowserRuns": 2,
+      "neonChecksPerRun": 4,
+      "workerRecoveryChecksPassed": 3,
+      "neonCleanup": true,
+      "workerCleanup": true,
+      "namespaceJournalsEmpty": true,
+      "performanceErrors": [],
+      "performanceSamples": 15
+    },
+    "diagnostics": {
+      "status": "final",
+      "errorFreeClaim": false,
+      "recoveredAgentRead503Count": 3,
+      "recoveredAgentRead503DurationsMs": [
+        278,
+        234,
+        740
+      ],
+      "nextAbortedOrUncaughtExceptionBlocks": 7,
+      "ECONNRESETTextMentions": 14,
+      "ECONNRESETTextCountingNote": "Paired printing; text mention count is not the number of exception blocks.",
+      "causes": "unestablished",
+      "limitation": "Do not attribute these to intentional tests or call them harmless/error-free without evidence.",
+      "firstRecoveredResponse": {
+        "operation": "agent.read",
+        "status": 503,
+        "durationMs": 278,
+        "timestamp": "2026-09-17T01:32:11.853Z",
+        "requestId": "2113c2c4-946f-48c4-82a3-1e6a0fc85815",
+        "normalReadsResumedAt": "2026-09-17T01:32:13.044Z",
+        "adjacentSessionWriteStatus": 200,
+        "cause": "unestablished"
+      }
+    },
+    "exitCode": 0,
+    "attestation": {
+      "version": 1,
+      "revision": "7a71824bcffb8002e1311cc45b995ab3fbd56f20",
+      "treeSha": "fe8497c7d9e302d1942823443c4c59616e0424e0",
+      "sourceTreeSha256": "8c49d716d6456a21376494a52114f5c818cc8b7f96446df56249847be7ca8995",
+      "lockSha256": "80691a1810d6f59e75827e63aefb035dd00ffc2f91191373cf8a9c97ffdca9dc",
+      "sourceSha256": "3dc93c409aaf6d27eb276342c33c4d1d49b71e687981fa4a20c2ae22ebd51c95",
+      "nodeVersion": "22.23.2",
+      "verified": true,
+      "releasable": true,
+      "completedAt": "2026-09-17T01:34:10.023Z",
+      "buildId": "ytO7G9Mf9wmQ9Lm2qLt_M",
+      "checks": [
+        "locked-install",
+        "dependency-audit",
+        "pure-tests",
+        "lint",
+        "typecheck",
+        "production-build",
+        "database-migrations",
+        "database-tests",
+        "agent-database-tests",
+        "runtime-smoke",
+        "browser-regressions",
+        "browser-database",
+        "worker-recovery",
+        "browser-performance"
+      ]
+    },
+    "attestationSha256": "d1555208cce32ab6be0c722ff2e7ae65985ca8af34f3322f39f7e384b2c19eba",
+    "fixtureGitClean": true
+  },
+  "hostedVerification": {
+    "status": "not_performed",
+    "boundary": "Requires a separately authorized and configured deployment."
+  },
+  "finalIndependentApproval": {
+    "reviewer": "/root/phase8_reviewer",
+    "decision": "APPROVED",
+    "recordedAt": "2026-09-17T01:48:29.980483+00:00",
+    "criteria": [
+      "P8-A1",
+      "P8-A2",
+      "P8-A3",
+      "P8-A4",
+      "P8-A5",
+      "P8-A6",
+      "P8-A7",
+      "P8-A8"
+    ],
+    "findings": [
+      "P8-R1",
+      "P8-R2",
+      "P8-R3",
+      "P8-R4",
+      "P8-R5",
+      "P8-R6",
+      "P8-R7"
+    ],
+    "remainingInPhaseBlockers": [],
+    "scope": "Agreed text-only Anthropic explanation/planning over captured application/demo data.",
+    "basis": "Final documentation read, exact-source gate, real database/process/browser evidence, and actual provider completion/reload/cancellation acceptance.",
+    "limitsRetained": [
+      "Unattributed gate and live request-abort diagnostics.",
+      "Cancelled-call remote cost unknown within conservative verification reservation.",
+      "Hosted deployment/verification unperformed under conditional scope.",
+      "No user-branch commit or deployment."
+    ],
+    "nextStep": "User checkpoint; no automatic next phase or scope expansion."
+  },
+  "clientCredentialScan": {
+    "buildId": "ytO7G9Mf9wmQ9Lm2qLt_M",
+    "assetsScanned": 26,
+    "exactSecretMatches": 0,
+    "passed": true,
+    "scope": "Exact saved credential value in final production client assets only; no credential value emitted"
+  },
+  "sourceReconciliation": {
+    "fixtureRevision": "7a71824bcffb8002e1311cc45b995ab3fbd56f20",
+    "matchedRuntimeFiles": 204,
+    "mismatches": [],
+    "liveSourceSha256": "a8e0f5f86949b5192c1141fbeb8da5d805ca5909bd485ee39fa93a8a98988f85",
+    "matchesLiveSourceHash": true,
+    "matchedNonDocumentationFiles": 209,
+    "nonDocumentationMismatches": []
+  },
+  "localConfiguration": {
+    "agentProvider": "anthropic",
+    "saved": true,
+    "envFile": ".env.local",
+    "fileMode": "0600",
+    "gitIgnored": true,
+    "tracked": false,
+    "newBackgroundWorkerStarted": false,
+    "extraGenerationCallsFromActivation": 0,
+    "credentialValuesRecorded": false
+  },
+  "closedReviewFindings": [
+    "P8-R1",
+    "P8-R2",
+    "P8-R3",
+    "P8-R4",
+    "P8-R5",
+    "P8-R6",
+    "P8-R7"
+  ]
+}

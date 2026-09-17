@@ -3,7 +3,8 @@
 import { ChevronRightIcon } from "@/components/icons";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { capabilitiesForSurface, type SurfaceCapability } from "./surface-capabilities";
-import { useSurfaceCanvases } from "./surface-canvas-context";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
+import { useSurfaceCanvasActions } from "./surface-canvas-context";
 import styles from "./SurfaceLauncher.module.css";
 
 const HEADINGS: Record<SurfaceId, string> = {
@@ -15,13 +16,14 @@ const HEADINGS: Record<SurfaceId, string> = {
 
 export function SurfaceLauncher({ surfaceId }: { surfaceId: SurfaceId }) {
   const capabilities = capabilitiesForSurface(surfaceId);
-  const { openCanvas } = useSurfaceCanvases(surfaceId);
+  const { capabilityScope } = useNavigation();
+  const { openCanvas } = useSurfaceCanvasActions();
 
   function launch(capability: SurfaceCapability) {
     openCanvas(surfaceId, {
       kind: "capability",
       title: capability.label,
-      params: { surface: surfaceId, capability: capability.id },
+      params: { ...capabilityScope, surface: surfaceId, capability: capability.id },
     });
   }
 

@@ -124,12 +124,6 @@ const CAPABILITIES: Record<SurfaceId, readonly SurfaceCapability[]> = {
   ],
   alm: [
     {
-      id: "project", label: "Start a new project", Icon: FolderIcon,
-      description: "Define a project goal, outline its work, and choose where to begin.",
-      fields: [{ ...NAME_FIELD, label: "Project name" }, { ...GOAL_FIELD, label: "Project goal" },
-        { id: "workItems", label: "Initial work items", type: "textarea", placeholder: "Outline the first changes you want to deliver…" }],
-    },
-    {
       id: "work", label: "Plan your work", Icon: ListCheckIcon,
       description: "Turn an idea into work items and changes you can deliver.",
       fields: [NAME_FIELD, GOAL_FIELD],

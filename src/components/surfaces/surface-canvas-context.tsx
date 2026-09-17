@@ -1,104 +1,57 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
-import type { SurfaceId } from "@/lib/workspace/model";
-import { canvasesForProject, OVERVIEW_CANVAS, type CanvasSpec, type CanvasSpecInput } from "@/lib/surface-canvas/model";
-import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { getSurfaceCanvasStore } from "@/lib/surface-canvas/persistence";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useNavigationActions } from "@/components/navigation/NavigationProvider";
+import { createContext, useContext, useMemo, useSyncExternalStore, useCallback } from "react";
+import type { SurfaceId } from "@/lib/workspace/model";
+import { canvasId, OVERVIEW_CANVAS, type CanvasSpec } from "@/lib/surface-canvas/model";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { getActiveCanvasStore } from "@/lib/application/client";
 
-type SurfaceCanvasContextValue = {
-  /** The full tab list for a surface, overview synthesized at index 0. */
-  canvasesFor: (surfaceId: SurfaceId) => readonly CanvasSpec[];
-  /** The active tab id for a surface (`OVERVIEW_CANVAS.id` when the launch pad
-   *  is focused). */
-  activeCanvasIdFor: (surfaceId: SurfaceId) => string;
-  openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
-  closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
-  setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
-  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
-};
+type CanvasStore = ReturnType<typeof getActiveCanvasStore>;
+const Context = createContext<{ store: CanvasStore; decision: ReturnType<typeof useWorkspace>["destination"]; updateDraft: CanvasStore["updateDraft"] } | null>(null);
 
-const SurfaceCanvasContext = createContext<SurfaceCanvasContextValue | null>(null);
-
-/**
- * Shell-level per-surface canvas ("workstage") state — a peer to the workspace,
- * not owned by any one surface. Holds which tabs are open in each surface and
- * which is active. Mounted in `AppShell` above the router outlet so, like the
- * workspace, it never unmounts: the open-tab set for a surface survives both a
- * route content swap (you leave and re-enter the surface) and — because it's
- * read through the persisted external store — a full reload.
- *
- * State is read via `useSyncExternalStore` rather than `useState`, which is what
- * lets rehydration happen without an effect (nothing for
- * `react-hooks/set-state-in-effect` to catch) and without a hydration mismatch
- * (the server/first-render snapshot is a fixed empty default; the stored value,
- * if any, applies in React's dedicated post-hydration pass). Mirrors
- * `WorkspaceProvider` exactly — see `@/lib/surface-canvas/persistence`.
- */
+/** Stable store/actions owner. Only selectors below subscribe to draft data. */
 export function SurfaceCanvasProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useDemoProfile();
-  const { activeProject, hasProjects } = useWorkspace();
-  const projectId = hasProjects ? activeProject.id : null;
-  const surfaceCanvasStore = getSurfaceCanvasStore(profile?.id ?? "jw");
-  const state = useSyncExternalStore(
-    surfaceCanvasStore.subscribe,
-    surfaceCanvasStore.getSnapshot,
-    surfaceCanvasStore.getServerSnapshot,
-  );
-  useEffect(() => {
-    if (projectId) surfaceCanvasStore.adoptUnscopedCanvases(projectId);
-  }, [projectId, surfaceCanvasStore]);
-
-  const value = useMemo<SurfaceCanvasContextValue>(
-    () => ({
-      // The overview is prepended here, not stored, so index 0 is always the
-      // pinned launch pad and the persisted list holds only launched canvases.
-      canvasesFor: (surfaceId) => [OVERVIEW_CANVAS, ...canvasesForProject(state[surfaceId].canvases, projectId)],
-      activeCanvasIdFor: (surfaceId) => {
-        const slice = state[surfaceId];
-        return canvasesForProject(slice.canvases, projectId).some((canvas) => canvas.id === slice.activeCanvasId)
-          ? slice.activeCanvasId : OVERVIEW_CANVAS.id;
-      },
-      openCanvas: (surfaceId, spec) => surfaceCanvasStore.openCanvas(surfaceId, projectId && !spec.params?.projectId
-        ? { ...spec, params: { ...spec.params, projectId } } : spec),
-      closeCanvas: surfaceCanvasStore.closeCanvas,
-      setActiveCanvas: surfaceCanvasStore.setActiveCanvas,
-      updateDraft: surfaceCanvasStore.updateDraft,
-    }),
-    [state, surfaceCanvasStore, projectId],
-  );
-
-  return <SurfaceCanvasContext.Provider value={value}>{children}</SurfaceCanvasContext.Provider>;
+  const { destination: decision } = useWorkspace();
+  const store = getActiveCanvasStore(profile?.id ?? "jw");
+  const value = useMemo(() => ({ store, decision, updateDraft: (surfaceId: SurfaceId, id: string, fields: Record<string, string>) => {
+    const destination = decision.kind === "available" ? decision.destination : null;
+    const input = destination?.canvas;
+    if (destination?.surface === surfaceId && input && id === canvasId(input.kind, input.params)) {
+      if (!store.captureTarget(surfaceId, id, destination.target)) return;
+      if (!store.getSnapshot()[surfaceId].canvases.some(item => item.id === id)) store.openCanvas(surfaceId, input);
+    }
+    store.updateDraft(surfaceId, id, fields);
+  } }), [store, decision]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
-
-function useSurfaceCanvasContext(): SurfaceCanvasContextValue {
-  const value = useContext(SurfaceCanvasContext);
-  if (!value) throw new Error("useSurfaceCanvases must be used within a SurfaceCanvasProvider");
+function useOwner() {
+  const value = useContext(Context);
+  if (!value) throw new Error("Canvas hooks require SurfaceCanvasProvider");
   return value;
 }
-
-/**
- * Per-surface view of the canvas store: the surface's full tab list (overview
- * first), its active tab id, and the mutators — the actions still take a
- * `surfaceId` so a caller can drive a surface other than the one it's rendering,
- * matching the store's own shape. The tab strip and launch pad consume this.
- */
-export function useSurfaceCanvases(surfaceId: SurfaceId): {
-  canvases: readonly CanvasSpec[];
-  activeCanvasId: string;
-  openCanvas: (surfaceId: SurfaceId, spec: CanvasSpecInput) => void;
-  closeCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
-  setActiveCanvas: (surfaceId: SurfaceId, canvasId: string) => void;
-  updateDraft: (surfaceId: SurfaceId, canvasId: string, fields: Record<string, string>) => void;
-} {
-  const ctx = useSurfaceCanvasContext();
-  return {
-    canvases: ctx.canvasesFor(surfaceId),
-    activeCanvasId: ctx.activeCanvasIdFor(surfaceId),
-    openCanvas: ctx.openCanvas,
-    closeCanvas: ctx.closeCanvas,
-    setActiveCanvas: ctx.setActiveCanvas,
-    updateDraft: ctx.updateDraft,
-  };
+export function useSurfaceCanvasActions() {
+  const { store, updateDraft } = useOwner();
+  const { openCanvas, selectCanvas } = useNavigationActions();
+  return useMemo(() => ({ persistence: store, openCanvas, closeCanvas: store.closeCanvas, setActiveCanvas: selectCanvas, updateDraft }), [store, openCanvas, selectCanvas, updateDraft]);
+}
+/** Only the requested surface changes this subscription's data snapshot. */
+export function useSurfaceCanvases(surfaceId: SurfaceId) {
+  const { store, decision } = useOwner();
+  const get = useCallback(() => store.getSnapshot()[surfaceId], [store, surfaceId]);
+  const server = useCallback(() => store.getServerSnapshot()[surfaceId], [store, surfaceId]);
+  const slice = useSyncExternalStore(store.subscribe, get, server);
+  const actions = useSurfaceCanvasActions();
+  return useMemo(() => {
+    const destination = decision.kind === "available" ? decision.destination : null;
+    const input = destination?.canvas;
+    const selectedId = input ? canvasId(input.kind, input.params) : "overview";
+    const missing = destination?.surface === surfaceId && input && store.canViewCanvas(surfaceId, input) && !slice.canvases.some(item => item.id === selectedId)
+      ? [{ ...input, id: selectedId, draft: slice.closedDrafts?.[selectedId] } as CanvasSpec] : [];
+    const open = slice.canvases.map(canvas => canvas.kind !== "overview" && !canvas.draft && slice.closedDrafts?.[canvas.id] ? { ...canvas, draft: slice.closedDrafts[canvas.id] } : canvas);
+    return { ...actions, recovery: slice.recovery, canvases: [OVERVIEW_CANVAS, ...open, ...missing],
+      activeCanvasId: decision.kind === "absent" ? slice.activeCanvasId : destination?.surface === surfaceId ? selectedId : "overview" };
+  }, [actions, slice, decision, surfaceId, store]);
 }

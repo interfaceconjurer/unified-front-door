@@ -48,9 +48,8 @@
   }
 }
 
-/* Reveal keyboard targets immediately. Pointer focus must not move a button
-   between pointer-down and click by cancelling its entrance animation. */
-.home :has(:focus-visible) { animation: none; }
+/* Keyboard focus should never land on content waiting for its reveal. */
+.home :focus-within { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .home .hero,
@@ -80,7 +79,7 @@
 .secondary { background: var(--surface); color: var(--accent); border-color: var(--border); }
 .primary:hover:not(:disabled), .secondary:hover { filter: brightness(0.95); }
 .primary:disabled { opacity: 0.45; cursor: not-allowed; }
-.scope { padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.75rem; }
+.scope, .review { padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 0.75rem; }
 .scope h2 { font-size: 1rem; margin: 0 0 0.5rem; }
 .scope > p { color: var(--muted); font-size: 0.8125rem; }
 .orgList { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.25rem 0; }
@@ -91,9 +90,7 @@
 .orgList small, .reviewItem small { font-size: 0.75rem; color: var(--muted); }
 .home input[type="checkbox"] { width: 1rem; height: 1rem; margin-top: 0.2rem; accent-color: var(--accent); flex-shrink: 0; cursor: inherit; }
 .actions { display: flex; gap: 0.75rem; }
-.assessment { position: relative; isolation: isolate; padding: 1.5rem 1.5rem 0; border: 1px solid light-dark(#b7cbe9, #3b567e); border-radius: 0.9rem; overflow: hidden; }
-/* A paint layer lets the gradient fade away without changing the card's box. */
-.assessment::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: linear-gradient(115deg, light-dark(#f2f6ff, #1d2b43), var(--surface) 80%); pointer-events: none; }
+.assessment { padding: 1.5rem 1.5rem 0; border: 1px solid light-dark(#b7cbe9, #3b567e); border-radius: 0.9rem; background: linear-gradient(115deg, light-dark(#f2f6ff, #1d2b43), var(--surface) 80%); overflow: hidden; }
 .assessmentHead { display: flex; align-items: center; gap: 0.85rem; }
 .agentIcon { display: grid; place-items: center; flex-shrink: 0; width: 2.8rem; height: 2.8rem; border-radius: 0.8rem; background: light-dark(#e2ebff, #314266); color: light-dark(#365aba, #b9caff); }
 .kicker { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.3rem; color: light-dark(#506999, #a6bde8); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.09em; }
@@ -154,7 +151,7 @@
 .explore { padding-top: 0.75rem; text-align: center; }
 .explore > p { margin: 0 0 1.2rem; color: var(--muted); font-size: 0.75rem; }
 .review > .sectionHead { margin: 1.3rem 0; }
-.review .sectionHead h1 { font-size: 1.5rem; font-weight: 500; }
+.review .sectionHead h2 { font-size: 1.5rem; font-weight: 500; }
 .field { display: flex; flex-direction: column; gap: 0.45rem; margin: 0 0 1.2rem; font-size: 0.8rem; font-weight: 600; }
 .field input, .field textarea, .field select, .planFooter select { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 0.4rem; background: var(--surface); color: var(--ink); font: inherit; font-weight: 400; }
 .field textarea { resize: vertical; }
@@ -218,7 +215,7 @@
   .connection { flex-wrap: wrap; }
   .demoBadge { margin-left: auto; }
   .connection > button { width: 100%; justify-content: flex-start; }
-  .assessment, .scope { padding: 1.1rem; }
+  .assessment, .review, .scope { padding: 1.1rem; }
   .assessment { padding-bottom: 0; }
   .assessmentHead { flex-wrap: wrap; }
   .assessmentHead > div { flex: 1; min-width: 10rem; }
@@ -235,6 +232,7 @@
 }
 
 .briefingFields { display: flex; flex-direction: column; gap: 1.5rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.briefingFields:disabled input { cursor: default; }
 .hero .briefingTitle { margin: 0.65rem 0; font-size: clamp(1.5rem, 3.2vw, 2.4rem); font-weight: 500; letter-spacing: -0.03em; line-height: 1.2; text-wrap: balance; }
 @container today (max-width: 650px) {
   .findingGrid, .orgList, .formRow { grid-template-columns: 1fr; }

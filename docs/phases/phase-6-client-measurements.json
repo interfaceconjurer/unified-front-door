@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 1,
+  "phase": 6,
+  "measuredDate": "2026-09-16",
+  "protocol": {
+    "nodeMajor": 22,
+    "playwright": "1.63.0",
+    "chromium": "153.0.8010.12",
+    "viewport": {
+      "width": 1440,
+      "height": 1100
+    },
+    "cpuThrottle": 4,
+    "transport": "Deterministic intercepted API; 80 ms per save; client work only.",
+    "typing": {
+      "savedDraftCounts": [1, 20],
+      "edits": 100,
+      "historyEntries": 20,
+      "plannedSamplesPerFixture": 3,
+      "typingTimeoutMs": 180000,
+      "drainTimeoutMs": 240000,
+      "countsIncludeBlurAndFinalDrain": true
+    },
+    "transcript": {
+      "entryCounts": [20, 80, 128],
+      "plannedSamplesPerFixture": 3
+    },
+    "harness": "scripts/browser/performance.mjs",
+    "fixtureEquivalence": "Coordinator deep-equality check: baseline/current fixture data equal for 1/20 drafts and 20/80/128 messages; normalized fixture source differs only in formatting."
+  },
+  "provenance": {
+    "baselineBuild": "JFIHR0mXQjOKCeNHr9o9m",
+    "measuredCandidateBuild": "rEjMUuj5TBpt6E8MfaYYo",
+    "measuredCandidate": "candidate3",
+    "finalApplicationBuild": "vOQRs6yqFvz3Jt_Sp2pHs",
+    "finalApplicationCandidate": "candidate4; build, four display checks, and source delta independently verified",
+    "measurementNotRerunOnFinalApplication": true,
+    "verifiedFinalSourceDelta": [
+      {
+        "path": "src/lib/workspace/fixtures.ts",
+        "change": "Two AM session summaries use fixed 2026-09-14 UTC 14:56/14:35 scenario times."
+      },
+      {
+        "path": "src/components/app-shell/CommandPalette.tsx",
+        "change": "Scratch-org expiry day count labeled At capture; zero remains Expired."
+      },
+      {
+        "path": "src/components/surfaces/ReturningSurface.tsx",
+        "change": "Scratch-org expiry day count labeled At capture; zero remains Expired."
+      },
+      {
+        "path": "src/lib/workspace/model.ts",
+        "change": "lastDeployed comment documents zoned ISO/legacy captured labels."
+      }
+    ],
+    "reuseDecision": "Reviewer independently accepts measured C3 JW Build workload evidence for final C4 after verifying the exact four-file presentation/comment delta and four display checks; changed AM summaries/org paths are absent from the measured render."
+  },
+  "limitations": [
+    "Shared host ran unrelated CPU-intensive jobs. Timing ranges are descriptive; no precise latency speedup claim is supported.",
+    "No team-owned competing heavy process ran during final measurement; this does not establish an idle host.",
+    "These are client fixtures, not database throughput, Heroku load, or unlimited-production-scale measurements.",
+    "Transcript paging bounds mounted work, not network snapshot paging or retained history memory; 16 MiB application/24 MiB agent snapshots remain.",
+    "Every input edit still synchronously writes the full recovery-envelope string; coalescing/cached serialization does not remove storage cost.",
+    "Baseline has 14 successful samples and 1 recorded timeout; measured C3 has 15 successful samples/errors []. Failed baseline sample is not a successful latency sample."
+  ],
+  "baseline": {
+    "successfulSamples": 14,
+    "failedSamples": [
+      {
+        "kind": "typing",
+        "drafts": 20,
+        "repeat": 2,
+        "typingWallMs": 139401,
+        "failure": "Recovery-queue drain exceeded 240000 ms after typing; no completed drain metrics.",
+        "drainTimeoutMs": 240000
+      }
+    ],
+    "typing": {
+      "columns": [
+        "drafts",
+        "repeat",
+        "typingWallMs",
+        "savePosts",
+        "requestBytes",
+        "bufferWrites",
+        "bufferWriteBytes",
+        "inputFrameP50",
+        "inputFrameP95",
+        "taskMs"
+      ],
+      "rows": [
+        [1, 0, 22228, 100, 43042, 199, 3508569, 142.5, 223.5, 46181.91],
+        [1, 1, 25807, 100, 43042, 199, 3633397, 168.59999999962747, 280.8999999985099, 66588.32100000001],
+        [1, 2, 29718, 100, 43042, 199, 3610690, 201.09999999962747, 276, 68970.023],
+        [20, 0, 37772, 100, 43042, 199, 3491016, 229.5, 429.69999999925494, 99628.08799999999],
+        [20, 1, 75075, 100, 43042, 199, 3537875, 418, 1055.699999999255, 212134.985]
+      ],
+      "everyCompletedSampleTypedAndSavedExpected100Characters": true
+    },
+    "transcript": {
+      "columns": [
+        "messages",
+        "repeat",
+        "readyWallMs",
+        "mountedMessages",
+        "mountedBriefings",
+        "nodes",
+        "taskMs",
+        "heapBytes"
+      ],
+      "rows": [
+        [20, 0, 30862, 20, 3, 607, 28127.309, 5473992],
+        [20, 1, 42950, 20, 3, 607, 40034.275, 5406764],
+        [20, 2, 20469, 20, 3, 607, 19324.124, 5718052],
+        [80, 0, 19290, 80, 10, 1662, 18124.405999999995, 6823192],
+        [80, 1, 15736, 80, 10, 1662, 15104.221, 7321660],
+        [80, 2, 14349, 80, 10, 1662, 13114.151999999998, 7231004],
+        [128, 0, 31512, 128, 16, 2556, 27567.458, 8169872],
+        [128, 1, 28217, 128, 16, 2556, 26121.878, 7561516],
+        [128, 2, 60642, 128, 16, 2558, 56412.117, 7901308]
+      ]
+    }
+  },
+  "measuredCandidate3": {
+    "successfulSamples": 15,
+    "errors": [],
+    "typing": {
+      "columns": [
+        "drafts",
+        "repeat",
+        "typingWallMs",
+        "savePosts",
+        "requestBytes",
+        "bufferWrites",
+        "bufferWriteBytes",
+        "inputFrameP50",
+        "inputFrameP95",
+        "taskMs"
+      ],
+      "rows": [
+        [1, 0, 22007, 6, 2674, 105, 86683, 87.19999999925494, 157.19999999925494, 22269.464],
+        [1, 1, 19197, 5, 2172, 104, 84892, 85.5, 136.7999999988824, 20036.117],
+        [1, 2, 21759, 8, 3472, 107, 87342, 85.69999999925494, 169.59999999962747, 22830.278],
+        [20, 0, 22051, 6, 2592, 105, 83364, 90, 158.5, 23249.935],
+        [20, 1, 19595, 7, 3047, 106, 91446, 86.90000000037253, 185.90000000037253, 20774.691999999995],
+        [20, 2, 22492, 8, 3405, 107, 92897, 90.90000000037253, 194.90000000037253, 23547.461]
+      ],
+      "everyCompletedSampleTypedAndSavedExpected100Characters": true
+    },
+    "transcript": {
+      "columns": [
+        "messages",
+        "repeat",
+        "readyWallMs",
+        "mountedMessages",
+        "mountedBriefings",
+        "nodes",
+        "taskMs",
+        "heapBytes"
+      ],
+      "rows": [
+        [20, 0, 13365, 20, 3, 493, 12203.305, 6077972],
+        [20, 1, 13625, 20, 3, 493, 12231.153, 6098528],
+        [20, 2, 13576, 20, 3, 493, 12614.427, 5414360],
+        [80, 0, 14363, 40, 5, 729, 12912.461, 5790740],
+        [80, 1, 18854, 40, 5, 729, 17761.079999999998, 5974700],
+        [80, 2, 15501, 40, 5, 729, 14248.426, 6791448],
+        [128, 0, 16208, 40, 5, 729, 14843.543, 5941692],
+        [128, 1, 18437, 40, 5, 729, 16969.318, 7851876],
+        [128, 2, 17135, 40, 5, 729, 15776.765, 7354532]
+      ]
+    }
+  },
+  "sourceArtifactHashes": {
+    "baseline-combined.json": "9822c2797a35ae9ba1d910389f0ae82db6b3085acd64bb4e378a131829b5f9a8",
+    "candidate3-performance.json": "d6f63232aa73ee3f591bd0804489cdfea92638967278545382b5d86205cce6c6"
+  }
+}

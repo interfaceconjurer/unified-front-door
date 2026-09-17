@@ -1,44 +1,49 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useMemo, useEffect, useLayoutEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
 import { SendIcon, SparklesIcon } from "@/components/icons";
 import { isStarterPrompt } from "@/components/front-door/FrontDoor";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import {
-  surfaceAppById,
   surfaceAppForPath,
   type SurfaceApp,
 } from "@/components/front-door/app-catalog";
+import { useNavigationActions } from "@/components/navigation/NavigationProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
-import { canAccessSurface } from "@/lib/demo-profiles";
 import { useAssessment } from "@/components/onboarding/use-assessment";
-import { ASSESSMENT_FINDINGS, findingsForScope } from "@/lib/onboarding/assessment";
-import { RETURNING_WORK, type ReturningWork } from "@/lib/workspace/returning-work";
+import { type ReturningWork } from "@/lib/workspace/returning-work";
 import { useOpenWork } from "@/components/workspace/RecentWorkList";
-import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
-import { OVERVIEW_CANVAS_ID, type CanvasSpecInput } from "@/lib/surface-canvas/model";
-import type { ConversationEvent } from "@/lib/chat/conversation";
-import { nextPlanningTurn, planningSuggestions } from "@/lib/chat/planning";
-import { requestedSurface } from "@/lib/chat/surface-intent";
+import { editComposerDraft, type ComposerDraftState } from "@/lib/chat/composer-drafts";
+import { ConversationStore, type Message } from "@/lib/chat/conversation";
+import { applicationClient } from "@/lib/application/client";
+import { inactiveAgent } from "@/lib/agent/client";
+import { activeRun, type AgentContext } from "@/lib/agent/contracts";
 import { nextFrame, scrollToEntry, waitForMotion } from "@/lib/motion";
-import { AgentReply } from "./AgentReply";
-import { TodayBriefing } from "./TodayBriefing";
-import { useConversationStore } from "./ConversationProvider";
+import { Transcript } from "./Transcript";
+import { useTranscriptPosition } from "./use-transcript-position";
 import styles from "./AgentPanel.module.css";
+
+const SUGGESTIONS_0 = ["What should I work on first?", "Walk through the project plan", "How will we validate the improvements?"];
+
+const SUGGESTIONS_1 = ["What does the assessment cover?", "How do I create a project?"];
+
+const SUGGESTIONS_2 = ["Summarize the pending approval", "Walk through the release plan", "What should I review first?"];
+
+const SUGGESTIONS_3 = ["Summarize the current changes", "What still needs review?", "Plan the next step"];
+
+const EMPTY_THREAD: Message[] = [];
 
 type Scope = {
   key: string;
   label: string;
-  greeting: string;
   suggestions: readonly string[];
 };
 
 const HOME_SCOPE: Scope = {
   key: "home",
   label: "Front Door",
-  greeting:
-    "Tell me what you’re trying to accomplish. I’ll help you start here, then take you to the right app when the work needs a dedicated workspace.",
   suggestions: [
     "Help me build an automation",
     "Find why my deployment failed",
@@ -50,8 +55,7 @@ function scopeForSurface(surface: SurfaceApp): Scope {
   return {
     key: surface.id,
     label: surface.label,
-    greeting: `Now working in ${surface.label}. ${surface.workspaceDescription}`,
-    suggestions: surface.capabilities.map((c) => c),
+    suggestions: surface.capabilities,
   };
 }
 
@@ -60,13 +64,6 @@ function scopeForPath(pathname: string): Scope {
   return surface ? scopeForSurface(surface) : HOME_SCOPE;
 }
 
-const SURFACE_QUESTIONS: Record<SurfaceApp["id"], string> = {
-  build: "What would you like to build or set up? I can help with your data, automations, agents, or app experiences.",
-  code: "What would you like to work on in Code? We can write or review code, build a query, or investigate a failing test.",
-  alm: "What would you like to move forward in ALM? We can plan work, review a release, or investigate a deployment.",
-  govern: "What would you like to review in Govern & Observe? I can help with access, platform health, or policy controls.",
-};
-
 /** One transcript per project/worktree, shared by Today and every surface. */
 export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   homeRequest: number;
@@ -74,89 +71,100 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   layoutKey: string;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { navigateSurface, captureIntent } = useNavigationActions();
   const { profile } = useDemoProfile();
   const baseScope = scopeForPath(pathname);
   const isHome = baseScope.key === HOME_SCOPE.key;
   const returning = profile?.workspaceExperience === "established";
   const dayZero = profile?.onboarding === "org-assessment";
 
-  const { activeProject, activeWorktree, activeOrg, agentSessions, sessionKey, hasProjects, workspaceSwitching } = useWorkspace();
+  const { activeProject, activeWorktree, sessionKey, target, projects } = useWorkspace();
   const { state: assessment } = useAssessment();
-  const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject.id) : undefined;
-  const homePlanning = isHome && !profile?.onboarding && !improvement;
+  const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject?.id) : undefined;
   const returningSession = profile?.workspaceExperience === "established"
-    ? activeProject.agentSessions.find((session) => session.worktreeId === activeWorktree.id)
+    ? activeProject?.agentSessions.find((session) => session.worktreeId === activeWorktree?.id)
     : undefined;
   const scope: Scope = improvement ? {
     ...baseScope,
-    greeting: `“${improvement.name}” has ${improvement.workItems.length} planned work items. Each includes the source finding, implementation steps, and acceptance criteria. Start by reviewing a plan and confirming the baseline in a sandbox.`,
-    suggestions: ["What should I work on first?", "Walk through the project plan", "How will we validate the improvements?"],
+    suggestions: SUGGESTIONS_0,
   } : profile?.onboarding ? {
     ...baseScope,
-    greeting: assessment.status === "complete" ? `Your demo assessment found ${findingsForScope(assessment.scopeOrgIds).length} opportunities. Review their evidence in Govern & Observe and turn selected findings into a project in ALM.` : "Your demo assessment is underway. It reviews the selected accessible orgs for capacity, process friction, and release readiness. You can follow its progress on the home screen.",
-    suggestions: ["What does the assessment cover?", "How do I create a project?"],
+    suggestions: SUGGESTIONS_1,
   } : returningSession ? {
     ...baseScope,
-    greeting: returningSession.summary,
     suggestions: returningSession.status === "waiting"
-      ? ["Summarize the pending approval", "Walk through the release plan", "What should I review first?"]
-      : ["Summarize the current changes", "What still needs review?", "Plan the next step"],
+      ? SUGGESTIONS_2
+      : SUGGESTIONS_3,
   } : baseScope;
-  const showWorktree = activeProject.worktrees.length > 1;
+  const application = useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
+  const agent = applicationClient.agent ?? inactiveAgent;
+  const remote = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
+  const capturedContext = useMemo<AgentContext>(() => ({ target, surface: baseScope.key as AgentContext["surface"] }), [target, baseScope.key]);
+  useEffect(() => { agent.start(); }, [agent]);
+  useEffect(() => { agent.setThread(sessionKey); }, [agent, sessionKey]);
 
-  const conversationStore = useConversationStore();
-  const { sessions, drafts, scrollRevision, presentation, streamingReply } = useSyncExternalStore(conversationStore.subscribe, conversationStore.getSnapshot, conversationStore.getSnapshot);
+  const [draftState, setDraftState] = useState<ComposerDraftState>({ drafts: {}, problem: "" });
+  const { drafts, problem: composerProblem } = draftState;
+  useEffect(() => {
+    let previous = agent.getSnapshot().acknowledged;
+    return agent.subscribe(() => {
+      const acknowledged = agent.getSnapshot().acknowledged;
+      if (acknowledged === previous) return;
+      previous = acknowledged;
+      const command = acknowledged?.command;
+      if (command?.kind !== "submit") return;
+      const { projectId, worktreeId, orgId } = command.context.target;
+      const key = projectId ? JSON.stringify(["project-session", projectId, worktreeId]) : JSON.stringify(["unbound-session", orgId]);
+      setDraftState(current => current.drafts[key]?.trim() === command.text ? editComposerDraft(current, key, "") : current);
+    });
+  }, [agent]);
   const draft = drafts[sessionKey] ?? "";
-  function setDraft(value: string | ((current: string) => string)) {
-    conversationStore.setDraft(sessionKey, value);
-  }
+  const setDraft = useCallback((value: string | ((current: string) => string)) => {
+    setDraftState(current => {
+      const text = typeof value === "function" ? value(current.drafts[sessionKey] ?? "") : value;
+      return editComposerDraft(current, sessionKey, text);
+    });
+  }, [sessionKey]);
+  const [conversationStore] = useState(() => new ConversationStore());
+  const { sessions, scrollRevision, presentation } = useSyncExternalStore(conversationStore.subscribe, conversationStore.getSnapshot, conversationStore.getSnapshot);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const composerSelections = useRef(new Map<string, { start: number; end: number; direction: "forward" | "backward" | "none" }>());
+  useLayoutEffect(() => {
+    const node = composerRef.current, saved = composerSelections.current.get(sessionKey);
+    if (node && saved) node.setSelectionRange(saved.start, saved.end, saved.direction);
+  }, [sessionKey]);
   const sequence = useRef<AbortController | null>(null);
+  const followingReply = useRef<{ key: string; following: boolean; pausedAt: number | null }>({ key: "", following: true, pausedAt: null });
   const openWork = useOpenWork();
-  const { openCanvas, setActiveCanvas } = useSurfaceCanvases("alm");
-  const thread = sessions[sessionKey]?.messages ?? [];
-
-  function applyEvent(event: ConversationEvent, deferReveal = !!sessions[sessionKey]?.messages.length) {
-    conversationStore.dispatch(sessionKey, event, { deferReveal });
+  const thread = sessions[sessionKey]?.messages ?? EMPTY_THREAD;
+  const { end: selectedEnd, showPage: selectHistoryPage } = useTranscriptPosition({
+    identity: `${application.session?.namespaceId}.${profile?.id}.${application.session?.workspaceEpoch}`,
+    threadKey: sessionKey, messages: thread, containerRef: transcriptRef, transitioning: !!presentation,
+    onRestore: (scrollTop) => {
+      const last = thread.at(-1);
+      if (last?.role === "agent" && last.runId) followingReply.current = { key: `${sessionKey}:${last.runId}`, following: false, pausedAt: scrollTop };
+    },
+  });
+  const endIndex = selectedEnd == null ? thread.length : Math.max(1, thread.findIndex(message => message.id === selectedEnd) + 1);
+  const startIndex = Math.max(0, endIndex - 40);
+  const visibleThread = useMemo(() => thread.slice(startIndex, endIndex), [thread, startIndex, endIndex]);
+  function showPage(end: number | null) {
+    interruptScroll();
+    selectHistoryPage(end);
   }
-  const visitedSession = useRef<string | null>(null);
 
-  // Route changes are external navigation events. Read the latest workspace
-  // data at that moment, without appending a briefing on every data update.
-  // useEffectEvent is stable in React 19.2; only effects call these callbacks.
+
+  useEffect(() => {
+    for (const saved of remote.data.conversations) conversationStore.adopt(saved.threadKey, saved.conversation, saved.threadKey === sessionKey);
+  }, [remote.data.conversations, conversationStore, sessionKey]);
+
   const visit = useEffectEvent(() => {
-    if (!profile) return;
-    const deferReveal = !workspaceSwitching && visitedSession.current === sessionKey && !!sessions[sessionKey]?.messages.length;
-    visitedSession.current = sessionKey;
-    if (isHome) {
-      applyEvent({ type: "today", snapshot: {
-        capturedAt: new Date().toISOString(), profile,
-        projectName: activeProject.name, branch: activeWorktree.branch, hasProjects,
-        recent: RETURNING_WORK.filter((work) => work.projectId === activeProject.id && work.worktreeId === activeWorktree.id),
-        working: agentSessions.filter((session) => session.worktreeId === activeWorktree.id && session.status === "working").length,
-        assessment,
-      } }, deferReveal);
-    } else {
-      const question = SURFACE_QUESTIONS[baseScope.key as SurfaceApp["id"]];
-      applyEvent({ type: "surface", scopeKey: scope.key, label: scope.label,
-        reply: !sessions[sessionKey]?.messages.some((message) => message.role === "agent") && (returningSession || profile.onboarding)
-          ? `${scope.greeting}\n\n${question}` : question,
-      }, deferReveal);
-    }
+    if (!profile || !remote.ready) return;
+    void agent.command({ kind: "visit", requestId: crypto.randomUUID(), context: capturedContext });
   });
-  useEffect(() => { visit(); }, [sessionKey, scope.key, homeRequest]);
-
-  // The current assessment remains interactive. Its last visible state is
-  // retained when that Today entry becomes history; old cards never rescan.
-  // Read current navigation state without recording on unrelated chat updates.
-  const recordAssessment = useEffectEvent(() => {
-    if (!isHome || !dayZero) return;
-    conversationStore.recordAssessment(sessionKey, assessment);
-  });
-  useEffect(() => { recordAssessment(); }, [assessment, isHome, sessionKey]);
+  useEffect(() => { visit(); }, [agent, remote.ready, sessionKey, scope.key, homeRequest]);
 
   useEffect(() => {
     if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) composerRef.current?.focus();
@@ -168,7 +176,9 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   // the chat back to a destination the user has already left.
   useEffect(() => {
     const pending = conversationStore.getSnapshot().presentation;
-    if (!pending || pending.sessionKey !== sessionKey || pending.scopeKey !== scope.key) return;
+    // Submitted work keeps its captured scope even when newer navigation wins.
+    // Reveal its history in the current thread using the current layout timeline.
+    if (!pending || pending.sessionKey !== sessionKey) return;
     const controller = new AbortController();
     const { signal } = controller;
     sequence.current = controller;
@@ -188,7 +198,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
       conversationStore.advancePresentation(pending!.revision, "revealing");
       await waitForMotion(() => Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]"))
         .filter((element) => Number(element.dataset.messageId) > pending!.afterId)
-        .flatMap((element) => element.getAnimations({ subtree: true })), signal);
+        .flatMap((element) => element.getAnimations()), signal);
       conversationStore.advancePresentation(pending!.revision, "complete");
     }
     void present().catch((error) => {
@@ -211,79 +221,77 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
     return () => observer.disconnect();
   }, []);
 
+  // Grow the current reply into view without replaying the turn transition.
+  // Once the reader scrolls away, incoming text must not pull them back.
+  const followReply = useEffectEvent(() => {
+    const container = transcriptRef.current, last = visibleThread.at(-1);
+    if (!container || selectedEnd != null || last?.role !== "agent" || !last.runId) return;
+    const key = `${sessionKey}:${last.runId}`;
+    const run = remote.data.runs.find(run => run.id === last.runId);
+    if (!run || !activeRun(run.status) && followingReply.current.key !== key) return;
+    if (followingReply.current.key !== key) followingReply.current = { key, following: true, pausedAt: null };
+    if (!followingReply.current.following || presentation && presentation.phase !== "revealing") return;
+    const bubble = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.bubble}`);
+    if (!bubble) return;
+    const overflow = bubble.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom + 12;
+    if (overflow > 0) container.scrollTop += overflow;
+  });
+  useLayoutEffect(() => { followReply(); }, [visibleThread, selectedEnd, sessionKey, presentation, remote.data.runs]);
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const observer = new ResizeObserver(() => followReply());
+    observer.observe(thread);
+    return () => observer.disconnect();
+  }, []);
+
+  function trackReplyScroll() {
+    const container = transcriptRef.current, last = visibleThread.at(-1);
+    if (!container || last?.role !== "agent") return;
+    const bubble = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.bubble}`);
+    // A queued event from our last automatic scroll can arrive after a wheel
+    // or pointer interruption. Only a subsequent position change can resume.
+    const pausedAt = followingReply.current.pausedAt;
+    if (pausedAt !== null && Math.abs(container.scrollTop - pausedAt) < 1) return;
+    if (bubble) {
+      const atReply = Math.abs(bubble.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom) < 48;
+      const returningToEnd = pausedAt === null || container.scrollTop > pausedAt;
+      followingReply.current.following = atReply && returningToEnd;
+      followingReply.current.pausedAt = followingReply.current.following ? null : container.scrollTop;
+    }
+  }
+
   function interruptScroll() {
+    followingReply.current.following = false;
+    followingReply.current.pausedAt = transcriptRef.current?.scrollTop ?? null;
     const pending = conversationStore.getSnapshot().presentation;
     if (pending?.phase !== "scrolling") return;
     sequence.current?.abort();
     conversationStore.advancePresentation(pending.revision, "complete");
   }
 
-  function explore(surface: SurfaceApp) {
-    setActiveCanvas(surface.id, OVERVIEW_CANVAS_ID);
-    applyEvent({ type: "surface", scopeKey: surface.id, label: surface.label, reply: SURFACE_QUESTIONS[surface.id], force: true });
-  }
-
-  function resumeWork(work: ReturningWork) {
-    const surface = surfaceAppById(work.surfaceId);
-    applyEvent({ type: "surface", scopeKey: surface.id, label: surface.label, force: true,
-      reply: `I’ve opened “${work.title}”. ${work.summary} ${work.attention ? "Let’s review what needs your decision." : "What would you like to do next?"}`,
-    });
+  const resumeWork = useCallback((work: ReturningWork) => {
+    const project = projects.find(project => project.id === work.projectId);
+    void agent.command({ kind: "visit", requestId: crypto.randomUUID(), workId: work.id,
+      context: { surface: work.surfaceId, target: { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
     openWork(work);
-  }
+  }, [projects, agent, openWork]);
 
-  function startCanvas(surface: SurfaceApp, canvas: CanvasSpecInput, prompt: string) {
-    openCanvas(surface.id, canvas);
-    applyEvent({ type: "surface", scopeKey: surface.id, label: surface.label, force: true,
-      reply: `I’ve opened “${canvas.title}” in ${surface.label}. Let’s use this canvas to work through your idea.` });
+  const seedPrompt = useCallback((prompt: string) => {
     setDraft((current) => current.trim() && !isStarterPrompt(current) ? `${current.trim()}\n\n${prompt}` : prompt);
-    router.push(surface.href, { scroll: false });
-  }
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, [setDraft]);
 
-  function send(text = draft) {
+  const sendText = useCallback(async (text: string) => {
     const value = text.trim();
-    if (!value) return;
-
-    if (!profile) return;
-    const currentPlanning = sessions[sessionKey]?.planning;
-    const requested = requestedSurface(value);
-    const destination = requested && canAccessSurface(profile, requested) ? surfaceAppById(requested) : null;
-    const planningTurn = homePlanning && !requested ? nextPlanningTurn(currentPlanning, value) : null;
-
-    const projectFindings = improvement?.workItems.flatMap((item) => {
-      const finding = ASSESSMENT_FINDINGS.find((finding) => finding.id === item.findingId);
-      return finding ? [{ item, finding }] : [];
-    }) ?? [];
-    const first = projectFindings.find(({ item }) => item.status !== "done");
-    const reply = requested && !destination
-      ? `${surfaceAppById(requested).label} isn’t available for this profile. We can keep working through the goal and plan here. What would you like to work out next?`
-      : destination
-        ? `Let’s continue in ${destination.label}.${currentPlanning?.goal ? ` Our goal is still: ${currentPlanning.goal}` : " I’ll keep the context from this conversation as we work."}`
-      : planningTurn ? planningTurn.reply
-      : improvement
-      ? /validat|success|test|acceptance/i.test(value)
-        ? projectFindings.map(({ finding }) => `${finding.title}: ${finding.validation}`).join("\n\n")
-        : /plan|steps/i.test(value)
-          ? projectFindings.map(({ finding }) => `${finding.title}\n${finding.steps.map((step, index) => `${index + 1}. ${step}`).join("\n")}`).join("\n\n")
-          : first ? `Start with “${first.item.title}” (${first.item.priority.toLowerCase()} priority). ${first.finding.steps[0]} Open its work item plan to review the remaining steps. This demo tracks the plan; it does not execute org changes.`
-            : "All work items are marked complete. Review the acceptance criteria and the sandbox validation evidence before planning a release."
-      : profile.onboarding
-        ? /project/i.test(value) ? "Select the opportunities you want to address in Today and choose Start a new project. The project creation canvas opens in ALM, where you can review the goal, sandbox, and work item plans, then choose Create project."
-          : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Use Govern & Observe to review the org scope, evidence, and suggested approaches."
-      : !hasProjects
-        ? `This is a wireframe response scoped to ${scope.label}. In the full experience I’d help you establish the project context as we begin.`
-        : `This is a wireframe response scoped to ${scope.label}, working in ${activeProject.name}${
-            showWorktree ? ` · ${activeWorktree.label}` : ""
-          } against ${activeOrg.label}. In the full experience I’d act on this using ${scope.label}’s tools while keeping that context.`;
-
-    applyEvent({ type: "send", text: value, reply, planning: planningTurn?.planning,
-      destination: destination ? { key: destination.id, label: destination.label } : undefined,
-    });
-    setDraft("");
-    if (destination && destination.id !== baseScope.key) {
-      setActiveCanvas(destination.id, OVERVIEW_CANVAS_ID);
-      router.push(destination.href, { scroll: false });
-    }
-  }
+    if (!value || !profile || remote.pending || !remote.ready) return;
+    const navigationIsCurrent = captureIntent();
+    const receipt = await agent.command({ kind: "submit", requestId: crypto.randomUUID(), context: capturedContext, text: value });
+    if (!receipt) return;
+    if (receipt.destination && navigationIsCurrent()) navigateSurface(receipt.destination, "overview");
+  }, [profile, remote.pending, remote.ready, captureIntent, agent, capturedContext, navigateSurface]);
+  const issueCommand = useCallback((command: Parameters<typeof agent.command>[0]) => { void agent.command(command); }, [agent]);
+  function send() { void sendText(draft); }
 
   return (
     <section className={styles.agent} data-view={isHome ? "home" : "surface"} data-motion={presentation?.phase ?? "idle"} aria-label="Agent">
@@ -293,42 +301,43 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
         <span className={styles.scopeChip}>{isHome ? "Today" : scope.label}</span>
       </header>
       <div className={styles.transcript} ref={transcriptRef} role="log" aria-label="Conversation" aria-live="polite"
-        data-workspace-content="chat" data-session-key={sessionKey}
+        onScroll={trackReplyScroll}
         onWheel={interruptScroll}
         onTouchStart={interruptScroll}
         onPointerDown={interruptScroll}
         onKeyDown={(event) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interruptScroll(); }}>
-        <div className={styles.thread} ref={threadRef} data-workspace-motion>
-          {thread.map((message, index) => {
-            const pending = presentation?.sessionKey === sessionKey && presentation.phase !== "revealing" && message.id > presentation.afterId;
-            const streaming = streamingReply?.sessionKey === sessionKey && streamingReply.messageId === message.id;
-            return <div aria-hidden={pending || undefined} inert={pending} data-pending={pending || undefined} key={`${sessionKey}:${message.id}`} className={styles.entry} data-message-id={message.id} data-kind={message.role}>
-            {message.role === "today" ? <TodayBriefing snapshot={message.snapshot} active={isHome && index === thread.length - 1}
-              onOpenCanvas={startCanvas} onExplore={explore} onOpenWork={resumeWork} />
-              : message.role === "context" ? <div className={styles.contextMarker}><span>{message.text}</span></div>
-              : message.role === "agent" ? <AgentReply text={message.text} streaming={streaming} ready={!pending && !workspaceSwitching}
-                onComplete={() => conversationStore.completeReply(sessionKey, message.id)} />
-              : <div className={`${styles.message} ${styles.user}`}><div className={styles.bubble}>{message.text}</div></div>}
-            {index === thread.length - 1 && message.role !== "today" && <div className={styles.replyActions}
-              data-waiting={streaming || undefined} aria-hidden={streaming || undefined} inert={streaming}>
-              <div className={styles.suggestions} aria-label="Suggested prompts">
-                {(homePlanning ? planningSuggestions(sessions[sessionKey]?.planning) : scope.suggestions).map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>)}
-              </div>
-              <p className={styles.prototypeNote}>The prototype is not connected to a model yet.</p>
-            </div>}
-          </div>})}
-        </div>
+        <FeatureBoundary label="Conversation" resetKey={sessionKey}>
+        {!remote.ready && !remote.error && <p role="status">Loading conversation…</p>}
+        {thread.length > 40 && <nav aria-label="Conversation history">
+          <button type="button" disabled={startIndex === 0} onClick={() => showPage(thread[startIndex - 1]!.id)}>Older messages</button>
+          <span role="status">Messages {startIndex + 1}–{endIndex} of {thread.length}</span>
+          <button type="button" disabled={endIndex === thread.length} onClick={() => showPage(endIndex + 40 >= thread.length ? null : thread[endIndex + 39]!.id)}>Newer messages</button>
+          {endIndex < thread.length && <button type="button" onClick={() => showPage(null)}>Latest messages</button>}
+        </nav>}
+        <div className={styles.thread} ref={threadRef}>
+          <Transcript messages={visibleThread} startIndex={startIndex} total={thread.length} sessionKey={sessionKey} isHome={isHome}
+            presentation={presentation} runs={remote.data.runs} suggestions={scope.suggestions} seedPrompt={seedPrompt}
+            resumeWork={resumeWork} send={sendText} command={issueCommand} />
+        </div></FeatureBoundary>
       </div>
 
       {/* This form is never keyed, swapped, or faded. Its bounds follow the
           panel's width, retaining the textarea node, selection, and draft. */}
-      <div className={styles.composerDock} data-workspace-motion>
+      <div className={styles.composerDock}>
+        {composerProblem && <p role="status">{composerProblem}</p>}
         <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); send(); }}>
+          {remote.recovery !== null && <details className={styles.requestRecovery}>
+            <summary>Recover a saved message</summary>
+            <p>A saved message couldn’t be restored. You can download a copy before removing it.</p>
+            <button type="button" onClick={() => { const url = URL.createObjectURL(new Blob([remote.recovery!], { type: "text/plain" })); const link = document.createElement("a"); link.href = url; link.download = "agent-request-recovery.txt"; link.click(); URL.revokeObjectURL(url); }}>Download saved message</button>
+            <button type="button" onClick={agent.discardRecovery}>Remove saved message</button>
+          </details>}
           <label className={styles.srOnly} htmlFor="agent-composer">Message the agent</label>
           <textarea
             id="agent-composer"
             ref={composerRef}
             rows={2}
+            maxLength={8000}
             value={draft}
             placeholder={isHome
               ? dayZero ? "Ask about an opportunity, explore a plan, or start something new…"
@@ -336,6 +345,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
                 : "Describe an idea, ask a question, or tell me what you want to build…"
               : `Ask about ${scope.label}…`}
             aria-describedby="agent-composer-hint"
+            onSelect={(event) => { const node = event.currentTarget; composerSelections.current.set(sessionKey, { start: node.selectionStart, end: node.selectionEnd, direction: node.selectionDirection }); }}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -346,8 +356,10 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
           />
           <div className={styles.composerTools}>
             <span className={styles.agentLabel}><SparklesIcon width={16} height={16} aria-hidden="true" />Agent</span>
-            <span id="agent-composer-hint" className={styles.composerHint}>Enter to send · Shift + Enter for a new line</span>
-            <button className={styles.send} type="submit" disabled={!draft.trim()} aria-label="Send message"><SendIcon width={18} height={18} aria-hidden="true" /></button>
+            {remote.requestIssue ? <span id="agent-composer-hint" className={styles.requestNotice} role="status">
+              {remote.requestIssue === "retry" ? <>Couldn’t confirm your message. <button type="button" onClick={agent.retry}>Retry message</button></> : "Message wasn’t sent. Please try again."}
+            </span> : <span id="agent-composer-hint" className={styles.composerHint}>Enter to send · Shift + Enter for a new line</span>}
+            <button className={styles.send} type="submit" disabled={!draft.trim() || !remote.ready || remote.pending} aria-label="Send message"><SendIcon width={18} height={18} aria-hidden="true" /></button>
           </div>
         </form>
       </div>

@@ -2,11 +2,12 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { getAssessmentStore } from "@/lib/onboarding/persistence";
+import { applicationClient, getActiveAssessmentStore } from "@/lib/application/client";
+import { inactiveAgent } from "@/lib/agent/client";
 
 export function useAssessment() {
-  const { profile } = useDemoProfile();
-  const store = getAssessmentStore(profile?.id ?? "jw");
+  useDemoProfile();
+  const store = getActiveAssessmentStore();
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return { state, store };
 }
@@ -15,14 +16,14 @@ export function useAssessment() {
 export function useAssessmentRunner() {
   const { profile } = useDemoProfile();
   const { state, store } = useAssessment();
-  const enabled = profile?.onboarding === "org-assessment";
+  const application = useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
+  const persistence = useSyncExternalStore(store.subscribe, store.getPersistenceSnapshot, store.getServerPersistenceSnapshot);
+  const agent = applicationClient.agent ?? inactiveAgent;
+  const execution = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
+  useEffect(() => { agent.start(); }, [agent]);
+  const enabled = profile?.onboarding === "org-assessment" && !application.legacy && persistence === "saved";
   useEffect(() => {
-    if (enabled && store.getSnapshot().status === "idle") store.start();
-  }, [enabled, store]);
-  useEffect(() => {
-    if (!enabled || state.status !== "running") return;
-    const timer = window.setInterval(store.advance, 1400);
-    return () => window.clearInterval(timer);
-  }, [enabled, state.status, store]);
+    if (enabled && execution.ready && (state.status === "idle" || state.status === "running" && !execution.data.runs.some(run => run.assessmentRunId === state.currentRunId))) store.start();
+  }, [enabled, execution.ready, execution.data.runs, store, state.status, state.currentRunId]);
   return state;
 }

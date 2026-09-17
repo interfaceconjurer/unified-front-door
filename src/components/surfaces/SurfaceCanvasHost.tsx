@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
+import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
 import { CloseIcon } from "@/components/icons";
 import { CanvasLayout } from "@/components/canvas/CanvasLayout";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
-import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
-import { CanvasTransition } from "@/lib/surface-canvas/transition";
 import { CanvasContent } from "./canvas-registry";
 import { useSurfaceCanvases } from "./surface-canvas-context";
 import styles from "./SurfaceCanvasHost.module.css";
@@ -54,10 +54,10 @@ export function SurfaceCanvasHost({
   surfaceId: SurfaceId;
   children: React.ReactNode;
 }) {
+  const { problem } = useNavigation();
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
   const { profile } = useDemoProfile();
-  const { activeProject, workspaceSwitching } = useWorkspace();
   const stored = useSurfaceCanvases(surfaceId);
   const emptyWorkspace = profile?.workspaceExperience === "empty";
   // Hide project-backed canvases from profiles with an empty workspace.
@@ -75,36 +75,25 @@ export function SurfaceCanvasHost({
   const tabListRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const pendingClose = useRef<PendingCanvasClose | null>(null);
-  const [canvasTransition] = useState(() => new CanvasTransition());
-  const current = useRef({ canvases, activeCanvasId, projectId: activeProject.id });
+  const current = useRef({ canvases, activeCanvasId });
 
   useLayoutEffect(() => {
-    const projectChanged = current.current.projectId !== activeProject.id;
-    const selectionChanged = current.current.activeCanvasId !== activeCanvasId;
-    current.current = { canvases, activeCanvasId, projectId: activeProject.id };
+    current.current = { canvases, activeCanvasId };
     // A new selection from elsewhere (e.g. the palette) must not inherit the
     // outgoing canvas's blur. Cancellation still completes the requested close.
     if (pendingClose.current && pendingClose.current.id !== activeCanvasId)
       pendingClose.current.animation.cancel();
-    if (projectChanged || workspaceSwitching || (selectionChanged && canvasTransition.activeId && canvasTransition.activeId !== activeCanvasId))
-      canvasTransition.cancel();
-  }, [canvases, activeCanvasId, activeProject.id, workspaceSwitching, canvasTransition]);
+  }, [canvases, activeCanvasId]);
 
   useEffect(() => {
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-    const settle = () => {
-      if (reducedMotion.matches) {
-        pendingClose.current?.finish();
-        canvasTransition.finish();
-      }
-    };
+    const settle = () => { if (reducedMotion.matches) pendingClose.current?.finish(); };
     reducedMotion.addEventListener("change", settle);
     return () => {
       reducedMotion.removeEventListener("change", settle);
       pendingClose.current?.animation.cancel();
-      canvasTransition.cancel();
     };
-  }, [canvasTransition]);
+  }, []);
 
   // Reveal a newly opened canvas without scrolling the content or letting it
   // hide behind the pinned surface tab.
@@ -131,23 +120,14 @@ export function SurfaceCanvasHost({
   // Arrow/Home/End roving-tabindex math to that resolved tab.
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId) ?? canvases[0]!;
   const activeIndex = canvases.findIndex((c) => c.id === activeCanvas.id);
-
-  function selectTab(canvasId: string, animate = true): void {
+  function selectTab(canvasId: string): void {
     pendingClose.current?.finish(false);
-    canvasTransition.cancel();
-    const canvas = canvases.find((candidate) => candidate.id === canvasId);
-    if (!canvas || (animate && canvasId === current.current.activeCanvasId)) return;
-    // Tabs belong to the selected project. Choosing one changes only the canvas.
-    const commit = () => setActiveCanvas(surfaceId, canvasId);
-    const panel = panelRef.current;
-    if (animate && panel && !workspaceSwitching) canvasTransition.select(panel, canvasId, commit);
-    else commit();
+    setActiveCanvas(surfaceId, canvasId);
   }
 
   function dismissTab(canvasId: string): void {
     const index = canvases.findIndex((canvas) => canvas.id === canvasId);
     if (index < 0 || canvasId === OVERVIEW_CANVAS_ID || pendingClose.current?.id === canvasId) return;
-    canvasTransition.cancel();
     const panel = panelRef.current;
     let animation: Animation | null = null;
     let settled = false;
@@ -165,7 +145,7 @@ export function SurfaceCanvasHost({
       if (latestIndex >= 0) {
         flushSync(() => {
           closeCanvas(surfaceId, canvasId);
-          if (panel?.isConnected && isActive && neighborId) selectTab(neighborId, false);
+          if (panel?.isConnected && isActive && neighborId) selectTab(neighborId);
         });
       }
       animation?.cancel();
@@ -206,8 +186,7 @@ export function SurfaceCanvasHost({
       event.preventDefault();
       const delta = event.key === "ArrowRight" ? 1 : -1;
       // Wrap around so the strip is a ring, matching the tabs APG pattern.
-      const focusedIndex = canvases.findIndex((canvas) => tabRefs.current.get(canvas.id) === document.activeElement);
-      const nextIndex = ((focusedIndex < 0 ? activeIndex : focusedIndex) + delta + canvases.length) % canvases.length;
+      const nextIndex = (activeIndex + delta + canvases.length) % canvases.length;
       focusTab(canvases[nextIndex]!.id);
     } else if (event.key === "Home") {
       event.preventDefault();
@@ -224,8 +203,10 @@ export function SurfaceCanvasHost({
     }
   }
 
+  const { recovery } = stored;
   return (
     <div className={styles.host}>
+      {!!recovery?.length && <details aria-label="Recovered legacy drafts"><summary>Recovered legacy drafts ({recovery.length})</summary><p>These older drafts have ambiguous targets. Copy their content into a new draft, or export them for later.</p><a download="recovered-drafts.json" href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(recovery, null, 2))}`}>Export recovered drafts</a>{recovery.map((entry) => <section key={entry.id}><h3>{entry.title}</h3><p>{entry.reason}</p><textarea aria-label={`Recovered content ${entry.id}`} readOnly value={JSON.stringify(entry.original, null, 2)} rows={6} /></section>)}</details>}
       <div
         ref={tabListRef}
         role="tablist"
@@ -301,21 +282,19 @@ export function SurfaceCanvasHost({
 
       <div
         ref={panelRef}
-        data-workspace-content="surface"
-        data-surface-id={surfaceId}
         role="tabpanel"
         id={panelDomId(surfaceId)}
         aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
         tabIndex={0}
         className={styles.panel}
       >
-        <CanvasLayout>
-          {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
+        <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
+          {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
             children
           ) : (
             <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
           )}
-        </CanvasLayout>
+        </CanvasLayout></FeatureBoundary>
       </div>
     </div>
   );

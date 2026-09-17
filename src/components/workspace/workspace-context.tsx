@@ -1,172 +1,69 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import {
-  primaryWorktree,
-  sessionKey,
-  type AgentSession,
-  type Org,
-  type Project,
-  type SurfaceId,
-  type Worktree,
-} from "@/lib/workspace/model";
+import { usePathname, useSearchParams } from "next/navigation";
+import { selectedSnapshot } from "@/lib/selected-snapshot";
+import { resolveDestination, type DestinationDecision } from "@/lib/navigation/model";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { primaryWorktree, type AgentSession, type Org, type Project, type Worktree } from "@/lib/workspace/model";
+import { resolveWorkspace, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { getWorkspaceSelectionStore } from "@/lib/workspace/persistence";
-import { WorkspaceTransition } from "@/lib/workspace/transition";
+import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
+import { getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
 import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
 import { ASSESSMENT_ORGS, workspaceProject } from "@/lib/onboarding/assessment";
-
-export type WorkspacePanelFilter = "all" | "projects" | "apps";
 
 type WorkspaceContextValue = {
   hasProjects: boolean;
   projects: readonly Project[];
   orgs: readonly Org[];
-  activeProject: Project;
-  activeWorktree: Worktree;
-  /** The connected org selected for this project, or for the initial assessment. */
-  activeOrg: Org;
-  /** The active project's agent sessions, one per worktree — the seam consumers
-   *  (e.g. the Code surface's sessions rail) read instead of the fixture. */
+  activeProject: Project | null;
+  activeWorktree: Worktree | null;
+  activeOrg: Org | null;
   agentSessions: readonly AgentSession[];
-  /** Stable key for the current agent thread: {project, worktree}. */
   sessionKey: string;
-  setActiveProject: (projectId: string) => void;
-  /** Targets `activeProject` by default. Pass `projectId` to set a worktree on
-   *  a project other than the active one (e.g. jumping into a project from a
-   *  global list) — without it, `setActiveProject` + `setActiveWorktree` back
-   *  to back would still write onto the OLD active project, since this value
-   *  is a closure over the render that produced it and can't see a project
-   *  switch made earlier in the same synchronous call. */
-  setActiveWorktree: (worktreeId: string, projectId?: string) => void;
-  setActiveOrg: (orgId: string) => void;
-  /** Load a workspace after its content dissolves. A routed selection also
-   *  waits for that surface to mount before revealing the incoming state. */
-  switchWorkspace: (projectId: string, worktreeId?: string, afterSelection?: () => void, destination?: SurfaceId) => void;
-  /** Create the project and its initial canvas only after the outgoing content
-   *  dissolves, then select its primary worktree before revealing the new chat. */
-  createWorkspace: (create: () => Project | null) => void;
-  workspaceSwitching: boolean;
-  panelFilter: WorkspacePanelFilter;
-  setPanelFilter: (filter: WorkspacePanelFilter) => void;
-  projectPanelRequest: number;
-  openProjectPanel: () => void;
+  context: WorkspaceResolution;
+  target: WorkspaceTarget;
+  destination: DestinationDecision;
 };
-
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
-const CONNECTED_ASSESSMENT_ORGS = ASSESSMENT_ORGS.filter((org) => org.connection === "connected");
 
-const EMPTY_PROJECT: Project = {
-  id: "org-assessment", name: "Org assessment", description: "Discover your first project.",
-  defaultOrgId: "prod", worktrees: [{ id: "main", label: "Planning", branch: "main", isPrimary: true }],
-  facets: { objects: 0, flows: 0, apexClasses: 0, lwc: 0, permissionSets: 0 },
-  agentSessions: [], apps: [],
-};
-
-/**
- * Shell-level workspace context — a peer to the agent, not owned by any surface.
- * Holds which project you're in, which worktree (per project), and which org that
- * project targets (per project). Because it lives above the router outlet and
- * never unmounts, the project follows you as you move between surfaces.
- *
- * Fixture-backed for now; the provider is the seam. Surfaces read `useWorkspace()`
- * and never touch the concrete data source, so swapping fixtures for real sfdx /
- * org queries is invisible to them.
- *
- * The three selections (active project, per-project worktree, per-project org)
- * persist to `localStorage` so a reload resumes where you left off — see
- * `@/lib/workspace/persistence`. They're read here via `useSyncExternalStore`
- * rather than `useState`, which is what lets rehydration happen without an
- * effect (nothing for `react-hooks/set-state-in-effect` to catch) and without a
- * hydration mismatch (the server/first-render snapshot is a fixed default; the
- * stored value, if any, applies in React's dedicated post-hydration pass).
- */
+/** Read-only workspace projection. NavigationController is the selection owner. */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useDemoProfile();
-  const [panelFilter, setPanelFilter] = useState<WorkspacePanelFilter>("all");
-  const [projectPanelRequest, setProjectPanelRequest] = useState(0);
-  const [workspaceSwitching, setWorkspaceSwitching] = useState(false);
-  const [workspaceTransition] = useState(() => new WorkspaceTransition(setWorkspaceSwitching));
-  useEffect(() => () => workspaceTransition.cancel(), [workspaceTransition]);
+  const { profile, resolved } = useDemoProfile();
   const assessment = useAssessmentRunner();
+  const pathname = usePathname(), search = useSearchParams();
+  const route = `${pathname}?${search.toString()}`;
   const dayZero = profile?.onboarding === "org-assessment";
-  const projects = useMemo(() => dayZero ? assessment.projects.map(workspaceProject) : PROJECTS, [dayZero, assessment.projects]);
-  const orgs = dayZero ? CONNECTED_ASSESSMENT_ORGS : ORGS;
-  const hasProjects = dayZero ? projects.length > 0 : profile?.workspaceExperience === "established";
-  const workspaceSelectionStore = getWorkspaceSelectionStore(profile?.id ?? "jw");
-  const selection = useSyncExternalStore(
-    workspaceSelectionStore.subscribe,
-    workspaceSelectionStore.getSnapshot,
-    workspaceSelectionStore.getServerSnapshot,
-  );
-
+  const projects = useMemo(() => dayZero ? assessment.projects.map(workspaceProject) : profile?.workspaceExperience === "established" ? PROJECTS : [], [dayZero, assessment.projects, profile?.workspaceExperience]);
+  const orgs = dayZero ? ASSESSMENT_ORGS : ORGS;
+  const store = getWorkspaceSelectionStore(profile?.id ?? "jw");
+  const selection = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
+  const canvasStore = getSurfaceCanvasStore(profile?.id ?? "jw");
+  const destinationReader = useMemo(() => {
+    const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases);
+    const equal = (a: DestinationDecision, b: DestinationDecision) => JSON.stringify(a) === JSON.stringify(b);
+    return { get: selectedSnapshot(canvasStore.getSnapshot, select, equal), server: selectedSnapshot(canvasStore.getServerSnapshot, select, equal) };
+  }, [canvasStore, route, profile]);
+  const destination = useSyncExternalStore(canvasStore.subscribe, destinationReader.get, destinationReader.server);
   const value = useMemo<WorkspaceContextValue>(() => {
-    const activeProjectId = selection.activeProjectId ?? projects[0]?.id;
-    // Existing surface contracts require a project context. Before creation,
-    // provide a neutral planning context; it is never listed as a real project.
-    const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0] ?? EMPTY_PROJECT;
-
-    const worktreeId = selection.worktreeByProject[activeProject.id];
-    const activeWorktree =
-      activeProject.worktrees.find((w) => w.id === worktreeId) ?? primaryWorktree(activeProject);
-
-    const orgId = selection.orgByProject[activeProject.id] ?? activeProject.defaultOrgId;
-    const activeOrg = orgs.find((o) => o.id === orgId && o.connection === "connected")
-      ?? orgs.find((o) => o.connection === "connected")!;
-
-    return {
-      hasProjects,
-      projects,
-      orgs,
-      activeProject,
-      activeWorktree,
-      activeOrg,
-      panelFilter,
-      setPanelFilter,
-      projectPanelRequest,
-      openProjectPanel: () => {
-        workspaceSelectionStore.setPanelOpen(true);
-        setPanelFilter("projects");
-        setProjectPanelRequest((request) => request + 1);
-      },
-      agentSessions: activeProject.agentSessions,
-      sessionKey: sessionKey(activeProject.id, activeWorktree.id),
-      setActiveProject: workspaceSelectionStore.setActiveProjectId,
-      workspaceSwitching,
-      createWorkspace: (create) => {
-        workspaceTransition.request(() => {
-          const project = create();
-          if (project) workspaceSelectionStore.selectWorkspace(project.id, primaryWorktree(project).id);
-        });
-      },
-      switchWorkspace: (projectId, worktreeId, afterSelection, destination) => {
-        const project = projects.find((candidate) => candidate.id === projectId);
-        if (!project) return;
-        const treeId = worktreeId ?? selection.worktreeByProject[projectId] ?? primaryWorktree(project).id;
-        if (!project.worktrees.some((tree) => tree.id === treeId)) return;
-        if (projectId === activeProject.id && treeId === activeWorktree.id && !workspaceTransition.active) {
-          afterSelection?.();
-          return;
-        }
-        workspaceTransition.request(() => {
-          workspaceSelectionStore.selectWorkspace(projectId, treeId);
-          afterSelection?.();
-        }, destination ? () => !!document.querySelector(`[data-workspace-content="surface"][data-surface-id="${destination}"]`) : undefined);
-      },
-      setActiveWorktree: (id, projectId) =>
-        workspaceSelectionStore.setWorktreeForProject(projectId ?? activeProject.id, id),
-      setActiveOrg: (id) => {
-        if (orgs.some((org) => org.id === id && org.connection === "connected")) {
-          workspaceSelectionStore.setOrgForProject(activeProject.id, id);
-        }
-      },
+    // A missing old preference may use that project's declared default. A saved
+    // unknown identity remains unknown. No project or org is fabricated.
+    const project = projects.find((item) => item.id === selection.activeProjectId);
+    const restored = selection.target ?? {
+      projectId: selection.activeProjectId,
+      worktreeId: selection.activeProjectId ? selection.worktreeByProject[selection.activeProjectId] ?? (project ? primaryWorktree(project)?.id ?? null : null) : null,
+      orgId: selection.activeProjectId ? selection.orgByProject[selection.activeProjectId] ?? project?.defaultOrgId ?? null : null,
     };
-  }, [projects, orgs, hasProjects, selection, workspaceSelectionStore, workspaceTransition, workspaceSwitching, panelFilter, projectPanelRequest]);
-
+    const target = destination.kind === "absent" ? restored : destination.kind === "available" ? destination.destination.target : { projectId: null, worktreeId: null, orgId: null };
+    const context = resolveWorkspace(target, projects, orgs, resolved);
+    if (destination.kind === "unavailable") { context.status = "unavailable"; context.reason = destination.reason; }
+    return { projects, orgs, hasProjects: projects.length > 0, context, target, destination,
+      activeProject: context.project, activeWorktree: context.worktree, activeOrg: context.org,
+      agentSessions: context.project?.agentSessions ?? [], sessionKey: context.sessionKey };
+  }, [projects, orgs, selection, resolved, destination]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
-
 export function useWorkspace(): WorkspaceContextValue {
   const value = useContext(WorkspaceContext);
   if (!value) throw new Error("useWorkspace must be used within a WorkspaceProvider");

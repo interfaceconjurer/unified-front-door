@@ -10,7 +10,7 @@
 
 /** The purpose-built destinations. A surface is a lens on the project, not a
  *  container for it — the same project projects differently into each. */
-export type SurfaceId = "build" | "code" | "govern" | "alm";
+export type { SurfaceId } from "./surfaces";
 
 /**
  * An authenticated org. Orgs are GLOBAL, not owned by a project — you auth them
@@ -92,7 +92,7 @@ export type DeployedApp = {
   status: AppStatus;
   /** Display label, e.g. "Production". */
   environment: string;
-  /** e.g. "2h ago". */
+  /** Explicit zoned ISO timestamp; legacy relative labels render as "At capture". */
   lastDeployed: string;
 };
 
@@ -117,10 +117,10 @@ export type Project = {
 
 /** The agent's thread is bound to a {project, worktree} pair — switching worktree
  *  switches thread. This is the stable key for that session. */
-export function sessionKey(projectId: string, worktreeId: string): string {
-  return `${projectId}::${worktreeId}`;
+export function sessionKey(projectId: string, worktreeId: string | null): string {
+  return JSON.stringify(["project-session", projectId, worktreeId]);
 }
 
-export function primaryWorktree(project: Project): Worktree {
-  return project.worktrees.find((w) => w.isPrimary) ?? project.worktrees[0]!;
+export function primaryWorktree(project: Project): Worktree | null {
+  return project.worktrees.find((w) => w.isPrimary) ?? project.worktrees[0] ?? null;
 }

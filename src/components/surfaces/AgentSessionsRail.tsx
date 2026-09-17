@@ -1,5 +1,6 @@
 "use client";
 
+import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { GitBranchIcon } from "@/components/icons";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { AgentSessionStatus } from "@/lib/workspace/model";
@@ -16,7 +17,7 @@ const STATUS_LABEL: Record<AgentSessionStatus, string> = {
  * project, each showing its agent session's status and last activity. This is
  * where a super user running several worktrees at once sees all their sessions
  * without leaving the surface. Clicking a row focuses that session — calling
- * `setActiveWorktree` re-points the AgentPanel (keyed by `sessionKey`) to that
+ * `selectProject` changes the project/worktree destination and `sessionKey` to that
  * worktree's thread; only one transcript is live at a time, but every session
  * stays visible and one click away.
  *
@@ -26,9 +27,11 @@ const STATUS_LABEL: Record<AgentSessionStatus, string> = {
  * and command palette.
  */
 export function AgentSessionsRail() {
-  const { activeProject, activeWorktree, agentSessions, switchWorkspace } = useWorkspace();
+  const { activeProject, activeWorktree, agentSessions } = useWorkspace();
 
-  if (activeProject.worktrees.length < 2) return null;
+  const { selectProject } = useNavigation();
+
+  if (!activeProject || activeProject.worktrees.length < 2) return null;
 
   return (
     <section className={styles.rail} aria-label="Agent sessions across worktrees">
@@ -37,7 +40,7 @@ export function AgentSessionsRail() {
         {activeProject.worktrees.map((worktree) => {
           const session = agentSessions.find((s) => s.worktreeId === worktree.id);
           const status = session?.status ?? "idle";
-          const isFocused = worktree.id === activeWorktree.id;
+          const isFocused = worktree.id === activeWorktree?.id;
 
           return (
             <li key={worktree.id}>
@@ -46,7 +49,7 @@ export function AgentSessionsRail() {
                 className={`${styles.row} ${isFocused ? styles.rowFocused : ""}`}
                 aria-current={isFocused}
                 onClick={() => {
-                  if (!isFocused) switchWorkspace(activeProject.id, worktree.id);
+                  if (!isFocused) selectProject(activeProject.id, worktree.id, "code");
                 }}
               >
                 <span className={`${styles.statusDot} ${styles[status]}`} aria-hidden="true" />

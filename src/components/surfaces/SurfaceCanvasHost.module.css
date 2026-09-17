@@ -2,13 +2,12 @@
    single scrolling panel. min-height:100% lets a short overview still paint the
    full pane; min-width:0 keeps it from forcing the flex parent wider. */
 .host {
-  color-scheme: light dark;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 100%;
-  background: var(--workspace-background-chat);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
 /* Editor-style tab strip. Sticky so it stays put while the panel scrolls inside
@@ -19,15 +18,16 @@
   top: 0;
   z-index: 2;
   display: flex;
-  /* Share the agent header's exact height, including the bottom divider,
-     even when tabs overflow or the active canvas has tall content. */
-  flex: 0 0 var(--workspace-heading-height);
-  block-size: var(--workspace-heading-height);
+  /* Never shrink: as a flex child of the column `.host`, the strip defaults to
+     flex-shrink:1, so a tall overview panel (the full projection) would
+     squeeze it a few px shorter than a short canvas panel does — the row visibly
+     jumps height as you switch tabs. Pinning the basis keeps it constant. */
+  flex: 0 0 auto;
   align-items: stretch;
   gap: var(--slds-g-spacing-1, 0.25rem);
   padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem) 0;
-  border-block-end: 1px solid var(--workspace-heading-border);
-  background: var(--workspace-background-chat);
+  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -48,17 +48,19 @@
   border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
 }
 
-/* Matching hairline dividers frame the pinned surface icon and name, keeping
-   the surface identity distinct from the launched canvases that follow it. */
+/* The pinned first tab IS the surface (its icon + name), so it's set apart from
+   the launched canvases after it by a hairline divider and a little trailing
+   room — a quiet "surface | canvases" seam that keeps the surface identity
+   reading as the container the other tabs live in, not just another tab. */
 .tabWrapSurface {
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
-  background: var(--workspace-background-chat);
-  box-shadow: -0.5rem 0 var(--workspace-background-chat);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  box-shadow: -0.5rem 0 var(--slds-g-color-surface-2, #f3f3f3);
   margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
   padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
-  border-inline: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
 
 /* No background plate — a tab is just its label (or the overview home glyph),
@@ -134,20 +136,15 @@
   outline-offset: 1px;
 }
 
-/* A gently raised container shared by every canvas. CanvasLayout owns the
-   content gutters inside it; the shell owns scrolling and the fixed tab strip. */
+/* The single panel every tab shares (aria-labelledby points at the active tab).
+   CanvasLayout owns its content gutters; the shell owns scrolling. */
 .panel {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  margin: 0.75rem;
-  border: 1px solid var(--workspace-heading-border);
-  border-radius: var(--slds-g-radius-border-3, 0.75rem);
-  background: var(--workspace-background-canvas);
-  box-shadow: 0 2px 4px light-dark(rgb(3 35 77 / 5%), rgb(0 0 0 / 16%)),
-    0 8px 24px light-dark(rgb(3 35 77 / 7%), rgb(0 0 0 / 22%));
+  background: var(--slds-g-color-surface-2, #f3f3f3);
 }
 
 /* Keep the canvas background filling the pane even when content is short. */

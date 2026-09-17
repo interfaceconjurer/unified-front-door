@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, ViewTransition } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, ViewTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { NavigationProvider, useNavigation } from "@/components/navigation/NavigationProvider";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { ConversationProvider } from "@/components/chat/ConversationProvider";
-import { surfaceAppById, surfaceAppForPath } from "@/components/front-door/app-catalog";
+import { surfaceAppForPath } from "@/components/front-door/app-catalog";
 import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
-import { canAccessSurface } from "@/lib/demo-profiles";
+import { normalizeDestinationHref } from "@/lib/navigation/model";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -29,9 +29,27 @@ import "@/components/surfaces/surface-transitions.css";
  * navigation runs through a ⌘⇧P command palette the shell owns.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname(), router = useRouter();
+  const { profile, resolved, sessionKey } = useDemoProfile();
+  useEffect(() => {
+    if (!resolved) return;
+    if (!profile && pathname !== "/login") {
+      const destination = normalizeDestinationHref(`${window.location.pathname}${window.location.search}`);
+      router.replace(destination ? `/login?returnTo=${encodeURIComponent(destination)}` : "/login");
+    } else if (profile && pathname === "/login") {
+      router.replace(normalizeDestinationHref(new URLSearchParams(window.location.search).get("returnTo")) ?? "/");
+    }
+  }, [pathname, profile, resolved, router]);
+  if (!resolved) return null;
+  if (pathname === "/login") return children;
+  if (!profile) return null;
+  return <Suspense fallback={null}><WorkspaceProvider key={sessionKey}><SurfaceCanvasProvider><NavigationProvider><ShellContent>{children}</ShellContent></NavigationProvider></SurfaceCanvasProvider></WorkspaceProvider></Suspense>;
+}
+
+function ShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { profile, resolved } = useDemoProfile();
+  const { navigateSurface } = useNavigation();
+  const { profile } = useDemoProfile();
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
@@ -53,12 +71,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const paletteTrigger = useRef<HTMLElement | null>(null);
   const paletteClosing = useRef(false);
   const paletteAction = useRef<(() => void) | undefined>(undefined);
   const openPalette = useCallback((tab: CommandPaletteTab) => {
     if (!paletteTab) {
-      paletteTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setPaletteTab(tab);
     }
     // Reopening during dismissal reverses the dissolve and cancels its action.
@@ -78,7 +94,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     paletteClosing.current = false;
     paletteAction.current = undefined;
     setPaletteTab(null);
-    paletteTrigger.current?.focus();
     action?.();
   }, []);
   // Read from the persisted store (SSR-safe: fixed closed default on the
@@ -98,30 +113,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const toggleSurfacePanel = useCallback(() => {
     if (!surface) {
-      router.push(surfaceAppById("build").href);
+      navigateSurface("build");
       return;
     }
     if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
       document.getElementById("surface-panel-toggle")?.focus();
     }
     setSurfaceVisibility({ pathname, open: !surfaceOpen });
-  }, [pathname, router, surface, surfaceOpen]);
-
-  // Demo identity is deliberately a client-side product concept, not an auth
-  // boundary. Keep signed-out users on the login screen and prevent a profile
-  // from remaining on a surface it doesn't expose.
-  useEffect(() => {
-    if (!resolved) return;
-    if (isLogin) {
-      if (profile) router.replace("/");
-      return;
-    }
-    if (!profile) {
-      router.replace("/login");
-      return;
-    }
-    if (surface && !canAccessSurface(profile, surface.id)) router.replace("/");
-  }, [isLogin, profile, resolved, router, surface]);
+  }, [pathname, navigateSurface, surface, surfaceOpen]);
 
   // ⌘⇧P opens the palette; ⌘B and ⌘⇧B toggle the left and right panels.
   useEffect(() => {
@@ -144,18 +143,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isLogin, profile, toggleWorkspacePanel, toggleSurfacePanel, paletteOpen, openPalette, closePalette]);
 
-  if (!resolved) return null;
-  if (isLogin) return children;
-  if (!profile || (surface && !canAccessSurface(profile, surface.id))) return null;
+  if (!profile) return null;
 
   return (
-    <WorkspaceProvider key={profile.id}>
-      <ConversationProvider>
-      {/* Peer of the workspace: per-surface canvas ("workstage") state, mounted
-          above the router outlet so a surface's open tabs survive route content
-          swaps (and, via its persisted store, a reload). */}
-      <SurfaceCanvasProvider>
-      <div className={styles.shell} ref={shellRef} data-workspace-shell>
+      <div className={styles.shell} ref={shellRef}>
         <TopBar
           onOpenHome={() => { if (isFrontDoor) setHomeRequest((value) => value + 1); }}
           onOpenPalette={() => openPalette("surfaces")}
@@ -176,8 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`}
-                data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
@@ -214,8 +204,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
         {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
-      </SurfaceCanvasProvider>
-      </ConversationProvider>
-    </WorkspaceProvider>
+
   );
 }

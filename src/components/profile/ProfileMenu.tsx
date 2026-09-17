@@ -10,6 +10,8 @@ export function ProfileMenu() {
   const router = useRouter();
   const { profile, signIn, signOut } = useDemoProfile();
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [problem, setProblem] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -40,16 +42,24 @@ export function ProfileMenu() {
   const alternateProfiles = DEMO_PROFILES.filter((candidate) => candidate.id !== profile.id);
   const experienceLabel = profile.onboarding ? "Day zero" : profile.experience === "returning" ? "Returning user" : "New user";
 
-  function switchUser(profileId: DemoProfileId) {
-    signIn(profileId);
-    setOpen(false);
-    router.replace("/");
+  async function switchUser(profileId: DemoProfileId) {
+    if (pending) return;
+    setPending(true); setProblem("");
+    try {
+      if (!await signIn(profileId)) { setProblem("We couldn’t switch users. Please try again."); return; }
+      setOpen(false);
+      router.replace("/");
+    } finally { setPending(false); }
   }
 
-  function logout() {
-    signOut();
-    setOpen(false);
-    router.replace("/login");
+  async function logout() {
+    if (pending) return;
+    setPending(true); setProblem("");
+    try {
+      if (!await signOut()) { setProblem("We couldn’t sign out. Please try again."); return; }
+      setOpen(false);
+      router.replace("/login");
+    } finally { setPending(false); }
   }
 
   return (
@@ -79,7 +89,7 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.people}>
-            {alternateProfiles.map((alternateProfile) => <button key={alternateProfile.id} type="button" onClick={() => switchUser(alternateProfile.id)}>
+            {alternateProfiles.map((alternateProfile) => <button key={alternateProfile.id} type="button" disabled={pending} onClick={() => switchUser(alternateProfile.id)}>
               <span className={styles.personCopy}>
                 <strong>Switch to {alternateProfile.name}</strong>
                 <small>
@@ -90,8 +100,9 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.logout}>
-            <button type="button" onClick={logout}>
-              Sign out
+            {problem && <p className={styles.problem} role="alert">{problem}</p>}
+            <button type="button" disabled={pending} onClick={logout}>
+              {pending ? "Please wait…" : "Sign out"}
             </button>
           </div>
         </div>

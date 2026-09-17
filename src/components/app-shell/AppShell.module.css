@@ -3,18 +3,11 @@
   --shell-motion-blur: 24px;
   --shell-motion-easing: cubic-bezier(0.22, 0.61, 0.36, 1);
   --workspace-panel-width: clamp(15rem, 20vw, 18rem);
-  --workspace-heading-height: 3.5rem;
-  --workspace-heading-border: color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 65%, transparent);
-  /* Chat, canvas gutters, and tabs share the base. Only the canvas box is
-     raised between that base and the outer chrome. */
-  --workspace-background-chat: var(--slds-g-color-surface-2, #f3f3f3);
-  --workspace-background-chrome: var(--slds-g-color-surface-1, #fff);
-  --workspace-background-canvas: color-mix(in srgb, var(--workspace-background-chat) 50%, var(--workspace-background-chrome));
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--workspace-background-chat);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
@@ -85,18 +78,10 @@
   overflow: hidden;
 }
 
-/* Keep newly mounted route content hidden until the workspace is ready. */
-.shell[data-workspace-switch="loading"] [data-workspace-content] {
-  opacity: 0;
-  filter: blur(var(--shell-motion-blur));
-}
-
 /* The persistent chat column. Default (inside a surface) is 40%; the front door
    widens it to 100% via .chatColumnFull. Width is the single animated property,
    so entering or leaving a surface glides between the two. */
 .chatColumn {
-  --chat-content-width: 1200px;
-  --chat-content-offset: 0px;
   flex: 0 0 auto;
   width: 40%;
   min-width: 0;
@@ -107,10 +92,6 @@
 
 .chatColumnFull {
   width: 100%;
-}
-
-.chatColumn[data-chat-only="true"] {
-  --chat-content-offset: max(0px, calc((100% - var(--chat-content-width)) / 2));
 }
 
 .chatInner {
@@ -138,7 +119,6 @@
   width: 60%;
   display: flex;
   overflow: hidden;
-  background: var(--workspace-background-chat);
   transform: translateX(100%);
   transition: transform var(--agent-move-duration) cubic-bezier(0.22, 0.61, 0.36, 1) var(--agent-move-delay);
 }

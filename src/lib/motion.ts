@@ -42,7 +42,7 @@ export async function waitForMotion(getAnimations: () => Animation[], signal: Ab
 
 export function waitForWorkspaceMotion(shell: HTMLElement, signal: AbortSignal): Promise<void> {
   return waitForMotion(() => [
-    // Layout geometry, including chat width, but no spinners or content fades.
+    // Only the shell's geometry, not spinners or animations inside its apps.
     ...Array.from(shell.querySelectorAll<HTMLElement>("[data-workspace-motion]")).flatMap((element) => element.getAnimations()),
     // React's surface-to-surface snapshots animate on document pseudo-elements.
     ...document.getAnimations().filter((animation) =>
@@ -54,19 +54,18 @@ export function waitForWorkspaceMotion(shell: HTMLElement, signal: AbortSignal):
 /** Scroll on a real animation timeline so its completion gates the reveal.
  * requestAnimationFrame paints the interpolated scroll position; finished
  * owns completion, including changed playback rates and cancellation. */
-export async function scrollToEntry(container: HTMLElement, entry: HTMLElement, signal: AbortSignal, animate = true): Promise<void> {
+export async function scrollToEntry(container: HTMLElement, entry: HTMLElement, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
   const start = container.scrollTop;
-  const style = getComputedStyle(container);
-  const inset = parseFloat(style.scrollPaddingBlockStart) || 0;
   const target = Math.max(0, Math.min(
-    entry.getBoundingClientRect().top - container.getBoundingClientRect().top + start - inset,
+    entry.getBoundingClientRect().top - container.getBoundingClientRect().top + start - 20,
     container.scrollHeight - container.clientHeight,
   ));
-  if (!animate || Math.abs(target - start) < 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (Math.abs(target - start) < 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     container.scrollTop = target;
     return;
   }
+  const style = getComputedStyle(container);
   const time = style.getPropertyValue("--chat-scroll-duration").trim();
   const duration = parseFloat(time) * (time.endsWith("ms") ? 1 : 1000);
   const animation = container.animate([{}, {}], {

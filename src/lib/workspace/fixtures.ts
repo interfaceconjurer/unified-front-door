@@ -38,9 +38,10 @@ export const PROJECTS: readonly Project[] = [
     // Single worktree → the rail stays hidden (progressive disclosure), but the
     // session still exists so the seam is exercised even where the UI hides it.
     agentSessions: [
-      { worktreeId: "main", status: "waiting", summary: "Storefront release passed SIT checks; review the UAT rollout and search performance findings." },
+      { worktreeId: "main", status: "idle", summary: "No active work; last session ended at 2026-09-14 13:00 UTC." },
     ],
-    // One live app, with follow-up performance and release reviews in its work.
+    // One live app — the simple case: a single deployed output, nothing to
+    // triage.
     apps: [
       {
         id: "storefront-prod",
@@ -48,7 +49,7 @@ export const PROJECTS: readonly Project[] = [
         url: "https://acme-storefront.example.app",
         status: "live",
         environment: "Production",
-        lastDeployed: "2h ago",
+        lastDeployed: "2026-09-14T13:00:00Z",
       },
     ],
   },
@@ -64,12 +65,12 @@ export const PROJECTS: readonly Project[] = [
     defaultOrgId: "uat",
     facets: { objects: 48, flows: 22, apexClasses: 61, lwc: 34, permissionSets: 11 },
     // Deliberately varied — this is the case the sessions rail exists to show:
-    // three worktrees with ongoing implementation, approval, and code review.
+    // three worktrees, three different states a super user needs to triage at once.
     agentSessions: [
       {
         worktreeId: "main",
         status: "working",
-        summary: "Refactoring OpportunityTriggerHandler — 3 files touched in the last 4 min.",
+        summary: "Refactoring OpportunityTriggerHandler — 3 files touched; last update at 2026-09-14 14:56 UTC.",
       },
       {
         worktreeId: "lead-routing",
@@ -78,8 +79,8 @@ export const PROJECTS: readonly Project[] = [
       },
       {
         worktreeId: "hotfix-9821",
-        status: "waiting",
-        summary: "Fix for W-9821 and its regression coverage are waiting for your code review.",
+        status: "idle",
+        summary: "Fix for W-9821 is ready for review; last activity at 2026-09-14 14:35 UTC.",
       },
     ],
     // Two apps, deliberately mixed status — the case that exercises the
@@ -91,7 +92,7 @@ export const PROJECTS: readonly Project[] = [
         url: "https://partner-portal.trailblazer.example.app",
         status: "live",
         environment: "UAT Sandbox",
-        lastDeployed: "1d ago",
+        lastDeployed: "2026-09-13T15:00:00Z",
       },
       {
         id: "support-community",
@@ -99,7 +100,7 @@ export const PROJECTS: readonly Project[] = [
         url: "https://support-community.trailblazer.example.app",
         status: "building",
         environment: "Staging",
-        lastDeployed: "6m ago",
+        lastDeployed: "2026-09-14T14:54:00Z",
       },
     ],
   },

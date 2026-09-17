@@ -41,8 +41,8 @@ export type ProjectTreeRow = {
   project: Project;
   /** The primary worktree ("main") — the project's base branch. Rendered
    *  attached to the project header (no tree connector), part of the project's
-   *  own identity rather than a sibling leaf. Always present. */
-  base: WorktreeRow;
+   *  own identity rather than a sibling leaf. Null for a planning project. */
+  base: WorktreeRow | null;
   /** The non-primary worktrees — the parallel agent workspaces branched off the
    *  base. These are the tree-connected children. Empty for a project that only
    *  has its primary worktree (nothing to parallelize). */
@@ -59,10 +59,10 @@ export function buildProjectTree(projects: readonly Project[]): ProjectTreeRow[]
     const primary = primaryWorktree(project);
     const statusOf = (worktree: Worktree): AgentSessionStatus =>
       project.agentSessions.find((s) => s.worktreeId === worktree.id)?.status ?? "idle";
-    const children = project.worktrees.filter((w) => w.id !== primary.id);
+    const children = project.worktrees.filter((w) => w.id !== primary?.id);
     return {
       project,
-      base: { worktree: primary, status: statusOf(primary), lastChild: true },
+      base: primary ? { worktree: primary, status: statusOf(primary), lastChild: true } : null,
       children: children.map((worktree, index) => ({
         worktree,
         status: statusOf(worktree),

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { PanelIcon, SearchIcon } from "@/components/icons";
 import styles from "./TopBar.module.css";
 
@@ -23,6 +24,7 @@ type TopBarProps = {
  * answer just one question — "where do you want to go?"
  */
 export function TopBar({ onOpenPalette, onOpenHome, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
+  const { hrefForSurface, navigateSurface } = useNavigation();
   return (
     <header className={styles.bar}>
       <div className={styles.left}>
@@ -41,7 +43,7 @@ export function TopBar({ onOpenPalette, onOpenHome, panelOpen, onTogglePanel, su
           <PanelIcon width={16} height={16} />
         </button>
 
-        <Link href="/" scroll={false} onNavigate={onOpenHome} className={styles.homeLink} aria-label="Unified Platform home">
+        <Link href={hrefForSurface(null)} scroll={false} onNavigate={(event) => { event.preventDefault(); onOpenHome(); navigateSurface(null); }} className={styles.homeLink} aria-label="Unified Platform home">
           <span className={styles.logo} aria-hidden="true">
             U
           </span>
