@@ -1,3 +1,5 @@
+import { BrowserPersistenceStore, type Decoded } from "../browser-persistence";
+import { parseTarget, type WorkspaceTarget } from "./context";
 import type { DemoProfileId } from "@/lib/demo-profiles";
 
 /**
@@ -33,6 +35,8 @@ export type PersistedSelection = {
    *  Starts `null` so the server render and the client's first hydration pass
    *  agree — same reasoning as the rest of this store. */
   panelOpen: boolean | null;
+  /** Explicit target, including deliberate unbound, supersedes legacy preferences. */
+  target?: WorkspaceTarget;
 };
 
 const STORAGE_KEY = "ufd.workspace.v1";
@@ -59,84 +63,34 @@ function sanitizeStringRecord(value: unknown): Record<string, string> {
   return result;
 }
 
-/** A corrupt/unparseable/wrong-shape blob is treated as "no saved state," not
- *  an error — this is the only place we deserialize localStorage's contents. */
-function parseSelection(raw: string): PersistedSelection {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return EMPTY_SELECTION;
-    return {
-      activeProjectId: typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
-      worktreeByProject: sanitizeStringRecord(parsed.worktreeByProject),
-      orgByProject: sanitizeStringRecord(parsed.orgByProject),
-      panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : null,
-    };
-  } catch {
-    return EMPTY_SELECTION;
-  }
+/** Legacy selection payloads are sanitized; unrelated shapes are protected. */
+function parseSelection(parsed: unknown): Decoded<PersistedSelection> {
+  if (!isRecord(parsed) || !["activeProjectId", "worktreeByProject", "orgByProject", "panelOpen"].some((key) => key in parsed)) return { error: "invalid" };
+  const target = parsed.target === undefined ? undefined : parseTarget(parsed.target);
+  if (target === null) return { error: "invalid" };
+  return { value: {
+    ...(target ? { target } : {}),
+    activeProjectId: typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
+    worktreeByProject: sanitizeStringRecord(parsed.worktreeByProject),
+    orgByProject: sanitizeStringRecord(parsed.orgByProject),
+    panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : null,
+  } };
 }
 
-class WorkspaceSelectionStore {
-  constructor(private storageKey: string, private initialSelection: PersistedSelection) {}
-
-  private listeners = new Set<() => void>();
-  // Cache keyed by the raw string we last read/wrote, so `getSnapshot` returns
-  // a referentially stable object when nothing has changed (required by
-  // `useSyncExternalStore` to avoid re-rendering — or looping — every call).
-  private cachedRaw: string | null = null;
-  private cached: PersistedSelection | null = null;
-
-  subscribe = (onStoreChange: () => void): (() => void) => {
-    this.listeners.add(onStoreChange);
-    return () => this.listeners.delete(onStoreChange);
-  };
-
-  /** Fixed default, same reference every call — this is what SSR and the
-   *  client's first hydration render both see, so they can't diverge. */
-  getServerSnapshot = (): PersistedSelection => this.initialSelection;
-
-  getSnapshot = (): PersistedSelection => {
-    if (typeof window === "undefined") return this.initialSelection;
-
-    let raw: string | null;
-    try {
-      raw = window.localStorage.getItem(this.storageKey);
-    } catch {
-      // Storage disabled/throwing (private mode, etc.) — behave as if empty.
-      raw = null;
-    }
-
-    if (raw === this.cachedRaw && this.cached) return this.cached;
-    this.cachedRaw = raw;
-    this.cached = raw === null ? this.initialSelection : parseSelection(raw);
-    return this.cached;
-  };
-
-  /** Read the current snapshot, apply `update`, and persist the result —
-   *  always merges against the latest snapshot (not a value a caller might be
-   *  holding from a stale render), the same "always operate on current state"
-   *  guarantee the old `setState(current => ...)` updaters gave. */
-  private update(update: (current: PersistedSelection) => PersistedSelection): void {
-    const next = update(this.getSnapshot());
-    this.cached = next;
-
-    if (typeof window !== "undefined") {
-      try {
-        const raw = JSON.stringify(next);
-        window.localStorage.setItem(this.storageKey, raw);
-        this.cachedRaw = raw;
-      } catch {
-        // Quota exceeded / private mode / storage disabled — keep the new
-        // value in memory (`this.cached` above) and degrade to in-memory-only
-        // persistence rather than crashing or losing the selection mid-session.
-      }
-    }
-
-    for (const listener of this.listeners) listener();
+export class WorkspaceSelectionStore extends BrowserPersistenceStore<PersistedSelection> {
+  constructor(storageKey: string, initialSelection: PersistedSelection = EMPTY_SELECTION) {
+    super(storageKey, initialSelection, parseSelection);
   }
 
   reset = (): void => {
-    this.update(() => this.initialSelection);
+    this.update(() => this.initialState, true);
+  };
+
+  setTarget = (target: WorkspaceTarget): void => {
+    this.update((current) => ({ ...current, target, activeProjectId: target.projectId,
+      worktreeByProject: target.projectId && target.worktreeId ? { ...current.worktreeByProject, [target.projectId]: target.worktreeId } : current.worktreeByProject,
+      orgByProject: target.projectId && target.orgId ? { ...current.orgByProject, [target.projectId]: target.orgId } : current.orgByProject,
+    }));
   };
 
   setActiveProjectId = (projectId: string): void => {

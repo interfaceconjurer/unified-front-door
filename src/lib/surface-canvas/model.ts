@@ -1,90 +1,67 @@
-/**
- * Surface-canvas domain model — the "what tabs are open in this surface" that,
- * like the workspace selection, follows you across route content swaps and
- * survives a reload. Orthogonal to the workspace (project/org) it renders inside.
- *
- * A canvas is stored as a SERIALIZABLE spec — a `kind` discriminator plus a
- * title and optional string params — never a React node, so the whole open-tab
- * set round-trips through `localStorage`. Content is resolved from a
- * kind→component registry at render time (see `canvas-registry.tsx`), which is
- * what keeps this file free of React and lets the persisted state stay plain
- * data. Keep this file free of React and fixtures, same as `workspace/model.ts`.
- */
-
-/**
- * The kinds a canvas can be. `"overview"` is special: it's the pinned overview
- * tab every surface always has at index 0, synthesized by the provider rather
- * than stored (so it can't be closed, reordered, or corrupted in persistence).
- * The rest are the launchable kinds any affordance can `openCanvas` — the
- * overview's launch region opens `capability` (and, on Build, `app`); the
- * workspace panel's app rows also open `app`.
- */
-export type CanvasKind = "overview" | "app" | "capability" | "work" | "improvement-project";
-
-/** The reserved id/kind of the pinned overview tab. Never persisted; the
- *  provider prepends it to every surface's list at index 0. */
+import type { WorkspaceTarget } from "../workspace/context";
+import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 export const OVERVIEW_CANVAS_ID = "overview";
-
-/** Openable (persistable) kinds. Excludes `"overview"`, which is not launchable
- *  — it always exists. Drives both the registry's exhaustiveness and the
- *  parser's "drop specs of an unknown kind" sanitization. */
 export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project"] as const;
-
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
-
-/**
- * What a launch affordance hands to `openCanvas` — everything but the id,
- * which the store derives so that opening the "same" canvas twice (same kind +
- * params) resolves to the same tab instead of a duplicate.
- */
-export type CanvasSpecInput = {
-  kind: LaunchableCanvasKind;
-  title: string;
-  /** Optional, string-only so the whole spec stays trivially serializable. Two
-   *  inputs with the same kind and params are the same canvas (see `canvasId`). */
-  params?: Record<string, string>;
+export type CanvasKind = "overview" | LaunchableCanvasKind;
+export type CapabilityScope = { scope: "unbound" } | { scope: "project"; projectId: string; worktreeId?: string; orgId?: string };
+type Inputs = {
+  app: { projectId: string; appId: string };
+  capability: { surface: SurfaceId; capability: string; section?: string } & CapabilityScope;
+  work: { workId: string; projectId: string; worktreeId: string };
+  "improvement-project": { projectId: string };
 };
-
-/**
- * A canvas as it appears in a surface's tab list. A launched canvas always
- * carries a `LaunchableCanvasKind`; only the synthetic `OVERVIEW_CANVAS` uses
- * the `"overview"` kind, so `kind` widens to the full `CanvasKind` here even
- * though `openCanvas` (and thus everything persisted) only ever produces the
- * launchable subset.
- */
-export type CanvasSpec = {
-  id: string;
-  kind: CanvasKind;
-  title: string;
-  params?: Record<string, string>;
-  /** Editable values are separate from params, so editing keeps the same tab. */
-  draft?: Record<string, string>;
-};
-
-/** The synthetic overview spec — its `title` is what the tab reads. Not stored;
- *  built on the fly by the provider so index 0 is always this exact shape. */
-export const OVERVIEW_CANVAS: CanvasSpec = {
-  id: OVERVIEW_CANVAS_ID,
-  kind: "overview",
-  title: "Overview",
-};
-
-/**
- * Deterministic id for a spec, derived from kind + params so that "open X" is
- * idempotent: the same kind and params always map to the same id, which is how
- * `openCanvas` focuses an existing tab instead of duplicating it. Params are
- * sorted so key order in the caller's object can't produce two ids for one
- * logical canvas.
- */
-export function canvasId(kind: LaunchableCanvasKind, params?: Record<string, string>): string {
-  const entries = Object.entries(params ?? {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) return kind;
-  const suffix = entries.map(([key, value]) => `${key}=${value}`).join("&");
-  return `${kind}:${suffix}`;
+export type CanvasSpecInput = { [K in LaunchableCanvasKind]: { kind: K; title: string; params: Inputs[K] } }[LaunchableCanvasKind];
+export type CanvasSpec = (CanvasSpecInput & { id: string; draft?: Record<string, string> }) | { id: "overview"; kind: "overview"; title: string; params?: undefined; draft?: undefined };
+export type CanvasOf<K extends LaunchableCanvasKind> = Extract<CanvasSpec, { kind: K }>;
+export const OVERVIEW_CANVAS: CanvasSpec = { id: OVERVIEW_CANVAS_ID, kind: "overview", title: "Overview" };
+export function isLaunchableKind(value: unknown): value is LaunchableCanvasKind { return typeof value === "string" && (LAUNCHABLE_KINDS as readonly string[]).includes(value); }
+function record(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
+/** Validate at storage/command boundaries; presentation fields never enter identity. */
+export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInput | null {
+  if (!record(value) || !isLaunchableKind(value.kind) || typeof value.title !== "string" || !record(value.params)) return null;
+  const p = value.params, nonempty = (key: string) => typeof p[key] === "string" && !!p[key].trim();
+  switch (value.kind) {
+    case "app": return nonempty("projectId") && nonempty("appId") ? { kind: "app", title: value.title, params: { projectId: p.projectId as string, appId: p.appId as string } } : null;
+    case "work": return ["workId", "projectId", "worktreeId"].every(nonempty) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string } } : null;
+    case "improvement-project": return nonempty("projectId") ? { kind: "improvement-project", title: value.title, params: { projectId: p.projectId as string } } : null;
+    case "capability": {
+      const scope = p.scope === "unbound" || legacy && p.scope === undefined ? { scope: "unbound" as const }
+        : p.scope === "project" && nonempty("projectId") && (p.worktreeId === undefined || nonempty("worktreeId")) && (p.orgId === undefined || nonempty("orgId"))
+          ? { scope: "project" as const, projectId: p.projectId as string, ...(p.worktreeId === undefined ? {} : { worktreeId: p.worktreeId as string }), ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } : null;
+      return scope && isSurfaceId(p.surface) && nonempty("capability") && (p.section === undefined || nonempty("section")) ? { kind: "capability", title: value.title, params: { ...scope, surface: p.surface, capability: p.capability as string, ...(p.section === undefined ? {} : { section: p.section as string }) } } : null;
+    }
+  }
+}
+export function canvasId(kind: LaunchableCanvasKind, params: Record<string, string | undefined>): string {
+  const input = parseCanvasInput({ kind, params, title: "" });
+  if (!input) throw new TypeError(`Invalid ${kind} canvas identity`);
+  return `canvas:v2:${JSON.stringify([kind, Object.entries(input.params).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}`;
+}
+/** Canonical IDs are self-describing, allowing closed drafts to migrate safely. */
+export function inputFromCanonicalId(id: string): CanvasSpecInput | null {
+  if (!id.startsWith("canvas:v2:")) return null;
+  try {
+    const [kind, pairs] = JSON.parse(id.slice(10));
+    if (!Array.isArray(pairs) || pairs.some((pair: unknown) => !Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== "string" || typeof pair[1] !== "string") || new Set(pairs.map((pair: string[]) => pair[0])).size !== pairs.length) return null;
+    const params = Object.fromEntries(pairs), input = parseCanvasInput({ kind, params, title: "Recovered draft" }, true);
+    if (!input) return null;
+    const canonical = canvasId(input.kind, input.params);
+    if (canonical === id) return input;
+    // The only formerly valid canonical identity change is the explicit scope
+    // on global capability drafts. Never infer a project from current selection.
+    if (input.kind === "capability" && params.scope === undefined) {
+      const oldParams = Object.fromEntries(Object.entries(input.params).filter(([key]) => key !== "scope"));
+      if (`canvas:v2:${JSON.stringify([kind, Object.entries(oldParams).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}` === id) return input;
+    }
+    return null;
+  } catch { return null; }
 }
 
-/** Type guard used by the parser: is this a launchable (persistable) kind? The
- *  overview kind is deliberately excluded — it's never read from storage. */
-export function isLaunchableKind(value: unknown): value is LaunchableCanvasKind {
-  return typeof value === "string" && (LAUNCHABLE_KINDS as readonly string[]).includes(value);
+export function canvasTarget(input: CanvasSpecInput, fallback: WorkspaceTarget): WorkspaceTarget {
+  if (input.kind === "capability") return input.params.scope === "unbound" ? { projectId: null, worktreeId: null, orgId: null }
+    : { projectId: input.params.projectId, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId ?? null };
+  return { projectId: input.params.projectId, worktreeId: input.kind === "work" ? input.params.worktreeId : null, orgId: fallback.orgId };
 }
+/** Current editors accept bounded fields; older persisted content is not truncated. */
+export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
