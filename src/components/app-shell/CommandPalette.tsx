@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import type { SurfaceId } from "@/lib/workspace/model";
+
+import { useMemo, useRef, useState } from "react";
+import { Modal } from "@/components/interaction/Modal";
+import { usePathname } from "next/navigation";
 import {
   DatabaseIcon,
   HomeIcon,
@@ -11,11 +14,10 @@ import {
   SparklesIcon,
   type IconComponent,
 } from "@/components/icons";
-import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
-import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
-import { surfaceAppById, surfaceAppForPath, surfaceApps } from "@/components/front-door/app-catalog";
+import { surfaceAppForPath, surfaceApps } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import type { AgentSessionStatus, OrgKind } from "@/lib/workspace/model";
@@ -102,10 +104,10 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  *  - Surfaces — Front Door stays first, followed by the current surface;
  *    picking another destination navigates.
  *  - Projects — the shell-level workspace noun; picking a project calls
- *    `setActiveProject` and re-projects the current surface instead of
+ *    `selectProject` and re-projects the current surface instead of
  *    navigating. Multi-worktree projects list their worktrees inline and
  *    indented, each with a status dot from that worktree's agent session;
- *    picking a worktree additionally calls `setActiveWorktree` — still no
+ *    picking a worktree additionally calls `selectProject` — still no
  *    navigation, because switching what you're working on is a re-point, not
  *    a trip.
  *  - Sessions — the current session first, then every other session across
@@ -116,7 +118,7 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  *  - Orgs — connections available from login; picking one changes the target
  *    org without navigating or changing the assessment scope.
  * Each tab starts with the current destination highlighted, when it matches
- * the search. Type to filter, ↑/↓ to move, ←/→ to switch tabs, ↵ to
+ * the search. Type to filter, ↑/↓ to move, ←/→ to switch focused tabs, ↵ to
  * select, esc to dismiss.
  */
 export function CommandPalette({ initialTab = "surfaces", open, onClose, onExited }: {
@@ -125,34 +127,17 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
   onClose: (action?: () => void) => void;
   onExited: () => void;
 }) {
-  const router = useRouter();
+  const { navigateSurface, selectProject, selectOrg } = useNavigation();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const { setActiveCanvas, openCanvas } = useSurfaceCanvases("code");
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree, hasProjects,
-    orgs, activeOrg, setActiveOrg } =
+  const { projects, activeProject, activeWorktree, hasProjects,
+    orgs, activeOrg } =
     useWorkspace();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<number | null>(null);
-  const paletteRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open) {
-      inputRef.current?.focus();
-      return;
-    }
-    let cancelled = false;
-    // Wait for the actual CSS transitions, including shortened reversals.
-    // Reduced motion has no transitions, so dismissal completes immediately.
-    const transitions = paletteRef.current?.getAnimations() ?? [];
-    void Promise.allSettled(transitions.map((transition) => transition.finished)).then(() => {
-      if (!cancelled) onExited();
-    });
-    return () => { cancelled = true; };
-  }, [open, onExited]);
 
   const items = useMemo<PaletteItem[]>(() => {
     const q = query.trim().toLowerCase();
@@ -179,7 +164,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         Icon: d.Icon,
         isCurrent: d.id === (currentSurfaceId ?? "home"),
         select: () => {
-          if (d.id !== (currentSurfaceId ?? "home")) router.push(d.href);
+          if (d.id !== (currentSurfaceId ?? "home")) navigateSurface(d.id === "home" ? null : d.id as SurfaceId);
         },
       })).sort((a, b) =>
         Number(b.id === "home") - Number(a.id === "home") || currentFirst(a, b),
@@ -192,13 +177,13 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         id: org.id,
         label: org.label,
         description: [ORG_KIND_LABEL[org.kind], "Connected",
-          ...(org.kind === "scratch" && org.expiresInDays != null ? [`${org.expiresInDays}d left`] : []),
+          ...(org.kind === "scratch" && org.expiresInDays != null ? [org.expiresInDays === 0 ? "Expired" : `At capture: ${org.expiresInDays} days remaining`] : []),
         ].join(" · "),
         Icon: DatabaseIcon,
         orgKind: org.kind,
-        isCurrent: org.id === activeOrg.id,
+        isCurrent: org.id === activeOrg?.id,
         select: () => {
-          setActiveOrg(org.id);
+          selectOrg(org.id);
         },
       })).filter((org) => matchesQuery(org.label, org.description)).sort(currentFirst);
     }
@@ -209,7 +194,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
       const rows: PaletteItem[] = [];
       // Move whole project groups together so their children stay attached.
       const tree = buildProjectTree(projects).sort(
-        (a, b) => Number(b.project.id === activeProject.id) - Number(a.project.id === activeProject.id),
+        (a, b) => Number(b.project.id === activeProject?.id) - Number(a.project.id === activeProject?.id),
       );
       for (const { project, base, children } of tree) {
         // The project row IS the project-on-main node: its title is the project
@@ -225,8 +210,8 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         const projectMatches = matchesQuery(
           project.name,
           project.description,
-          base.worktree.label,
-          base.worktree.branch,
+          (base?.worktree.label ?? "Planning project"),
+          (base?.worktree.branch ?? ""),
         );
         const matchingChildren = children.filter(
           ({ worktree }) => projectMatches || matchesQuery(worktree.label, worktree.branch),
@@ -238,31 +223,18 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           id: project.id,
           label: project.name,
           // Subtitle = the primary branch, so the node reads as "project on main".
-          description: base.worktree.label,
+          description: (base?.worktree.label ?? "Planning project"),
           Icon: LayersIcon,
           // Current only when the project is active AND on its primary worktree —
           // if a feature worktree is active, its own child row carries "Current".
-          isCurrent: project.id === activeProject.id && base.worktree.id === activeWorktree.id,
-          // Project is shell-level, not a route — switch it in place and stay put.
-          // Selecting the node lands on main (its subtitle). Pass project.id
-          // explicitly to setActiveWorktree: setActiveProject doesn't take effect
-          // until the next render, so the setter's own default (the *current*
-          // activeProject) would target the wrong project when the project isn't
-          // active yet.
+          isCurrent: project.id === activeProject?.id && base?.worktree.id === activeWorktree?.id,
           select: () => {
-            setActiveProject(project.id);
-            setActiveWorktree(base.worktree.id, project.id);
-            if (profile?.onboarding) {
-              openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } });
-              router.push("/alm");
-              return;
-            }
-            if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
+            selectProject(project.id, base?.worktree.id);
           },
         });
 
         matchingChildren.forEach(({ worktree, status }) => {
-          const isCurrent = project.id === activeProject.id && worktree.id === activeWorktree.id;
+          const isCurrent = project.id === activeProject?.id && worktree.id === activeWorktree?.id;
           rows.push({
             id: `${project.id}::${worktree.id}`,
             label: worktree.label,
@@ -273,9 +245,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
             indent: !isCurrent,
             status,
             select: () => {
-              setActiveProject(project.id);
-              setActiveWorktree(worktree.id, project.id);
-              if (currentSurfaceId) setActiveCanvas(currentSurfaceId, OVERVIEW_CANVAS_ID);
+              selectProject(project.id, worktree.id);
             },
           });
         });
@@ -287,7 +257,6 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
 
     // tab === "sessions": every session, across every project, flattened for
     // global triage — `allSessionRows` already sorts waiting → working → idle.
-    const codeHref = surfaceAppById("code").href;
     return allSessionRows(projects)
       .filter(({ project, worktree, session }) =>
         matchesQuery(project.name, worktree.label, worktree.branch, session.summary, STATUS_LABEL[session.status]),
@@ -296,37 +265,26 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
         id: `${project.id}::${worktree.id}`,
         label: worktree.label,
         description: `${project.name} · ${worktree.branch} — ${session.summary}`,
-        isCurrent: project.id === activeProject.id && worktree.id === activeWorktree.id,
+        isCurrent: project.id === activeProject?.id && worktree.id === activeWorktree?.id,
         status: session.status,
-        // A session is somewhere to jump TO — unlike Projects, this teleports.
-        // Sessions are the primary case for jumping into a project that isn't
-        // active yet, so the explicit project.id here (see the worktree-row
-        // select above for why) is load-bearing, not defensive.
         select: () => {
-          setActiveProject(project.id);
-          setActiveWorktree(worktree.id, project.id);
-          setActiveCanvas("code", OVERVIEW_CANVAS_ID);
-          if (pathname !== codeHref) router.push(codeHref);
+          selectProject(project.id, worktree.id, "code");
         },
       })).sort(currentFirst);
   }, [
     tab,
     query,
-    pathname,
     profile,
     projects,
     hasProjects,
-    openCanvas,
-    activeProject.id,
-    activeWorktree.id,
-    router,
-    setActiveProject,
-    setActiveWorktree,
-    setActiveCanvas,
+    activeProject?.id,
+    activeWorktree?.id,
+    navigateSurface,
+    selectProject,
     currentSurfaceId,
     orgs,
-    activeOrg.id,
-    setActiveOrg,
+    activeOrg?.id,
+    selectOrg,
   ]);
 
   // Opening, switching tabs, and clearing search highlight the current item,
@@ -347,17 +305,6 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       setActive(items.length ? (safeActive - 1 + items.length) % items.length : 0);
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      // Horizontal caret movement isn't meaningful in a single-line filter, so
-      // ←/→ switch tabs instead — but only when there's actually a tab to move
-      // to, so a stray ArrowLeft/Right at the edge doesn't eat the keystroke.
-      const currentIndex = TAB_ORDER.indexOf(tab);
-      const nextIndex = event.key === "ArrowLeft" ? currentIndex - 1 : currentIndex + 1;
-      const nextTab = TAB_ORDER[nextIndex];
-      if (nextTab) {
-        event.preventDefault();
-        switchTab(nextTab);
-      }
     } else if (event.key === "Enter") {
       event.preventDefault();
       const item = items[safeActive];
@@ -371,7 +318,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
   const showGuidedEmpty = !hasProjects && (tab === "projects" || tab === "sessions");
 
   function goToBuild() {
-    onClose(() => router.push(profile?.onboarding ? "/" : surfaceAppById("build").href));
+    onClose(() => navigateSurface(profile?.onboarding ? null : "build"));
   }
 
   function startConversation() {
@@ -379,42 +326,36 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
       if (pathname === "/") {
         requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
       } else {
-        router.push("/#agent-composer");
+        navigateSurface(null);
+        requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
       }
     });
   }
 
   return (
-    <div
-      className={styles.overlay}
-      data-open={open}
-      role="presentation"
-      onMouseDown={(event) => {
-        // Dismiss only on backdrop clicks, not clicks that start inside the panel.
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        ref={paletteRef}
-        className={styles.palette}
-        inert={!open}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Switch surfaces, projects, sessions, or orgs"
-      >
+    <Modal className={styles.overlay} open={open} onDismiss={() => onClose()} onExited={onExited}
+      initialFocus={inputRef} label="Switch surfaces, projects, sessions, or orgs">
+      <div className={styles.palette} data-modal-motion>
         <div className={styles.tabs} role="tablist" aria-label="Palette section">
           {TAB_ORDER.map((t) => (
             <button
               key={t}
               type="button"
               role="tab"
+              id={`command-palette-tab-${t}`}
+              aria-controls="command-palette-panel"
               aria-selected={t === tab}
               className={`${styles.tab} ${t === tab ? styles.tabActive : ""}`}
-              // Prevent the mousedown from moving DOM focus onto this button —
-              // the ↑/↓/↵/←/→ handler lives on the search input, so a mouse
-              // click on a tab would otherwise strand focus here and kill
-              // keyboard nav until the user clicks back into the input.
-              onMouseDown={(event) => event.preventDefault()}
+              tabIndex={t === tab ? 0 : -1}
+              onKeyDown={(event) => {
+                const index = TAB_ORDER.indexOf(t);
+                const next = event.key === "ArrowRight" ? (index + 1) % TAB_ORDER.length
+                  : event.key === "ArrowLeft" ? (index - 1 + TAB_ORDER.length) % TAB_ORDER.length
+                  : event.key === "Home" ? 0 : event.key === "End" ? TAB_ORDER.length - 1 : null;
+                if (next === null) return;
+                event.preventDefault(); switchTab(TAB_ORDER[next]!);
+                event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+              }}
               onClick={() => switchTab(t)}
             >
               {TAB_LABEL[t]}
@@ -422,15 +363,16 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           ))}
         </div>
 
+        <div role="tabpanel" id="command-palette-panel" aria-labelledby={`command-palette-tab-${tab}`} className={styles.tabPanel}>
         <div className={styles.searchRow}>
           <SearchIcon className={styles.searchIcon} width={18} height={18} />
           <input
             ref={inputRef}
             // The palette exists only to receive typing; focus it on mount.
-            autoFocus
             className={styles.input}
             type="text"
             placeholder={TAB_PLACEHOLDER[tab]}
+            aria-label={TAB_PLACEHOLDER[tab]}
             value={query}
             role={showGuidedEmpty ? "searchbox" : "combobox"}
             aria-expanded={showGuidedEmpty ? undefined : true}
@@ -525,6 +467,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           })}
         </ul>}
 
+        </div>
         <div className={styles.footer}>
           <span>
             <kbd>↑</kbd>
@@ -532,7 +475,7 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           </span>
           <span>
             <kbd>←</kbd>
-            <kbd>→</kbd> switch tabs
+            <kbd>→</kbd> switch focused tabs
           </span>
           <span>
             <kbd>↵</kbd> {TAB_ENTER_HINT[tab]}
@@ -542,6 +485,6 @@ export function CommandPalette({ initialTab = "surfaces", open, onClose, onExite
           </span>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

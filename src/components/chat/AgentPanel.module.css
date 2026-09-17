@@ -268,3 +268,17 @@
 @media (prefers-reduced-motion: reduce) {
   .entry { transition: none; }
 }
+.runStatus {
+  margin-top: 10px;
+  color: var(--text-secondary, #5c6570);
+  font-size: 12px;
+}
+.runStatus button, .requestError button {
+  margin-left: 10px;
+  color: inherit;
+  text-decoration: underline;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.requestError { padding: 8px 12px; font-size: 13px; }

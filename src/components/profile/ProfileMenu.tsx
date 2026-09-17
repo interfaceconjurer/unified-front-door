@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DEMO_PROFILES, type DemoProfileId } from "@/lib/demo-profiles";
+import { applicationClient } from "@/lib/application/client";
 import { useDemoProfile } from "./ProfileProvider";
 import styles from "./ProfileMenu.module.css";
 
@@ -10,6 +11,7 @@ export function ProfileMenu() {
   const router = useRouter();
   const { profile, signIn, signOut } = useDemoProfile();
   const [open, setOpen] = useState(false);
+  const [resetReview, setResetReview] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -40,14 +42,14 @@ export function ProfileMenu() {
   const alternateProfiles = DEMO_PROFILES.filter((candidate) => candidate.id !== profile.id);
   const experienceLabel = profile.onboarding ? "Day zero" : profile.experience === "returning" ? "Returning user" : "New user";
 
-  function switchUser(profileId: DemoProfileId) {
-    signIn(profileId);
+  async function switchUser(profileId: DemoProfileId) {
+    if (!await signIn(profileId)) return;
     setOpen(false);
     router.replace("/");
   }
 
-  function logout() {
-    signOut();
+  async function logout() {
+    if (!await signOut()) return;
     setOpen(false);
     router.replace("/login");
   }
@@ -90,6 +92,7 @@ export function ProfileMenu() {
           </div>
 
           <div className={styles.logout}>
+            {resetReview ? <><p>Reset saved projects, findings and drafts for {profile.name} in this demo workspace? Other profiles and browser import sources stay intact.</p><button type="button" onClick={async () => { if (await applicationClient.change("reset")) { setResetReview(false); setOpen(false); router.replace("/"); } }}>Confirm reset of this profile</button><button type="button" onClick={() => setResetReview(false)}>Cancel reset</button></> : <button type="button" onClick={() => setResetReview(true)}>Reset this profile’s demo data</button>}
             <button type="button" onClick={logout}>
               Sign out
             </button>

@@ -5,20 +5,19 @@ import { useId } from "react";
 import { RecentWorkList } from "@/components/workspace/RecentWorkList";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
 import type { TodaySnapshot } from "./today-snapshot";
-import type { SurfaceApp } from "./app-catalog";
 import { SurfaceNav } from "./SurfaceNav";
 import styles from "./ReturningHome.module.css";
 
-export function ReturningHome({ snapshot, onOpenWork, onExplore }: {
-  snapshot: TodaySnapshot;
+export function ReturningHome({ snapshot, onOpenWork, active }: {
+  snapshot: TodaySnapshot; active: boolean;
   onOpenWork: (work: ReturningWork) => void;
-  onExplore: (surface: SurfaceApp) => void;
 }) {
   const id = useId();
   const { profile, projectName, branch, recent, working } = snapshot;
   const attention = recent.filter((work) => work.attention);
 
   return <div className={styles.home}>
+    {snapshot.truncated && <p>Showing a brief summary of {snapshot.totalRecent} recent work items. Open a work item for its full details.</p>}
     <header className={styles.hero}>
       <p>Welcome back, {profile?.firstName}</p>
       <h2>Pick up where you left off.</h2>
@@ -30,7 +29,7 @@ export function ReturningHome({ snapshot, onOpenWork, onExplore }: {
         {working} {working === 1 ? "agent" : "agents"} working <span aria-hidden="true">·</span> {attention.length} {attention.length === 1 ? "item needs" : "items need"} your attention
       </div>
     </header>
-    <SurfaceNav onExplore={onExplore} />
+    {active && <SurfaceNav />}
     <section className={styles.attention} aria-labelledby={`${id}-attention`}>
       <div className={styles.sectionHeading}><h2 id={`${id}-attention`}>Needs your attention <span className={styles.count}>{attention.length}</span></h2></div>
       {attention.length ? <div className={styles.attentionGrid}>
@@ -46,7 +45,7 @@ export function ReturningHome({ snapshot, onOpenWork, onExplore }: {
       <div className={styles.sectionHeading}>
         <h2 id={`${id}-recent`}>Recent work <span className={styles.count}>{recent.length}</span></h2>
       </div>
-      {recent.length ? <RecentWorkList items={recent} onOpenWork={onOpenWork} /> : <p className={styles.empty}>No recent work in this worktree yet.</p>}
+      {recent.length ? <RecentWorkList items={recent} onOpenWork={onOpenWork} branch={snapshot.branch} /> : <p className={styles.empty}>No recent work in this worktree yet.</p>}
     </section>
   </div>;
 }

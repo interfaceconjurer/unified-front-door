@@ -1,16 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useId } from "react";
 import { ChevronRightIcon } from "@/components/icons";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface } from "@/lib/demo-profiles";
-import { surfaceApps, type SurfaceApp } from "./app-catalog";
+import { surfaceApps } from "./app-catalog";
 import styles from "./SurfaceNav.module.css";
 
-export function SurfaceNav({ onExplore }: { onExplore?: (surface: SurfaceApp) => void }) {
+export function SurfaceNav() {
   const { profile } = useDemoProfile();
   const headingId = useId();
+  const { hrefForSurface, navigateSurface } = useNavigation();
 
   return (
     <nav className={styles.nav} aria-labelledby={headingId}>
@@ -19,9 +21,9 @@ export function SurfaceNav({ onExplore }: { onExplore?: (surface: SurfaceApp) =>
         {surfaceApps.filter((surface) => profile && canAccessSurface(profile, surface.id)).map((surface) => (
           <Link
             key={surface.id}
-            href={surface.href}
+            href={hrefForSurface(surface.id)}
             scroll={false}
-            onNavigate={() => onExplore?.(surface)}
+            onNavigate={(event) => { event.preventDefault(); navigateSurface(surface.id); }}
             className={styles.link}
             title={surface.description}
           >

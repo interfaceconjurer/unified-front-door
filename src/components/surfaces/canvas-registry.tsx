@@ -1,25 +1,27 @@
 "use client";
 
+import { SampleTimestamp } from "@/components/workspace/SampleTimestamp";
+
 import { BoxIcon, ClipboardIcon, LinkIcon } from "@/components/icons";
 import { surfaceApps } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import type { SurfaceId } from "@/lib/workspace/model";
-import type { CanvasSpec, LaunchableCanvasKind } from "@/lib/surface-canvas/model";
+import type { CanvasSpec, CanvasOf } from "@/lib/surface-canvas/model";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
-import { WorkCanvas } from "./WorkCanvas";
-import { ImprovementProjectCanvas } from "@/components/onboarding/ImprovementProject";
-import { CapabilityDraftCanvas } from "./CapabilityDraftCanvas";
+import { LazyFeature } from "@/components/interaction/LazyFeature";
+const loadWork = () => import("./WorkCanvas").then(module => ({ default: module.WorkCanvas }));
+const loadImprovement = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectCanvas }));
+const loadCapability = () => import("./CapabilityDraftCanvas").then(module => ({ default: module.CapabilityDraftCanvas }));
 import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
 
 /**
- * The kind→component registry: how a stored, serializable `CanvasSpec` becomes
+ * The exhaustive kind renderer: how a stored, serializable `CanvasSpec` becomes
  * rendered content. The persisted store only ever holds specs (id/kind/title/
  * params), so a canvas's UI is resolved here at render time rather than kept in
  * state — the seam that keeps the whole open-tab set round-tripping through
  * `localStorage`. Adding a launchable kind means adding a `LAUNCHABLE_KINDS`
- * entry (in the model) and a matching entry here; the `Record` type makes a
- * missing one a compile error.
+ * entry (in the model) and a matching switch case here; the `never` check makes a missing case a compile error.
  *
  * Content is intentionally prototype-grade — enough to prove a launched tab is
  * a real, project-aware surface, not to be the actual ops view (that's later
@@ -27,7 +29,7 @@ import styles from "./canvas-registry.module.css";
  * it in place, the same contract `SurfaceProjection` honors.
  */
 
-type CanvasComponent = (props: { spec: CanvasSpec }) => React.ReactElement;
+
 
 /** A single deployed app's ops/observe view — the canvas an app row in the
  *  WorkspacePanel opens. Its params (projectId + appId) resolve the app from the
@@ -37,7 +39,7 @@ type CanvasComponent = (props: { spec: CanvasSpec }) => React.ReactElement;
  *  panel's restrained per-state hues so a status reads the same in either place.
  *  If the app can't be resolved (removed/renamed since the tab was opened) it
  *  degrades to the same quiet placeholder an unknown kind gets. */
-function AppCanvas({ spec }: { spec: CanvasSpec }) {
+function AppCanvas({ spec }: { spec: CanvasOf<"app"> }) {
   const { projects } = useWorkspace();
   const project = projects.find((p) => p.id === spec.params?.projectId);
   const app = project?.apps.find((a) => a.id === spec.params?.appId);
@@ -74,7 +76,7 @@ function AppCanvas({ spec }: { spec: CanvasSpec }) {
         </div>
         <div className={styles.appFact}>
           <dt className={styles.appFactLabel}>Last deployed</dt>
-          <dd className={styles.appFactValue}>{app.lastDeployed}</dd>
+          <dd className={styles.appFactValue}><SampleTimestamp value={app.lastDeployed} /></dd>
         </div>
       </dl>
     </article>
@@ -83,11 +85,11 @@ function AppCanvas({ spec }: { spec: CanvasSpec }) {
 
 /** Resolve the launcher's stable capability id to its editable starting screen.
  *  Older tabs with a name param keep a readable fallback. */
-function CapabilityCanvas({ spec }: { spec: CanvasSpec }) {
+function CapabilityCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
   const surface = surfaceApps.find((candidate) => candidate.id === (spec.params?.surface as SurfaceId));
-  const capability = surface && capabilityForCanvas(surface.id, spec.params?.capability, spec.params?.name);
+  const capability = surface && capabilityForCanvas(surface.id, spec.params.capability);
   if (surface && capability) {
-    return <CapabilityDraftCanvas surfaceId={surface.id} capability={capability} spec={spec} />;
+    return <LazyFeature load={loadCapability} properties={{ surfaceId: surface.id, capability, spec }} />;
   }
   return (
     <PlaceholderCanvas
@@ -96,13 +98,6 @@ function CapabilityCanvas({ spec }: { spec: CanvasSpec }) {
     />
   );
 }
-
-const CANVAS_COMPONENTS: Record<LaunchableCanvasKind, CanvasComponent> = {
-  app: AppCanvas,
-  capability: CapabilityCanvas,
-  work: WorkCanvas,
-  "improvement-project": ImprovementProjectCanvas,
-};
 
 /** The quiet fallback shape — a header-only canvas whose message sits in the
  *  meta slot. Rendered for a kind this build no longer knows (a stale persisted
@@ -128,13 +123,15 @@ function PlaceholderCanvas({ title, meta }: { title: string; meta: string }) {
  * Resolve a launched canvas spec to its content. Falls back to a quiet
  * placeholder for a kind the current build no longer knows — a persisted tab
  * from an older version — so a stale entry degrades to an empty canvas instead
- * of throwing. (The parser drops unknown kinds on load, so this is belt-and-
- * suspenders for the same-session case.)
+ * of throwing. (The parser preserves unknown old records in the visible recovery archive.)
  */
 export function CanvasContent({ spec }: { spec: CanvasSpec }) {
-  const Component = spec.kind === "overview" ? undefined : CANVAS_COMPONENTS[spec.kind];
-  if (!Component) {
-    return <PlaceholderCanvas title={spec.title} meta="This canvas kind isn’t available in this build." />;
+  switch (spec.kind) {
+    case "app": return <AppCanvas spec={spec} />;
+    case "capability": return <CapabilityCanvas spec={spec} />;
+    case "work": return <LazyFeature load={loadWork} properties={{ spec }} />;
+    case "improvement-project": return <LazyFeature load={loadImprovement} properties={{ spec }} />;
+    case "overview": return <PlaceholderCanvas title={spec.title} meta="Overview" />;
+    default: { const exhaustive: never = spec; return exhaustive; }
   }
-  return <Component spec={spec} />;
 }

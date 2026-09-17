@@ -1,0 +1,111 @@
+import { parseCanvasInput, canvasId, canvasTarget, type CanvasSpecInput } from "../surface-canvas/model";
+import { workForCanvas } from "../workspace/returning-work";
+import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
+import { sameTarget, parseTarget, type WorkspaceTarget } from "../workspace/context";
+import { isDemoProfileId, type DemoProfileId } from "../demo-profiles";
+
+export { canvasTarget } from "../surface-canvas/model";
+
+export type Destination = { version: 1; owner: DemoProfileId; surface: SurfaceId | null; target: WorkspaceTarget; canvas?: CanvasSpecInput };
+export type DestinationRead = { kind: "absent" } | { kind: "invalid"; reason: string } | { kind: "destination"; value: Destination };
+function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
+export function destinationHref(destination: Destination): string {
+  const target = parseTarget(destination.target), canvas = destination.canvas ? parseCanvasInput(destination.canvas) : undefined;
+  if (!target || canvas === null) throw new TypeError("Invalid workspace destination");
+  const value: Destination = { version: 1, owner: destination.owner, surface: destination.surface, target, ...(canvas ? { canvas } : {}) };
+  return `${value.surface ? `/${value.surface}` : "/"}?destination=${encodeURIComponent(JSON.stringify(value))}`;
+}
+export function readDestination(href: string): DestinationRead {
+  try {
+    const url = new URL(href, "http://workspace.local"), raw = url.searchParams.get("destination");
+    if (raw === null) return { kind: "absent" };
+    const value: unknown = JSON.parse(raw);
+    if (!record(value) || value.version !== 1 || typeof value.owner !== "string" || !isDemoProfileId(value.owner) || !(value.surface === null || isSurfaceId(value.surface))) throw new Error();
+    const target = parseTarget(value.target), canvas = value.canvas === undefined ? undefined : parseCanvasInput(value.canvas);
+    if (!target || canvas === null || url.pathname !== (value.surface ? `/${value.surface}` : "/")) throw new Error();
+    if (canvas && (!value.surface || canvas.kind === "capability" && canvas.params.surface !== value.surface || !sameTarget(canvasTarget(canvas, target), target))) throw new Error();
+    return { kind: "destination", value: { version: 1, owner: value.owner, surface: value.surface, target, ...(canvas ? { canvas } : {}) } };
+  } catch { return { kind: "invalid", reason: "This workspace link is invalid or uses an unsupported version." }; }
+}
+export function destinationIdentity(destination: Destination): string {
+  return JSON.stringify([destination.owner, destination.surface, [destination.target.projectId, destination.target.worktreeId, destination.target.orgId], destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null]);
+}
+
+/** Router completion is presentation. Only the latest requested destination may commit. */
+export class NavigationController {
+  private pending: string | null = null;
+  private currentHref: string | null = null;
+  private currentDestination: Destination | null = null;
+  private superseded = new Set<string>();
+  private intentRevision = 0;
+  constructor(private readonly apply: (destination: Destination, source: "navigation" | "restore" | "capture") => boolean | void, private readonly push: (href: string, replace: boolean) => void) {}
+  /** Async work may follow a recommendation only while this navigation intent survives. */
+  captureIntent(): () => boolean { const revision = this.intentRevision; return () => this.intentRevision === revision; }
+  navigate(destination: Destination, replace = false, source: "navigation" | "restore" = "navigation"): void {
+    const href = destinationHref(destination);
+    if (source === "navigation" || href !== this.currentHref) this.intentRevision++;
+    if (source === "navigation" && this.currentDestination) this.apply(this.currentDestination, "capture");
+    if (this.apply(destination, source) === false) return;
+    this.currentDestination = destination;
+    if (this.pending && this.pending !== href) this.superseded.add(this.pending);
+    this.superseded.delete(href);
+    this.pending = this.currentHref = href;
+    this.push(href, replace);
+  }
+  restore(rawHref: string, history = false): boolean {
+    const decoded = readDestination(rawHref);
+    const href = decoded.kind === "destination" ? destinationHref(decoded.value) : rawHref;
+    if (history) {
+      this.intentRevision++;
+      if (this.pending && this.pending !== href) this.superseded.add(this.pending);
+      this.pending = null; this.currentHref = href; this.superseded.delete(href);
+    }
+    if (!history && (this.superseded.has(href) || this.pending && this.pending !== href)) {
+      // Repair both route and URL if an older asynchronous router request arrives.
+      if (this.currentHref) this.push(this.currentHref, true);
+      return false;
+    }
+    if (decoded.kind !== "destination") return false;
+    if (!history && href !== this.currentHref) this.intentRevision++;
+    if (this.apply(decoded.value, "restore") === false) return false;
+    this.pending = null; this.currentHref = href; this.currentDestination = decoded.value;
+    return true;
+  }
+}
+
+export type DestinationDecision = { kind: "absent" } | { kind: "unavailable"; reason: string } | { kind: "available"; destination: Destination };
+/** One validation decision feeds workspace, canvas and controller projections. */
+export function resolveDestination(href: string, owner: DemoProfileId, access: readonly SurfaceId[], targets: Partial<Record<SurfaceId, { targets?: Record<string, WorkspaceTarget> }>>): DestinationDecision {
+  const decoded = readDestination(href);
+  if (decoded.kind === "absent") {
+    const path = new URL(href, "http://workspace.local").pathname.slice(1);
+    return isSurfaceId(path) && !access.includes(path) ? { kind: "unavailable", reason: "This surface is unavailable for your demo profile." } : decoded;
+  }
+  if (decoded.kind === "invalid") return { kind: "unavailable", reason: decoded.reason };
+  const destination = decoded.value;
+  if (destination.owner !== owner) return { kind: "unavailable", reason: "This link belongs to another demo profile. Choose a destination in your current workspace." };
+  if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
+  if (destination.canvas?.kind === "work" && workForCanvas(destination.canvas.params)?.surfaceId !== destination.surface) return { kind: "unavailable", reason: "This work destination is unavailable or does not match its project and surface." };
+  const captured = destination.surface && destination.canvas ? targets[destination.surface]?.targets?.[canvasId(destination.canvas.kind, destination.canvas.params)] : undefined;
+  if (captured && !sameTarget(captured, destination.target)) return { kind: "unavailable", reason: "This link requests a different target from the saved draft. Open the saved tab to keep its captured scope." };
+  return { kind: "available", destination };
+}
+
+/** A login continuation is a validated internal destination, never a router URL supplied verbatim. */
+export function normalizeDestinationHref(value: unknown): string | null {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return null;
+  const decoded = readDestination(value);
+  return decoded.kind === "destination" ? destinationHref(decoded.value) : null;
+}
+
+/** A newly saved plan supplies its own target before React projects the new record. */
+export function improvementProjectDestination(
+  owner: DemoProfileId,
+  project: Pick<import("../projects/model").ImprovementProject, "id" | "name" | "targetOrgId">,
+  captured?: WorkspaceTarget,
+): Destination {
+  const canvas: CanvasSpecInput = { kind: "improvement-project", title: project.name, params: { projectId: project.id } };
+  const target = captured ?? { projectId: project.id, worktreeId: null, orgId: project.targetOrgId };
+  if (!parseTarget(target) || !sameTarget(canvasTarget(canvas, target), target)) throw new TypeError("Invalid saved project destination");
+  return { version: 1, owner, surface: "alm", canvas, target };
+}

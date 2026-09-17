@@ -1,5 +1,8 @@
 "use client";
 
+import { SampleTimestamp } from "@/components/workspace/SampleTimestamp";
+
+import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { ChevronRightIcon, BoxIcon } from "@/components/icons";
 import { RecentWorkList, useOpenWork } from "@/components/workspace/RecentWorkList";
@@ -7,7 +10,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { RETURNING_WORK } from "@/lib/workspace/returning-work";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import type { SurfaceId } from "@/lib/workspace/model";
-import { useSurfaceCanvases } from "./surface-canvas-context";
+import { useSurfaceCanvasActions } from "./surface-canvas-context";
 import { SurfaceLauncher } from "./SurfaceLauncher";
 import styles from "./ReturningSurface.module.css";
 
@@ -23,10 +26,11 @@ export function ReturningSurface({ surfaceId, children }: {
   children?: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
-  const { projects, orgs, activeProject, activeOrg, setActiveProject, setActiveOrg } = useWorkspace();
-  const { openCanvas } = useSurfaceCanvases(surfaceId);
+  const { projects, orgs, activeProject, activeOrg } = useWorkspace();
+  const { selectProject, selectOrg } = useNavigation();
+  const { openCanvas } = useSurfaceCanvasActions();
   const openWork = useOpenWork();
-  const work = RETURNING_WORK.filter((item) => item.projectId === activeProject.id && item.surfaceId === surfaceId);
+  const work = RETURNING_WORK.filter((item) => item.projectId === activeProject?.id && item.surfaceId === surfaceId);
   const attention = work.filter((item) => item.attention).length;
   const copy = COPY[surfaceId];
 
@@ -40,8 +44,8 @@ export function ReturningSurface({ surfaceId, children }: {
       <p className={styles.description}>{copy.description}</p>
       {surfaceId !== "code" && <div className={styles.context}>
         <label>Project
-          <select value={activeProject.id} onChange={(event) => setActiveProject(event.target.value)}>
-            {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+          <select value={activeProject?.id ?? ""} onChange={(event) => selectProject(event.target.value)}>
+            {!activeProject && <option value="">Choose a project</option>}{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
           </select>
         </label>
       </div>}
@@ -59,10 +63,10 @@ export function ReturningSurface({ surfaceId, children }: {
     {surfaceId === "govern" && <section aria-labelledby="environments-heading">
       <div className={styles.sectionHeading}><h2 id="environments-heading">Connected environments</h2><span>Select a target org</span></div>
       <ul className={styles.environments}>{orgs.map((org) => <li key={org.id}>
-        <button type="button" aria-pressed={org.id === activeOrg.id} onClick={() => setActiveOrg(org.id)}>
+        <button type="button" aria-pressed={org.id === activeOrg?.id} onClick={() => selectOrg(org.id)}>
           <span className={styles.connection} data-connection={org.connection} aria-hidden="true" />
-          <span><strong>{org.label}</strong><small>{org.kind}{org.expiresInDays !== undefined && ` · ${org.expiresInDays === 0 ? "Expired" : `Expires in ${org.expiresInDays} days`}`}</small></span>
-          <span className={styles.orgState}>{org.id === activeOrg.id ? "Target org" : org.connection === "expired" ? "Expired" : "Connected"}</span>
+          <span><strong>{org.label}</strong><small>{org.kind}{org.expiresInDays !== undefined && ` · ${org.expiresInDays === 0 ? "Expired" : `At capture: ${org.expiresInDays} days remaining`}`}</small></span>
+          <span className={styles.orgState}>{org.id === activeOrg?.id ? "Target org" : org.connection === "expired" ? "Expired" : "Connected"}</span>
         </button>
       </li>)}</ul>
     </section>}
@@ -82,12 +86,12 @@ export function ReturningSurface({ surfaceId, children }: {
       </button>
     </section>}
 
-    {surfaceId === "build" && activeProject.apps.length > 0 && <section aria-labelledby="deployed-heading">
-      <div className={styles.sectionHeading}><h2 id="deployed-heading">Deployed apps</h2><span>{activeProject.apps.length} apps</span></div>
-      <ul className={styles.apps}>{activeProject.apps.map((app) => <li key={app.id}>
-        <button type="button" onClick={() => openCanvas(surfaceId, { kind: "app", title: app.label, params: { projectId: activeProject.id, appId: app.id } })} aria-label={`Open ${app.label}`}>
+    {surfaceId === "build" && !!activeProject && activeProject.apps.length > 0 && <section aria-labelledby="deployed-heading">
+      <div className={styles.sectionHeading}><h2 id="deployed-heading">Deployed apps</h2><span>{activeProject?.apps.length} apps</span></div>
+      <ul className={styles.apps}>{activeProject?.apps.map((app) => <li key={app.id}>
+        <button type="button" onClick={() => openCanvas(surfaceId, { kind: "app", title: app.label, params: { projectId: activeProject?.id, appId: app.id } })} aria-label={`Open ${app.label}`}>
           <BoxIcon width={18} height={18} aria-hidden="true" />
-          <span><strong>{app.label}</strong><small>{app.environment} · {APP_STATUS_LABEL[app.status]} · {app.lastDeployed}</small></span>
+          <span><strong>{app.label}</strong><small>{app.environment} · {APP_STATUS_LABEL[app.status]} · <SampleTimestamp value={app.lastDeployed} /></small></span>
           <ChevronRightIcon width={15} height={15} aria-hidden="true" />
         </button>
       </li>)}</ul>

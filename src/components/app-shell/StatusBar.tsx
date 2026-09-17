@@ -10,8 +10,8 @@ export function StatusBar({ onOpenProjects, onOpenOrgs }: {
   onOpenProjects: () => void;
   onOpenOrgs: () => void;
 }) {
-  const { activeProject, activeWorktree, activeOrg, hasProjects } = useWorkspace();
-  const showWorktree = hasProjects && activeProject.worktrees.length > 1;
+  const { activeProject, activeWorktree, activeOrg } = useWorkspace();
+  const showWorktree = activeWorktree !== null && (activeProject?.worktrees.length ?? 0) > 1;
 
   return (
     <footer className={styles.bar}>
@@ -19,32 +19,32 @@ export function StatusBar({ onOpenProjects, onOpenOrgs }: {
         <button
           type="button"
           className={styles.chip}
-          title={hasProjects ? activeProject.name : "Choose a project"}
-          aria-label={hasProjects ? `Switch project, current project: ${activeProject.name}` : "Choose a project"}
+          title={activeProject ? activeProject.name : "Choose a project"}
+          aria-label={activeProject ? `Switch project, current project: ${activeProject.name}` : "Choose a project"}
           aria-haspopup="dialog"
           onClick={onOpenProjects}
         >
           <LayersIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
-          <span className={styles.chipLabel}>{hasProjects ? activeProject.name : "No project selected"}</span>
+          <span className={styles.chipLabel}>{activeProject ? activeProject.name : "No project selected"}</span>
         </button>
 
         <button
           type="button"
-          className={`${styles.chip} ${styles.orgChip} ${orgStyles[activeOrg.kind]}`}
-          title={activeOrg.label}
-          aria-label={`Switch org, current org: ${activeOrg.label}`}
+          className={`${styles.chip} ${styles.orgChip} ${activeOrg ? orgStyles[activeOrg.kind] : ""}`}
+          title={activeOrg?.label ?? "Choose a connected org"}
+          aria-label={`Switch org, current org: ${activeOrg?.label ?? "None selected"}`}
           aria-haspopup="dialog"
           onClick={onOpenOrgs}
         >
           <span className={styles.orgDot} aria-hidden="true" />
           <DatabaseIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
-          <span className={styles.chipLabel}>{activeOrg.label}</span>
+          <span className={styles.chipLabel}>{activeOrg?.label ?? "No connected org selected"}</span>
         </button>
 
         {showWorktree && (
           <span className={`${styles.chip} ${styles.static}`} title="Worktree (switch in Code)">
             <GitBranchIcon className={styles.chipIcon} width={14} height={14} aria-hidden="true" />
-            <span className={styles.chipLabel}>{activeWorktree.label}</span>
+            <span className={styles.chipLabel}>{activeWorktree?.label}</span>
           </span>
         )}
       </div>

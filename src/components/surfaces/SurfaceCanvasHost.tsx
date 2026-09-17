@@ -2,10 +2,11 @@
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
+import { useNavigation } from "@/components/navigation/NavigationProvider";
+import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
 import { CloseIcon } from "@/components/icons";
 import { CanvasLayout } from "@/components/canvas/CanvasLayout";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
-import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
@@ -53,10 +54,10 @@ export function SurfaceCanvasHost({
   surfaceId: SurfaceId;
   children: React.ReactNode;
 }) {
+  const { problem } = useNavigation();
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
   const { profile } = useDemoProfile();
-  const { projects, activeProject, activeWorktree, setActiveProject, setActiveWorktree } = useWorkspace();
   const stored = useSurfaceCanvases(surfaceId);
   const emptyWorkspace = profile?.workspaceExperience === "empty";
   // Hide project-backed canvases from profiles with an empty workspace.
@@ -119,26 +120,8 @@ export function SurfaceCanvasHost({
   // Arrow/Home/End roving-tabindex math to that resolved tab.
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId) ?? canvases[0]!;
   const activeIndex = canvases.findIndex((c) => c.id === activeCanvas.id);
-  const canvasProjectId = activeCanvas.params?.projectId;
-  const canvasWorktreeId = activeCanvas.params?.worktreeId;
-
-  // Returning to a surface restores the selected work tab and its agent context.
-  useEffect(() => {
-    if (!canvasProjectId || !projects.some((project) => project.id === canvasProjectId)) return;
-    if (activeProject.id !== canvasProjectId) setActiveProject(canvasProjectId);
-    if (canvasWorktreeId && (activeProject.id !== canvasProjectId || activeWorktree.id !== canvasWorktreeId)) {
-      setActiveWorktree(canvasWorktreeId, canvasProjectId);
-    }
-  }, [canvasProjectId, canvasWorktreeId, activeProject.id, activeWorktree.id, projects, setActiveProject, setActiveWorktree]);
-
-
   function selectTab(canvasId: string): void {
     pendingClose.current?.finish(false);
-    const canvas = canvases.find((candidate) => candidate.id === canvasId);
-    if (canvas?.params?.projectId && projects.some((project) => project.id === canvas.params?.projectId)) {
-      setActiveProject(canvas.params.projectId);
-      if (canvas.params.worktreeId) setActiveWorktree(canvas.params.worktreeId, canvas.params.projectId);
-    }
     setActiveCanvas(surfaceId, canvasId);
   }
 
@@ -220,8 +203,10 @@ export function SurfaceCanvasHost({
     }
   }
 
+  const { recovery } = stored;
   return (
     <div className={styles.host}>
+      {!!recovery?.length && <details aria-label="Recovered legacy drafts"><summary>Recovered legacy drafts ({recovery.length})</summary><p>These older drafts have ambiguous targets. Copy their content into a new draft, or export them for later.</p><a download="recovered-drafts.json" href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(recovery, null, 2))}`}>Export recovered drafts</a>{recovery.map((entry) => <section key={entry.id}><h3>{entry.title}</h3><p>{entry.reason}</p><textarea aria-label={`Recovered content ${entry.id}`} readOnly value={JSON.stringify(entry.original, null, 2)} rows={6} /></section>)}</details>}
       <div
         ref={tabListRef}
         role="tablist"
@@ -303,13 +288,13 @@ export function SurfaceCanvasHost({
         tabIndex={0}
         className={styles.panel}
       >
-        <CanvasLayout>
-          {activeCanvas.id === OVERVIEW_CANVAS_ID ? (
+        <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
+          {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
             children
           ) : (
             <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
           )}
-        </CanvasLayout>
+        </CanvasLayout></FeatureBoundary>
       </div>
     </div>
   );

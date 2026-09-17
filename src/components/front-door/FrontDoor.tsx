@@ -9,6 +9,8 @@ import {
   type IconComponent,
 } from "@/components/icons";
 import { useId } from "react";
+import { EXISTING_PROJECT_PROMPT, STARTER_PROMPTS } from "@/lib/agent/starters";
+export { isStarterPrompt } from "@/lib/agent/starters";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
 import type { TodaySnapshot } from "./today-snapshot";
@@ -33,14 +35,14 @@ const STARTERS: readonly Starter[] = [
     description: "Define your goal, set up work items, and plan your first steps.",
     surfaceId: "alm",
     Icon: ListCheckIcon,
-    prompt: "Help me start my first project. Walk me through defining its goal, creating and prioritizing work items, and choosing the first task to work on.",
+    prompt: STARTER_PROMPTS[0],
   },
   {
     title: "Build your first agent",
     description: "Give an agent a job to do, connect your data, and try it out.",
     surfaceId: "build",
     Icon: SparklesIcon,
-    prompt: "Help me build an agent that qualifies and routes leads. Walk me through defining its instructions, connecting data, and trying it out.",
+    prompt: STARTER_PROMPTS[1],
   },
   {
     title: "Build a React app",
@@ -48,30 +50,22 @@ const STARTERS: readonly Starter[] = [
     surfaceId: "code",
     fallbackSurfaceId: "build",
     Icon: PuzzleIcon,
-    prompt: "Help me build a React app for browsing and searching Salesforce accounts. Walk me through the app structure, connecting Salesforce data, and adding tests.",
+    prompt: STARTER_PROMPTS[2],
   },
   {
     title: "Set up a release pipeline",
     description: "Explore how to take your first change from a sandbox to production.",
     surfaceId: "alm",
     Icon: GitBranchIcon,
-    prompt: "Help me set up my first release pipeline. Walk me through connecting a repository, validating changes in a sandbox, and adding a production approval step.",
+    prompt: STARTER_PROMPTS[3],
   },
 ];
 
-const EXISTING_PROJECT_PROMPT =
-  "Help me get started with an existing Salesforce source project. Walk me through connecting my repository and a development org, then exploring the codebase.";
-
-export function isStarterPrompt(value: string): boolean {
-  return STARTERS.some((starter) => starter.prompt === value) || value === EXISTING_PROJECT_PROMPT;
-}
-
 /** An interactive briefing embedded in the conversation, with no inner scroll. */
-export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWork }: {
+export function FrontDoor({ snapshot, active, onSeedPrompt, onOpenWork }: {
   snapshot: TodaySnapshot;
   active: boolean;
   onSeedPrompt: (prompt: string) => void;
-  onExplore: (surface: SurfaceApp) => void;
   onOpenWork: (work: ReturningWork) => void;
 }) {
   const { profile } = snapshot;
@@ -93,7 +87,7 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
   return (
     <div className={styles.frontDoor}>
         <div className={styles.content}>
-          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} onExplore={onExplore} /> : returning ? <ReturningHome snapshot={snapshot} onExplore={onExplore} onOpenWork={onOpenWork} /> : <>
+          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} profile={snapshot.profile} /> : returning ? <ReturningHome active={active} snapshot={snapshot} onOpenWork={onOpenWork} /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -104,7 +98,7 @@ export function FrontDoor({ snapshot, active, onSeedPrompt, onExplore, onOpenWor
             </p>
           </header>
 
-          <SurfaceNav onExplore={onExplore} />
+          {active && <SurfaceNav />}
 
           <section className={styles.starters} aria-labelledby={`${id}-starters`}>
             <div className={styles.sectionHeading}>
