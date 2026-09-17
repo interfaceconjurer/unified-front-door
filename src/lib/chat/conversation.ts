@@ -1,10 +1,10 @@
-import type { TodaySnapshot } from "../../components/front-door/today-snapshot";
+import type { TodaySnapshot } from "./today-snapshot";
 
 export type Message =
-  | { id: number; role: "agent" | "user" | "context"; text: string }
+  | { id: number; role: "agent" | "user" | "context"; text: string; turnId?: string; runId?: string }
   | { id: number; role: "today"; snapshot: TodaySnapshot };
 
-export type Conversation = { scopeKey: string; messages: Message[] };
+export type Conversation = { scopeKey: string; messages: Message[]; visitKey?: string };
 
 type Presentation = {
   sessionKey: string;
@@ -57,6 +57,17 @@ export class ConversationStore {
     this.listeners.add(listener);
     return () => { this.listeners.delete(listener); };
   };
+
+  /** Authoritative history replacement; presentation state stays browser-owned. */
+  adopt(sessionKey: string, next: Conversation, deferReveal = false) {
+    const previous = this.state.sessions[sessionKey];
+    if (JSON.stringify(previous) === JSON.stringify(next)) return;
+    const appended = (next.messages.at(-1)?.id ?? 0) > (previous?.messages.at(-1)?.id ?? 0);
+    const revision = this.state.scrollRevision + (appended ? 1 : 0);
+    this.state = { ...this.state, sessions: { ...this.state.sessions, [sessionKey]: next }, scrollRevision: revision,
+      presentation: appended && deferReveal && previous?.messages.length ? { sessionKey, scopeKey: next.scopeKey, revision, afterId: previous.messages.at(-1)!.id, phase: "layout" } : this.state.presentation };
+    this.listeners.forEach(listener => listener());
+  }
 
   dispatch(sessionKey: string, event: ConversationEvent, { deferReveal = false } = {}) {
     const previous = this.state.sessions[sessionKey];
