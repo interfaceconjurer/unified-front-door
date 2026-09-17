@@ -3,32 +3,58 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": "22.x"
+    "node": "22.23.2"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node --env-file-if-exists=.env.local --conditions=react-server scripts/start.mjs dev",
+    "build": "next build && npm run build:worker",
+    "start": "node --env-file-if-exists=.env.local --conditions=react-server scripts/start.mjs web",
     "lint": "eslint",
     "test:conversation": "node --test scripts/conversation.test.mjs",
     "test:onboarding": "node --test scripts/onboarding.test.mjs",
-    "predev": "node scripts/copy-slds.mjs",
-    "prebuild": "node scripts/copy-slds.mjs"
+    "predev": "node scripts/copy-slds.mjs && npm run build:worker",
+    "prebuild": "node scripts/copy-slds.mjs",
+    "test:persistence": "node --test scripts/persistence.test.mjs",
+    "test:domain": "node --test scripts/domain.test.mjs",
+    "test:navigation": "node --test scripts/navigation.test.mjs",
+    "db:migrate": "node --env-file-if-exists=.env.local scripts/database.mjs migrate",
+    "test:application": "node --test scripts/application.test.mjs scripts/profile-reset.test.mjs",
+    "test:cli": "node --test scripts/private-session-file.test.mjs",
+    "demo:seed": "node --env-file-if-exists=.env.local scripts/demo-session.mjs seed",
+    "demo:reset": "node --env-file-if-exists=.env.local scripts/demo-session.mjs reset",
+    "test:database": "node --env-file-if-exists=.env.local --conditions=react-server --test scripts/database.test.mjs",
+    "build:worker": "tsc -p tsconfig.worker.json",
+    "worker": "node --env-file-if-exists=.env.local --conditions=react-server scripts/start.mjs worker",
+    "test:agent": "node --conditions=react-server --test scripts/agent.test.mjs",
+    "test:agent-database": "node --env-file-if-exists=.env.local --conditions=react-server --test scripts/agent-database.test.mjs",
+    "test:model": "node --conditions=react-server --test scripts/model-provider.test.mjs scripts/model-context.test.mjs scripts/model-worker.test.mjs",
+    "test:model-database": "node --env-file-if-exists=.env.local --conditions=react-server --test scripts/model-database.test.mjs",
+    "test:client-reliability": "node --test scripts/client-reliability.test.mjs",
+    "test:browser": "node scripts/browser/run.mjs",
+    "test:browser:performance": "node scripts/browser/performance.mjs",
+    "test:browser:neon": "node --env-file-if-exists=.env.local --conditions=react-server scripts/browser/neon-client.mjs",
+    "db:status": "node --env-file-if-exists=.env.local scripts/database.mjs status",
+    "test:operations": "node --conditions=react-server --test scripts/operations.test.mjs",
+    "test:worker-recovery": "node --env-file-if-exists=.env.local --conditions=react-server scripts/worker-recovery.mjs",
+    "verify:release": "node --env-file-if-exists=.env.local scripts/verify-release.mjs",
+    "test:runtime": "node scripts/runtime-smoke.mjs"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0",
     "@salesforce-ux/design-system-2": "^2.0.2",
-    "next": "16.2.9",
+    "next": "16.3.5",
+    "pg": "^8.23.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.5",
+    "playwright": "1.63.0",
     "typescript": "^5"
   }
 }

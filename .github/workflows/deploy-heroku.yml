@@ -1,110 +1,92 @@
-# Continuous deployment to Heroku.
-#
-# Deploys automatically on every push to main (i.e. when a PR merges), and can
-# also be run manually from the Actions tab.
-#
-# The deploy talks to Heroku's source-blob build API directly over HTTPS (curl +
-# jq, no Heroku CLI and no plugins): it creates a source slot, uploads the
-# checked-out source as a tarball, then starts a build that runs the same
-# buildpack build as a manual `git push heroku` (prebuild copies SLDS, then
-# `next build`). Going through the build API means we never force-push the Heroku
-# git remote, so it stays correct whether PRs are merged, squashed, or rebased.
-#
-# This previously shelled out to `heroku builds:create`, but that lives in the
-# `heroku-builds` CLI plugin, which is unmaintained and no longer installs
-# against the current Heroku CLI (`plugins:install` fails with "plugin is
-# invalid"). The raw API is the same operation without the dead dependency.
-#
-# Requires repo secret HEROKU_API_KEY — a write-scoped Heroku authorization token.
-
-name: Deploy to Heroku
+name: Verify and deploy to Heroku
 
 on:
+  pull_request:
   push:
     branches: [main]
   workflow_dispatch: {}
 
-# Never run two deploys at once; queue a later merge behind an in-flight release
-# rather than cancelling it.
+permissions:
+  contents: read
+
+# Serialize this repository's releases; an API timeout is reconciled manually.
 concurrency:
-  group: heroku-deploy
+  group: heroku-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: verification
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: verification
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U verification -d verification"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out the exact event revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Use the locked Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Run the complete release gate
+        env:
+          DATABASE_TEST_URL: postgresql://verification:disposable-ci-only@127.0.0.1:5432/verification
+          DATABASE_TEST_URL_UNPOOLED: postgresql://verification:disposable-ci-only@127.0.0.1:5432/verification
+        run: node scripts/verify-release.mjs --revision "$GITHUB_SHA"
+      - name: Preserve verified source and attestation
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-source-${{ github.sha }}
+          path: |
+            .release/source.tgz
+            .release/verification.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: verify
+    # Pull requests and manual runs from other branches can only verify.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: heroku
     steps:
-      - name: Check out the merged commit
+      - name: Check out the verified revision
         uses: actions/checkout@v4
-
-      # HEROKU_API_KEY comes in via env (never interpolated into the script), and
-      # the only other input is $GITHUB_SHA — a runner-provided commit hash. No
-      # untrusted event data is used here.
-      - name: Deploy to Heroku via source-blob build API
-        shell: bash
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Use the locked Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Download this run's verified source
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-source-${{ github.sha }}
+          path: .release
+      - name: Deploy and verify the current release
         env:
           HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
-          APP: unified-front-door
-        run: |
-          set -euo pipefail
-
-          # Call the JSON Platform API, capturing the body and HTTP status. On a
-          # >=400 we print Heroku's error payload (so failures are diagnosable)
-          # and return non-zero; otherwise we echo just the body for the caller.
-          hapi() {
-            local out http
-            out=$(curl -sS -w $'\n%{http_code}' \
-              -H "Authorization: Bearer $HEROKU_API_KEY" \
-              -H "Accept: application/vnd.heroku+json; version=3" "$@")
-            http=${out##*$'\n'}
-            out=${out%$'\n'*}
-            if [ "${http:-000}" -ge 400 ]; then
-              echo "Heroku API error: HTTP $http" >&2
-              echo "$out" >&2
-              return 1
-            fi
-            printf '%s' "$out"
-          }
-
-          echo "Creating source slot…"
-          source=$(hapi -X POST https://api.heroku.com/sources)
-          put_url=$(jq -r '.source_blob.put_url' <<<"$source")
-          get_url=$(jq -r '.source_blob.get_url' <<<"$source")
-
-          echo "Packing tracked files at ${GITHUB_SHA}…"
-          git archive --format=tar.gz -o /tmp/source.tgz HEAD
-          ls -l /tmp/source.tgz
-
-          # Signed upload URL — send the tarball raw, with no forced content-type.
-          echo "Uploading source blob…"
-          up=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT "$put_url" \
-            -H "Content-Type:" --data-binary @/tmp/source.tgz)
-          echo "Upload returned HTTP $up"
-          [ "$up" -lt 400 ] || { echo "Source upload failed."; exit 1; }
-
-          echo "Starting build…"
-          payload=$(jq -n --arg url "$get_url" --arg version "$GITHUB_SHA" \
-            '{source_blob: {url: $url, version: $version}}')
-          build=$(hapi -X POST "https://api.heroku.com/apps/${APP}/builds" \
-            -H "Content-Type: application/json" -d "$payload")
-          build_id=$(jq -r '.id' <<<"$build")
-          stream=$(jq -r '.output_stream_url' <<<"$build")
-
-          # Stream the buildpack output live into the Actions log (best-effort).
-          echo "Build ${build_id} started; streaming output…"
-          curl -s "$stream" || true
-
-          # The stream closing isn't authoritative, so confirm the terminal state.
-          echo "Confirming final status…"
-          for _ in $(seq 1 90); do
-            status=$(hapi "https://api.heroku.com/apps/${APP}/builds/${build_id}" | jq -r '.status')
-            case "$status" in
-              succeeded) echo "Build succeeded."; exit 0 ;;
-              failed)    echo "Build failed."; exit 1 ;;
-              *)         sleep 5 ;;
-            esac
-          done
-          echo "Timed out waiting for build ${build_id} (last status: ${status:-unknown})."
-          exit 1
+          HEROKU_APP: unified-front-door
+          HEROKU_APP_ORIGIN: https://unified-front-door-39166fd63d66.herokuapp.com
+          HEROKU_BASIC_AUTH_USER: ${{ vars.HEROKU_BASIC_AUTH_USER || 'guest' }}
+          HEROKU_BASIC_AUTH_PASSWORD: ${{ secrets.HEROKU_BASIC_AUTH_PASSWORD }}
+        run: node scripts/deploy-heroku.mjs
