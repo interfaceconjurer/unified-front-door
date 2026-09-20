@@ -11,7 +11,10 @@ import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
 const loadWork = () => import("./WorkCanvas").then(module => ({ default: module.WorkCanvas }));
 const loadImprovement = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectCanvas }));
+const loadCreation = () => import("@/components/onboarding/ProjectCreationCanvas").then(module => ({ default: module.ProjectCreationCanvas }));
 const loadCapability = () => import("./CapabilityDraftCanvas").then(module => ({ default: module.CapabilityDraftCanvas }));
+const loadAssessment = () => import("@/components/onboarding/OrgAssessmentCanvas").then(module => ({ default: module.OrgAssessmentCanvas }));
+const loadResource = () => import("./OrgResourceCanvas").then(module => ({ default: module.OrgResourceCanvas }));
 import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
 
@@ -86,6 +89,7 @@ function AppCanvas({ spec }: { spec: CanvasOf<"app"> }) {
 /** Resolve the launcher's stable capability id to its editable starting screen.
  *  Older tabs with a name param keep a readable fallback. */
 function CapabilityCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
+  if (spec.params.surface === "alm" && spec.params.capability === "project") return <LazyFeature load={loadCreation} properties={{ spec }} />;
   const surface = surfaceApps.find((candidate) => candidate.id === (spec.params?.surface as SurfaceId));
   const capability = surface && capabilityForCanvas(surface.id, spec.params.capability);
   if (surface && capability) {
@@ -131,6 +135,8 @@ export function CanvasContent({ spec }: { spec: CanvasSpec }) {
     case "capability": return <CapabilityCanvas spec={spec} />;
     case "work": return <LazyFeature load={loadWork} properties={{ spec }} />;
     case "improvement-project": return <LazyFeature load={loadImprovement} properties={{ spec }} />;
+    case "org-assessment": return <LazyFeature load={loadAssessment} properties={{ spec }} />;
+    case "org-resource": return <LazyFeature load={loadResource} properties={{ spec }} />;
     case "overview": return <PlaceholderCanvas title={spec.title} meta="Overview" />;
     default: { const exhaustive: never = spec; return exhaustive; }
   }

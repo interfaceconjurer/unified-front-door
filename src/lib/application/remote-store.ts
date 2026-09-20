@@ -4,6 +4,7 @@ import type { PersistenceControls, PersistenceStatus } from "../browser-persiste
 import { applyAssessmentCommand } from "./assessment-commands";
 import { aggregateKey, ApplicationError, parseCommand, record, stableJson, type ApplicationCommand, type ApplicationOperation, type ApplicationSnapshot, type CommandResult, type SessionView } from "./contracts";
 import { canvasId } from "../surface-canvas/model";
+import { canonicalCanvasSurface } from "../surface-canvas/routing";
 
 export type RemoteTransport = { read: (session: SessionView) => Promise<ApplicationSnapshot>; send: (session: SessionView, command: ApplicationCommand) => Promise<CommandResult> };
 export const EMPTY_APPLICATION: ApplicationSnapshot = { session: { namespaceId: "", profileId: null, generation: "", expiresAt: "" }, assessment: INITIAL, assessmentRevision: 0, canvases: [], imports: [] };
@@ -94,7 +95,7 @@ export class RemoteWorkspaceStore implements PersistenceControls {
       if (command.kind === "canvas.save") {
         const id = canvasId(command.canvas.kind, command.canvas.params), existing = next.canvases.find((c) => c.id === id);
         if (existing && stableJson(existing.target) !== stableJson(command.target)) continue;
-        const canvas = { id, canvas: command.canvas, surface: command.surface, target: command.target, fields: { ...existing?.fields, ...command.fields }, revision: existing?.revision ?? 0 };
+        const canvas = { id, canvas: command.canvas, surface: canonicalCanvasSurface(command.surface, command.canvas), target: command.target, fields: { ...existing?.fields, ...command.fields }, revision: existing?.revision ?? 0 };
         next = { ...next, canvases: [...next.canvases.filter((c) => c.id !== id), canvas] };
       }
     }

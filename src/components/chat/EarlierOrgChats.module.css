@@ -1,0 +1,4 @@
+.archive { padding: 1rem 1.5rem 0; font-size: 0.75rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); }
+.archive summary { cursor: pointer; padding-block: 0.5rem; }
+.messages { display: grid; gap: 1rem; padding: 1rem; border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9); }
+.messages p { margin: 0.25rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }

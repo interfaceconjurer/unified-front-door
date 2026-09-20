@@ -1,11 +1,12 @@
 import { BrowserPersistenceStore, type Decoded } from "../browser-persistence";
 import { parseTarget, type WorkspaceTarget } from "./context";
 import type { DemoProfileId } from "@/lib/demo-profiles";
+import { destinationHref, readDestination, type Destination } from "../navigation/model";
+import { sessionKey } from "./model";
 
 /**
- * Persisted slice of workspace *selection* state — the three records that used
- * to be plain `useState` in the provider (`activeProjectId`, `worktreeByProject`,
- * `orgByProject`). Deliberately narrow: this is "where the user left off," not a
+ * Persisted workspace selection and last destination per project/worktree.
+ * Deliberately narrow: this is "where the user left off," not a
  * data source — agent transcripts and fixtures stay untouched.
  *
  * Modeled as an external store (subscribe/getSnapshot/getServerSnapshot) so the
@@ -37,6 +38,8 @@ export type PersistedSelection = {
   panelOpen: boolean | null;
   /** Explicit target, including deliberate unbound, supersedes legacy preferences. */
   target?: WorkspaceTarget;
+  /** Last view per project/worktree. Contains navigation only, never draft content. */
+  destinationsBySession?: Record<string, string>;
 };
 
 const STORAGE_KEY = "ufd.workspace.v1";
@@ -73,6 +76,7 @@ function parseSelection(parsed: unknown): Decoded<PersistedSelection> {
     activeProjectId: typeof parsed.activeProjectId === "string" ? parsed.activeProjectId : null,
     worktreeByProject: sanitizeStringRecord(parsed.worktreeByProject),
     orgByProject: sanitizeStringRecord(parsed.orgByProject),
+    ...(parsed.destinationsBySession === undefined ? {} : { destinationsBySession: sanitizeStringRecord(parsed.destinationsBySession) }),
     panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : null,
   } };
 }
@@ -91,6 +95,25 @@ export class WorkspaceSelectionStore extends BrowserPersistenceStore<PersistedSe
       worktreeByProject: target.projectId && target.worktreeId ? { ...current.worktreeByProject, [target.projectId]: target.worktreeId } : current.worktreeByProject,
       orgByProject: target.projectId && target.orgId ? { ...current.orgByProject, [target.projectId]: target.orgId } : current.orgByProject,
     }));
+  };
+
+  rememberDestination = (destination: Destination): void => {
+    const { projectId, worktreeId } = destination.target;
+    if (!projectId) return;
+    const key = sessionKey(projectId, worktreeId), href = destinationHref(destination);
+    this.update(current => {
+      if (current.destinationsBySession?.[key] === href) return current;
+      const entries = Object.entries(current.destinationsBySession ?? {}).filter(([id]) => id !== key);
+      return { ...current, destinationsBySession: Object.fromEntries([...entries.slice(-99), [key, href]]) };
+    });
+  };
+
+  destinationFor = (owner: DemoProfileId, projectId: string, worktreeId: string | null): Destination | null => {
+    const href = this.getSnapshot().destinationsBySession?.[sessionKey(projectId, worktreeId)];
+    if (!href) return null;
+    const decoded = readDestination(href);
+    return decoded.kind === "destination" && decoded.value.owner === owner
+      && decoded.value.target.projectId === projectId && decoded.value.target.worktreeId === worktreeId ? decoded.value : null;
   };
 
   setActiveProjectId = (projectId: string): void => {

@@ -3,15 +3,17 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { selectedSnapshot } from "@/lib/selected-snapshot";
 import { resolveDestination, type DestinationDecision } from "@/lib/navigation/model";
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useMemo, useState, useSyncExternalStore } from "react";
 import { primaryWorktree, type AgentSession, type Org, type Project, type Worktree } from "@/lib/workspace/model";
-import { resolveWorkspace, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
+import { homeTarget, resolveWorkspace, UNBOUND_TARGET, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
 import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
 import { getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
 import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
 import { ASSESSMENT_ORGS, workspaceProject } from "@/lib/onboarding/assessment";
+
+export type WorkspacePanelFilter = "all" | "projects" | "apps";
 
 type WorkspaceContextValue = {
   hasProjects: boolean;
@@ -25,12 +27,18 @@ type WorkspaceContextValue = {
   context: WorkspaceResolution;
   target: WorkspaceTarget;
   destination: DestinationDecision;
+  panelFilter: WorkspacePanelFilter;
+  setPanelFilter: (filter: WorkspacePanelFilter) => void;
+  projectPanelRequest: number;
+  openProjectPanel: () => void;
 };
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-/** Read-only workspace projection. NavigationController is the selection owner. */
+/** Workspace projection and ephemeral panel UI. NavigationController owns selection. */
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { profile, resolved } = useDemoProfile();
+  const [panelFilter, setPanelFilter] = useState<WorkspacePanelFilter>("all");
+  const [projectPanelRequest, setProjectPanelRequest] = useState(0);
   const assessment = useAssessmentRunner();
   const pathname = usePathname(), search = useSearchParams();
   const route = `${pathname}?${search.toString()}`;
@@ -55,13 +63,19 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       worktreeId: selection.activeProjectId ? selection.worktreeByProject[selection.activeProjectId] ?? (project ? primaryWorktree(project)?.id ?? null : null) : null,
       orgId: selection.activeProjectId ? selection.orgByProject[selection.activeProjectId] ?? project?.defaultOrgId ?? null : null,
     };
-    const target = destination.kind === "absent" ? restored : destination.kind === "available" ? destination.destination.target : { projectId: null, worktreeId: null, orgId: null };
+    const target = destination.kind === "absent" ? pathname === "/" ? homeTarget(restored) : restored : destination.kind === "available" ? destination.destination.target : UNBOUND_TARGET;
     const context = resolveWorkspace(target, projects, orgs, resolved);
     if (destination.kind === "unavailable") { context.status = "unavailable"; context.reason = destination.reason; }
     return { projects, orgs, hasProjects: projects.length > 0, context, target, destination,
+      panelFilter, setPanelFilter, projectPanelRequest,
+      openProjectPanel: () => {
+        store.setPanelOpen(true);
+        setPanelFilter("projects");
+        setProjectPanelRequest((request) => request + 1);
+      },
       activeProject: context.project, activeWorktree: context.worktree, activeOrg: context.org,
       agentSessions: context.project?.agentSessions ?? [], sessionKey: context.sessionKey };
-  }, [projects, orgs, selection, resolved, destination]);
+  }, [projects, orgs, selection, resolved, destination, pathname, store, panelFilter, projectPanelRequest]);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 export function useWorkspace(): WorkspaceContextValue {

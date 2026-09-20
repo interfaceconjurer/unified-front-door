@@ -8,6 +8,9 @@ export type ReturningWork = {
   surfaceId: SurfaceId;
   projectId: string;
   worktreeId: string;
+  /** Display context captured for an aggregate Home briefing. */
+  projectName?: string;
+  branch?: string;
   kind: string;
   summary: string;
   updated: string;
@@ -55,7 +58,7 @@ export const RETURNING_WORK: readonly ReturningWork[] = [
     id: "hotfix-tests", title: "W-9821 regression tests", surfaceId: "code",
     projectId: "trailblazer-crm", worktreeId: "hotfix-9821", kind: "Test suite",
     summary: "The hotfix and regression coverage are ready for code review.", updated: "2026-09-14T14:35:00Z",
-    status: "ready", statusLabel: "Ready for review",
+    status: "review", statusLabel: "Code review needed", attention: true,
     details: [{ label: "Scope", value: "Opportunity updates and owner reassignment" }, { label: "Branch", value: "hotfix/W-9821" }, { label: "Next step", value: "Review the fix and its regression coverage" }],
     activity: ["Reproduced the reassignment issue.", "Added regression coverage for the fix.", "Agent finished preparing the changes for review."],
   },
@@ -78,7 +81,7 @@ export const RETURNING_WORK: readonly ReturningWork[] = [
     source: "skills:\n  - apex-review\n  - regression-planning\nplugins:\n  - salesforce-development\nconnectors:\n  - salesforce\nmcp_tools:\n  - project-context\n  - org-metadata",
   },
   {
-    id: "storefront-app", title: "Acme Storefront", surfaceId: "build",
+    id: "storefront-app", title: "Acme Storefront", surfaceId: "alm",
     projectId: "acme-storefront", worktreeId: "main", kind: "React app",
     summary: "The storefront is live, with your next UI changes ready to plan.", updated: "2026-09-14T13:00:00Z",
     status: "live", statusLabel: "Live",
@@ -88,10 +91,10 @@ export const RETURNING_WORK: readonly ReturningWork[] = [
   {
     id: "storefront-health", title: "Storefront health", surfaceId: "govern",
     projectId: "acme-storefront", worktreeId: "main", kind: "Health monitor",
-    summary: "Follow the storefront’s availability, errors, and API usage.", updated: "2026-09-14T13:00:00Z",
-    status: "saved", statusLabel: "Monitoring configured",
-    details: [{ label: "Application", value: "Acme Storefront" }, { label: "Signals", value: "Availability · Errors · API usage" }, { label: "Environment", value: "Production" }],
-    activity: ["Added the storefront’s operational signals.", "Saved the monitoring configuration after the release."],
+    summary: "Account search latency has increased. Review the agent’s findings and proposed cache adjustment.", updated: "2026-09-14T13:00:00Z",
+    status: "review", statusLabel: "Performance review needed", attention: true,
+    details: [{ label: "Application", value: "Acme Storefront" }, { label: "Signal", value: "Account search p95 increased from 420 ms to 1.2 s" }, { label: "Proposed response", value: "Review cache invalidation and rerun the search benchmark" }],
+    activity: ["Detected higher search latency after the latest release.", "Agent traced repeated account lookups and prepared a cache adjustment.", "Waiting for your review before applying the proposed change."],
   },
   {
     id: "account-query", title: "Enterprise accounts.soql", surfaceId: "code",
@@ -106,10 +109,10 @@ export const RETURNING_WORK: readonly ReturningWork[] = [
   {
     id: "storefront-release", title: "Storefront next release", surfaceId: "alm",
     projectId: "acme-storefront", worktreeId: "main", kind: "Release plan",
-    summary: "Continue planning the next storefront release.", updated: "2026-09-13T15:00:00Z",
-    status: "saved", statusLabel: "Draft",
-    details: [{ label: "Source", value: "main" }, { label: "Validation", value: "SIT Sandbox" }, { label: "Planned scope", value: "Account search and UI improvements" }],
-    activity: ["Started the release plan for the next iteration.", "Added UI improvements to the planned scope."],
+    summary: "Account search and accessibility improvements passed validation. Review the change summary and approve the UAT rollout.", updated: "2026-09-13T15:00:00Z",
+    status: "review", statusLabel: "Approval needed", attention: true,
+    details: [{ label: "Source", value: "main" }, { label: "Validation", value: "SIT checks passed; ready for UAT Sandbox" }, { label: "Planned scope", value: "Account search, keyboard navigation, and empty states" }],
+    activity: ["Agent completed the account search and accessibility updates.", "Automated checks and the SIT smoke test passed.", "Release notes are ready; the UAT rollout is waiting for your approval."],
   },
 ];
 

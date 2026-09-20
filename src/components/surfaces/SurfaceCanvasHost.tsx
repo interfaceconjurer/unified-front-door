@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, ViewTransition } from "react";
 import { flushSync } from "react-dom";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
@@ -182,11 +182,15 @@ export function SurfaceCanvasHost({
 
   function onTabsKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
     const last = canvases.length - 1;
+    // Focus moves before a route transition commits. Repeated arrows should
+    // advance from that focused tab, even while the previous canvas is leaving.
+    const focusedIndex = canvases.findIndex((canvas) => tabRefs.current.get(canvas.id) === document.activeElement);
+    const index = focusedIndex < 0 ? activeIndex : focusedIndex;
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       const delta = event.key === "ArrowRight" ? 1 : -1;
       // Wrap around so the strip is a ring, matching the tabs APG pattern.
-      const nextIndex = (activeIndex + delta + canvases.length) % canvases.length;
+      const nextIndex = (index + delta + canvases.length) % canvases.length;
       focusTab(canvases[nextIndex]!.id);
     } else if (event.key === "Home") {
       event.preventDefault();
@@ -197,9 +201,9 @@ export function SurfaceCanvasHost({
     } else if (event.key === "Delete" || event.key === "Backspace") {
       // Dismissal restores focus after the content fade and tab removal, so
       // keyboard close keeps the selected tab and roving tabindex together.
-      if (activeCanvas.id === OVERVIEW_CANVAS_ID) return;
+      if (canvases[index]!.id === OVERVIEW_CANVAS_ID) return;
       event.preventDefault();
-      dismissTab(activeCanvas.id);
+      dismissTab(canvases[index]!.id);
     }
   }
 
@@ -280,22 +284,27 @@ export function SurfaceCanvasHost({
         })}
       </div>
 
-      <div
-        ref={panelRef}
-        role="tabpanel"
-        id={panelDomId(surfaceId)}
-        aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
-        tabIndex={0}
-        className={styles.panel}
-      >
-        <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
-          {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
-            children
-          ) : (
-            <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
-          )}
-        </CanvasLayout></FeatureBoundary>
-      </div>
+      {/* Keep tab switches inside the canvas; broader navigation is animated
+          by the shell. Updates to the current draft do not replay this effect. */}
+      <ViewTransition name="canvas-content" default="none"
+        update={{ "canvas-change": "surface-swap", default: "none" }}>
+        <div
+          ref={panelRef}
+          role="tabpanel"
+          id={panelDomId(surfaceId)}
+          aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
+          tabIndex={0}
+          className={styles.panel}
+        >
+          <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
+            {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
+              children
+            ) : (
+              <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
+            )}
+          </CanvasLayout></FeatureBoundary>
+        </div>
+      </ViewTransition>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import type { ApplicationSnapshot, SavedCanvas } from "../application/contracts"
 import { sessionView, type OwnedSession } from "./session";
 import { assessmentCursor } from "../assessment/cursor";
 import { assertBytes, DEMO_LIMITS } from "./quota";
+import { canonicalCanvasSurface } from "../surface-canvas/routing";
 
 export async function readWorkspace(client: PoolClient, session: OwnedSession, lock = false): Promise<ApplicationSnapshot> {
   const scope = [session.namespaceId, session.profileId];
@@ -19,7 +20,7 @@ export async function readWorkspace(client: PoolClient, session: OwnedSession, l
   const items = (await client.query("SELECT project_id,record,status FROM project_work_items WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows;
   for (const project of projects) project.workItems = items.filter((row) => row.project_id === project.id).map((row) => ({ ...row.record, status: row.status })) as PlannedWorkItem[];
   const draft = (await client.query("SELECT record,revision FROM project_drafts WHERE namespace_id=$1 AND profile_id=$2", scope)).rows[0];
-  const canvases = (await client.query("SELECT id,surface_id,canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows.map((row) => ({ id: row.id, surface: row.surface_id, canvas: row.canvas, target: row.target, fields: row.fields, revision: row.revision })) as SavedCanvas[];
+  const canvases = (await client.query("SELECT id,surface_id,canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows.map((row) => ({ id: row.id, surface: canonicalCanvasSurface(row.surface_id, row.canvas), canvas: row.canvas, target: row.target, fields: row.fields, revision: row.revision })) as SavedCanvas[];
   const imports = (await client.query("SELECT summary,imported_at FROM import_receipts WHERE namespace_id=$1 AND profile_id=$2 ORDER BY imported_at,source_hash LIMIT $3", [...scope, DEMO_LIMITS.imports])).rows.map(row => ({ ...row.summary, importedAt: row.imported_at.toISOString() }));
   const snapshot: ApplicationSnapshot = { session: sessionView(session), assessmentRevision: workspace.assessment_revision, assessment: { ...workspace.assessment_cursor, projects, runs, draft: draft ? { ...draft.record, revision: draft.revision } : null }, canvases, imports };
   assertBytes(snapshot, DEMO_LIMITS.snapshotBytes, "Workspace response");

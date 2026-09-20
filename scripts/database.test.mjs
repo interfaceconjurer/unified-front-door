@@ -43,6 +43,45 @@ async function draft(s) { const snap=await complete(s);await run(s,command("draf
 const canvas={kind:"capability",title:"Automation",params:{scope:"unbound",surface:"build",capability:"automation"}},target={projectId:null,worktreeId:null,orgId:null};
 const save = (fields,expectedRevision=0)=>command("canvas.save",expectedRevision,{canvas,target,surface:"build",fields});
 
+test("legacy deployed-app rows and receipts remain usable after their ALM surface move", async () => {
+  const s = await scope("am");
+  const { workCanvasInput, RETURNING_WORK } = modules.load("lib/workspace/returning-work");
+  const { PROJECTS } = modules.load("lib/workspace/fixtures");
+  const { hash } = modules.load("lib/server/session");
+  const { stableJson, parseCommand } = modules.load("lib/application/contracts");
+  const project = PROJECTS.find(project => project.id === "acme-storefront");
+  const work = RETURNING_WORK.find(work => work.id === "storefront-app");
+  const inputs = [workCanvasInput(work), { kind: "app", title: project.apps[0].label, params: { projectId: project.id, appId: project.apps[0].id } }];
+  for (const input of inputs) {
+    const captured = { projectId: project.id, worktreeId: input.kind === "app" ? null : "main", orgId: "prod" };
+    const id = canvasId(input.kind, input.params), original = { notes: "Before the surface move", context: "Keep this captured note" };
+    const legacy = command("canvas.save", 0, { canvas: input, target: captured, surface: "build", fields: original });
+    const receipt = { revision: 1 };
+    await transaction(async client => {
+      await client.query("INSERT INTO canvas_drafts(namespace_id,profile_id,id,surface_id,canvas,target,fields,revision) VALUES($1,$2,$3,'build',$4,$5,$6,1)",
+        [s.session.namespaceId, "am", id, input, captured, original]);
+      await client.query("INSERT INTO command_receipts(namespace_id,profile_id,generation,command_id,payload_hash,result) VALUES($1,$2,$3,$4,$5,$6)",
+        [s.session.namespaceId, "am", s.session.generation, legacy.commandId, hash(stableJson(legacy)), receipt]);
+    });
+    assert.deepEqual(parseCommand(legacy), legacy, "Compatibility must not rewrite a previously hashed command");
+    const migrated = (await read(s)).canvases.find(canvas => canvas.id === id);
+    assert.equal(migrated.surface, "alm"); assert.equal(migrated.revision, 1);
+    assert.deepEqual(migrated.fields, original); assert.deepEqual(migrated.target, captured);
+    assert.deepEqual(await run(s, legacy), receipt, "An uncertain old acknowledgement can replay without a hash conflict");
+    if (input.kind === "work") {
+      await assert.rejects(run(s, command("canvas.save", 1, { canvas: input, target: captured, surface: "code", fields: { notes: "Wrong destination" } })), error => error.code === "invalid");
+      const unchanged = (await read(s)).canvases.find(canvas => canvas.id === id);
+      assert.equal(unchanged.revision, 1); assert.deepEqual(unchanged.fields, original);
+    }
+    await run(s, command("canvas.save", 1, { canvas: input, target: captured, surface: "alm", fields: { notes: "Saved after the surface move" } }));
+    const records = (await read(s)).canvases.filter(canvas => canvas.id === id);
+    assert.equal(records.length, 1); assert.equal(records[0].revision, 2); assert.equal(records[0].surface, "alm");
+    assert.equal(records[0].fields.context, original.context);
+    const stored = await transaction(async client => (await client.query("SELECT surface_id,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id='am' AND id=$2", [s.session.namespaceId, id])).rows[0]);
+    assert.deepEqual(stored, { surface_id: "alm", revision: 2 });
+  }
+});
+
 test("repeatable seed and concurrent same-command execution commit once; changed reuse conflicts",async()=>{
   const s=await scope();await transaction(async c=>{await seedWorkspace(c,s.session.namespaceId,"sp");await seedWorkspace(c,s.session.namespaceId,"sp");});
   const start=command("assessment.start",0);const results=await Promise.all(Array.from({length:8},()=>run(s,start)));for(const result of results)assert.deepEqual(result,results[0]);const snap=await read(s);assert.equal(snap.assessment.runs.length,1);assert.equal(snap.assessmentRevision,1);

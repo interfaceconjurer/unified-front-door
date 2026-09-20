@@ -36,7 +36,104 @@ const workspace = s => transaction(async c => readWorkspace(c, await requireSess
 const app = (s, kind, expectedRevision, fields = {}) => transaction(c => executeCommand(c, s.token, s.session.generation, { kind, expectedRevision, commandId: randomUUID(), ...fields }));
 const chat = s => send(s, { kind: "submit", requestId: randomUUID(), context, text: "Build a scoped automation" });
 const fastAdapter = { async step(...args) { const result = await demoAdapter.step(...args); return result.kind === "progress" ? { ...result, delayMs: 0 } : result; } };
+
+test("navigation returns committed history, keeps receipts compact, and retries without replaying older context", async () => {
+  const s = await owner(), command = { kind: "visit", requestId: randomUUID(), context: { ...context, surface: "build" } };
+  const first = await send(s, command);
+  assert.deepEqual(first.conversation, (await snapshot(s)).conversations[0]);
+  const stored = await transaction(c => c.query("SELECT result FROM agent_receipts WHERE namespace_id=$1 AND profile_id=$2 AND request_id=$3", [s.session.namespaceId, s.session.profileId, command.requestId]));
+  assert.deepEqual(stored.rows[0].result, { conversationId: first.conversationId });
+  const next = await send(s, { ...command, requestId: randomUUID(), context: { ...context, surface: "code" } });
+  const replay = await send(s, command);
+  assert.deepEqual(replay.conversation, next.conversation);
+  assert(replay.conversation.revision > first.conversation.revision);
+  await assert.rejects(transaction(async c => {
+    await executeAgentCommand(c, s.token, s.session.generation, { ...command, requestId: randomUUID(), context: { ...context, surface: "alm" } });
+    throw Error("rollback navigation");
+  }), /rollback navigation/);
+  assert.deepEqual((await snapshot(s)).conversations[0], next.conversation);
+});
+test("legacy deployed-app visits retain their request identity while opening ALM", async () => {
+  const s = await owner("am");
+  const { hash } = modules.load("lib/server/session");
+  const { stableJson } = modules.load("lib/application/contracts");
+  const command = { kind: "visit", requestId: randomUUID(), context: {
+    surface: "build", target: { projectId: "acme-storefront", worktreeId: "main", orgId: "sit" },
+  }, workId: "storefront-app" };
+  const opened = await send(s, command);
+  assert.equal(opened.conversation.conversation.scopeKey, "alm");
+  const receipt = await transaction(async c => (await c.query("SELECT payload_hash FROM agent_receipts WHERE namespace_id=$1 AND profile_id=$2 AND request_id=$3", [s.session.namespaceId, s.session.profileId, command.requestId])).rows[0]);
+  assert.equal(receipt.payload_hash, hash(stableJson(command)), "The legacy request hash remains unchanged");
+  const next = await send(s, { kind: "visit", requestId: randomUUID(), context: { ...command.context, surface: "code" } });
+  assert.deepEqual((await send(s, command)).conversation, next.conversation, "Retrying an old acknowledgement does not revisit its surface");
+});
 async function finish(runId) { for (let i = 0; i < 10; i++) if (!await workerTick({ runId, adapter: fastAdapter })) return; throw Error("Run did not finish"); }
+
+test("explicit Home return appends a fresh Today once; retries and route restoration do not duplicate it", async () => {
+  const s = await owner("am");
+  const first = await send(s, { kind: "visit", requestId: randomUUID(), context });
+  const command = { kind: "visit", requestId: randomUUID(), context, refreshToday: true };
+  const returned = await send(s, command);
+  const before = first.conversation.conversation.messages, after = returned.conversation.conversation.messages;
+  assert.equal(after.length, before.length + 1);
+  assert.deepEqual(after.slice(0, -1), JSON.parse(JSON.stringify(before)));
+  assert.equal(after.at(-1).role, "today");
+  assert.deepEqual((await send(s, command)).conversation, JSON.parse(JSON.stringify(returned.conversation)));
+  assert.deepEqual((await send(s, { kind: "visit", requestId: randomUUID(), context })).conversation.conversation.messages, JSON.parse(JSON.stringify(after)));
+});
+
+test("org changes share global history, log once, and preserve in-flight execution scope", async () => {
+  const s = await owner("am");
+  const visit = context => send(s, { kind: "visit", requestId: randomUUID(), context });
+  const home = await visit(context);
+  const uat = { surface: "build", target: { ...context.target, orgId: "uat" } };
+  const opened = await visit(uat);
+  assert.equal(opened.conversationId, home.conversationId);
+  assert.deepEqual(opened.conversation.conversation.messages[0], JSON.parse(JSON.stringify(home.conversation.conversation.messages[0])));
+  assert.equal(opened.conversation.conversation.messages.filter(message => message.text === "Target org · UAT Sandbox").length, 1);
+  const repeated = await visit(uat); assert.deepEqual(repeated.conversation, opened.conversation);
+  const reply = await send(s, { kind: "submit", requestId: randomUUID(), context: uat, text: "Keep the captured org" });
+  const prod = { ...uat, target: { ...uat.target, orgId: "prod" } };
+  const switched = await visit(prod);
+  assert.equal(switched.conversationId, opened.conversationId);
+  assert.equal(switched.conversation.conversation.messages.at(-1).text, "Target org · Production");
+  assert.deepEqual((await snapshot(s)).runs.find(run => run.id === reply.runId).context.target, uat.target);
+  await finish(reply.runId);
+  const returned = await visit({ ...prod, surface: "home" });
+  assert.equal(returned.conversationId, home.conversationId);
+  assert.equal(returned.conversation.conversation.messages.at(-1).role, "today");
+  assert.equal(returned.conversation.conversation.targetOrgId, "prod");
+  assert.equal((await snapshot(s)).conversations.length, 1);
+});
+
+test("Home aggregates all accessible projects while project visits resume their conversation without Today", async () => {
+  const s = await owner("am");
+  const visit = context => send(s, { kind: "visit", requestId: randomUUID(), context });
+  const home = await visit(context), today = home.conversation.conversation.messages.at(-1).snapshot;
+  assert.equal(today.scope, "global");
+  assert.equal(new Set(today.recent.map(work => work.projectId)).size, 2);
+  assert(today.recent.some(work => work.id === "lead-routing-release" && work.attention && work.branch === "feature/lead-routing"));
+  assert(today.recent.some(work => work.id === "integration-access" && work.attention));
+  assert.deepEqual(today.recent.filter(work => work.attention).map(work => work.id).sort(), [
+    "hotfix-tests", "integration-access", "lead-routing-release", "storefront-health", "storefront-release",
+  ]);
+  assert.equal(today.working, 1);
+  assert(today.recent[0].attention); assert(today.recent.every(work => work.projectName));
+  const scoped = { target: { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" }, surface: "code" };
+  const opened = await visit(scoped);
+  assert(opened.conversation.conversation.messages.every(message => message.role !== "today"));
+  await visit(context);
+  const resumed = await visit(scoped);
+  assert.deepEqual(resumed.conversation, opened.conversation);
+  const projectHome = await visit({ ...scoped, surface: "home" });
+  assert.deepEqual(projectHome.conversation, opened.conversation);
+  const freshProjectHome = await visit({ surface: "home", target: { ...scoped.target, worktreeId: "lead-routing" } });
+  assert(freshProjectHome.conversation.conversation.messages.some(message => message.role === "agent"), "the target-org marker must not suppress a project's first introduction");
+  assert(freshProjectHome.conversation.conversation.messages.every(message => message.role !== "today"));
+  const empty = await owner("jw");
+  const other = await send(empty, { kind: "visit", requestId: randomUUID(), context });
+  assert.equal(other.conversation.conversation.messages.at(-1).snapshot.recent.length, 0, "empty profiles must not receive another profile's work");
+});
 
 test("distinct assessment starts converge and worker alone produces immutable findings", async () => {
   const s = await owner("sp"); await Promise.all([app(s, "assessment.start", 0), app(s, "assessment.start", 0)]);
@@ -173,6 +270,13 @@ test("autonomous assessment updates preserve command revisions and concurrent pr
   assert.equal((await workspace(s)).assessmentRevision, create.expectedRevision, "completion also preserves the command token");
   const created = await transaction(c => executeCommand(c, s.token, s.session.generation, create));
   assert.equal(created.project.name, "Edited during rescan");
+  const projectContext = { target: { projectId: created.project.id, worktreeId: null, orgId: created.project.targetOrgId }, surface: "alm" };
+  const openedProject = await send(s, { kind: "visit", requestId: randomUUID(), context: projectContext });
+  assert(openedProject.conversation.conversation.messages.every(message => message.role !== "today"));
+  assert.match(openedProject.conversation.conversation.messages.at(-1).text, /ready for planning/);
+  assert.doesNotMatch(openedProject.conversation.conversation.messages.at(-1).text, /synced|GitHub/);
+  const resumedProject = await send(s, { kind: "visit", requestId: randomUUID(), context: projectContext });
+  assert.deepEqual(resumedProject.conversation, openedProject.conversation);
   state = await workspace(s); const completedHistory = structuredClone(state.assessment.runs);
   await app(s, "legacy.import", state.assessmentRevision, { source }); state = await workspace(s);
   assert.deepEqual(state.assessment.runs, completedHistory); assert.equal(state.assessment.status, "complete");

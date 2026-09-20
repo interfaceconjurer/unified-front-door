@@ -3,7 +3,8 @@ import type { DemoProfileId } from "../demo-profiles";
 import { INITIAL } from "../assessment/state-codec";
 import type { DraftEdit, ProjectDraftFields } from "../projects/model";
 import { SurfaceCanvasStore, emptyState, type PersistedCanvases } from "../surface-canvas/persistence";
-import { canvasId, canvasTarget, inputFromCanonicalId, type CanvasSpecInput } from "../surface-canvas/model";
+import { canvasId, canvasTarget, inputFromCanonicalId, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
+import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
 import { WorkspaceSelectionStore } from "../workspace/persistence";
 import type { WorkspaceTarget } from "../workspace/context";
@@ -12,7 +13,7 @@ import { ApplicationError, stableJson, text, type ApplicationSnapshot, type Comm
 import { EMPTY_APPLICATION, RemoteWorkspaceStore } from "./remote-store";
 import { allocateBuffer } from "./buffer";
 import { AgentClient } from "../agent/client";
-import type { AgentReceipt, AgentSnapshot, RunView } from "../agent/contracts";
+import type { AgentAcknowledgement, AgentSnapshot, RunView } from "../agent/contracts";
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
@@ -56,13 +57,19 @@ class ApplicationClient {
       const buffer = allocateBuffer(session, storage);
       this.workspace = new RemoteWorkspaceStore(session, {
         read: (s) => api<ApplicationSnapshot>(`/api/application?generation=${encodeURIComponent(s.generation)}`),
-        send: async (s, command) => (await api<{ result: CommandResult }>("/api/application", { generation: s.generation, command })).result,
+        send: async (s, command) => {
+          const result = (await api<{ result: CommandResult }>("/api/application", { generation: s.generation, command })).result;
+          // Assessment controls create/change runs outside the agent queue.
+          // Observe them immediately instead of waiting for the idle poll.
+          if (command.kind.startsWith("assessment.") && this.agent?.session.generation === s.generation) void this.agent.refreshAfterWrite();
+          return result;
+        },
       }, buffer.key, () => { void this.reconnect(); }, buffer.restoreKey);
       this.canvases = new RemoteCanvasStore(this.workspace);
       this.agent = new AgentClient(session, {
         read: () => api<AgentSnapshot>(`/api/agent?generation=${encodeURIComponent(session.generation)}`),
         readRun: (runId, after) => api<{ run: RunView }>(`/api/agent?generation=${encodeURIComponent(session.generation)}&runId=${encodeURIComponent(runId)}&after=${after}`),
-        send: async command => (await api<{ result: AgentReceipt }>("/api/agent", { generation: session.generation, command })).result,
+        send: async command => (await api<{ result: AgentAcknowledgement }>("/api/agent", { generation: session.generation, command })).result,
       }, () => { if (!this.workspace?.hasPending()) void this.workspace?.load(); }, () => { void this.reconnect(); });
       const selectionKey = `ufd.workspace-preferences.v2.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`;
       this.selection = new WorkspaceSelectionStore(selectionKey, session.profileId === "am" ? { activeProjectId: "trailblazer-crm", worktreeByProject: { "trailblazer-crm": "main" }, orgByProject: { "trailblazer-crm": "uat" }, panelOpen: null } : undefined);
@@ -257,26 +264,32 @@ class RemoteCanvasStore {
   openCanvas = (surface: SurfaceId, input: CanvasSpecInput) => this.prefs.openCanvas(surface, input);
   canOpenCanvas = (surface: SurfaceId, input: CanvasSpecInput) => this.prefs.canOpenCanvas(surface, input);
   canViewCanvas = (surface: SurfaceId, input: CanvasSpecInput) => {
+    surface = canonicalCanvasSurface(surface, input);
     const slice = this.snapshot[surface], id = canvasId(input.kind, input.params);
     return this.canOpenCanvas(surface, input) || Object.hasOwn(slice.targets ?? {}, id) || Object.hasOwn(slice.closedDrafts ?? {}, id);
   };
   closeCanvas = (surface: SurfaceId, id: string) => this.prefs.closeCanvas(surface, id);
   setActiveCanvas = (surface: SurfaceId, id: string) => this.prefs.setActiveCanvas(surface, id);
   captureTarget = (surface: SurfaceId, id: string, target: WorkspaceTarget): boolean => {
+    const canvas = inputFromCanonicalId(id);
+    if (canvas) surface = canonicalCanvasSurface(surface, canvas);
     const previous = this.snapshot[surface].targets?.[id]; if (previous && stableJson(previous) !== stableJson(target)) return false;
     if (!this.prefs.captureTarget(surface, id, target)) return false;
-    const canvas = inputFromCanonicalId(id);
-    if (canvas && !this.remote.getSnapshot().canvases.some((c) => c.id === id)) void this.remote.enqueue({ kind: "canvas.save", canvas, surface, target, fields: {} });
+    // Evidence canvases are read-only views; only their local tab/target
+    // preferences persist. Opening metadata must not create a saved draft.
+    if (canvas && !isReadOnlyCanvas(canvas) && !this.remote.getSnapshot().canvases.some((c) => c.id === id)) void this.remote.enqueue({ kind: "canvas.save", canvas, surface, target, fields: {} });
     return true;
   };
   updateDraft = (surface: SurfaceId, id: string, fields: Record<string, string>) => {
+    const input = inputFromCanonicalId(id);
+    if (input) surface = canonicalCanvasSurface(surface, input);
     const canvas = this.snapshot[surface].canvases.find((c) => c.id === id) ?? inputFromCanonicalId(id);
-    if (!canvas || canvas.kind === "overview") return;
+    if (!canvas || canvas.kind === "overview" || isReadOnlyCanvas(canvas)) return;
     const target = this.snapshot[surface].targets?.[id] ?? canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null });
     void this.remote.enqueueEdit({ kind: "canvas.save", canvas, surface, target, fields });
   };
   copyDraft = async (surface: SurfaceId, sourceId: string, canvas: CanvasSpecInput): Promise<boolean> => {
-    if (!this.canOpenCanvas(surface, canvas)) return false;
+    if (isReadOnlyCanvas(canvas) || !this.canOpenCanvas(surface, canvas)) return false;
     const source = this.remote.getSnapshot().canvases.find((c) => c.id === sourceId);
     if (!source || this.remote.hasPending()) return false;
     const target = canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null });
@@ -307,7 +320,12 @@ function assessmentAdapter(workspace: RemoteWorkspaceStore | null) { return {
   advance: () => { if (!workspace?.hasPending()) void workspace?.enqueue({ kind: "assessment.advance" }); },
   pause: () => { void workspace?.enqueue({ kind: "assessment.pause" }); },
   rescan: (orgIds: string[]) => { void workspace?.enqueue({ kind: "assessment.rescan", orgIds }); },
-  beginDraft: (runId: string, fields: ProjectDraftFields) => { void workspace?.enqueue({ kind: "draft.begin", runId, fields }); },
+  isBeginningDraft: () => workspace?.getPending().some(command => command.kind === "draft.begin") ?? false,
+  isCreatingProject: (draftId: string) => workspace?.getPending().some(command => command.kind === "project.create" && command.draftId === draftId) ?? false,
+  beginDraft: async (runId: string, fields: ProjectDraftFields) => {
+    const result = await workspace?.enqueue({ kind: "draft.begin", runId, fields });
+    return result ? workspace?.getSnapshot().assessment.draft ?? null : null;
+  },
   editDraft: (draftId: string, edit: DraftEdit) => { void workspace?.enqueueEdit({ kind: "draft.edit", draftId, edit }); },
   discardDraft: (draftId: string) => { void workspace?.enqueue({ kind: "draft.discard", draftId }); },
   createProject: async (_owner: string, command: { draftId: string; commandId: string; expectedRevision: number }) => (await workspace?.enqueue({ kind: "project.create", draftId: command.draftId, draftRevision: command.expectedRevision }, command.commandId))?.project ?? null,

@@ -1,10 +1,12 @@
 .bar {
   position: relative;
   z-index: 30;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 36rem) minmax(0, 1fr);
+  gap: 1.25rem;
   align-items: center;
   justify-content: space-between;
-  min-height: 3.5rem;
+  min-height: 4rem;
   flex: 0 0 auto;
   padding-inline: var(--slds-g-spacing-4, 1rem);
   background: var(--slds-g-color-surface-1, #fff);
@@ -53,6 +55,7 @@
 }
 
 .divider {
+  flex-shrink: 0;
   width: 1px;
   height: 1.5rem;
   margin-inline: var(--slds-g-spacing-3, 0.75rem);
@@ -80,6 +83,14 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
+.globalHome { margin-inline-end: .25rem; text-decoration: none; }
+.globalHomeActive,
+.globalHomeActive:hover {
+  background: var(--slds-g-color-accent-1, #0176d3);
+  border-color: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+}
+
 .panelToggleActive,
 .panelToggleActive:hover {
   border-color: var(--slds-g-color-border-1, #c9c9c9);
@@ -93,8 +104,10 @@
   display: inline-flex;
   align-items: center;
   gap: var(--slds-g-spacing-2, 0.5rem);
-  min-height: 2rem;
-  padding: 0.25rem 0.4rem 0.25rem 0.65rem;
+  min-width: 0;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.65rem 0.5rem 0.9rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
   background: var(--slds-g-color-surface-2, #f3f3f3);
@@ -113,10 +126,19 @@
 }
 
 .commandLabel {
-  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .8125rem;
 }
 
+.commandLabelCompact { display: none; }
+
 .commandKbd {
+  flex-shrink: 0;
   padding: 0.1rem 0.4rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
   border-radius: var(--slds-g-radius-border-1, 0.25rem);
@@ -153,6 +175,7 @@
 }
 
 .actions {
+  justify-self: end;
   gap: var(--slds-g-spacing-2, 0.5rem);
   flex: 0 0 auto;
 }
@@ -187,6 +210,9 @@
 
 @media (max-width: 760px) {
   .bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .5rem 1rem;
+    padding-block: .625rem;
     padding-inline: var(--slds-g-spacing-3, 0.75rem);
   }
 
@@ -200,10 +226,32 @@
     margin-inline: var(--slds-g-spacing-2, 0.5rem);
   }
 
-  .commandLabel,
-  .commandKbd {
-    display: none;
-  }
+  .commandTrigger { grid-column: 1 / -1; grid-row: 2; min-height: 2.5rem; }
+  .actions { grid-column: 2; grid-row: 1; }
+  .commandLabel { display: none; }
+  .commandLabelCompact { display: block; flex: 1; text-align: start; font-size: .8125rem; }
+}
+
+.projectScope { display: flex; align-items: center; gap: .5rem; min-width: 0; padding: .35rem .5rem; border: 1px solid transparent; border-radius: .5rem; background: transparent; color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; text-align: start; cursor: pointer; }
+.projectScope:hover { background: var(--slds-g-color-surface-2, #f3f3f3); border-color: var(--slds-g-color-border-1, #c9c9c9); }
+.projectScope > svg { flex-shrink: 0; color: light-dark(#0176d3, #78b9ff); }
+.projectCopy { display: grid; gap: .125rem; min-width: 0; }
+.projectLabel { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .625rem; }
+.projectCopy strong { font-size: .8125rem; font-weight: 600; }
+.projectCopy > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.projectChevron { transform: rotate(90deg); }
+.bar :focus-visible { outline: 2px solid var(--slds-g-color-accent-1, #0176d3); outline-offset: 2px; }
+@media (min-width: 761px) and (max-width: 1600px) {
+  .bar[data-project-scoped="true"] .brandName { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1400px) {
+  .bar { grid-template-columns: minmax(0, 1fr) minmax(16rem, 30rem) auto; }
+}
+@media (min-width: 761px) and (max-width: 1000px) {
+  .bar { grid-template-columns: minmax(0, 1fr) minmax(14rem, 1fr) auto; gap: .75rem; }
+  .brandName { display: none; }
+  .commandLabel { display: none; }
+  .commandLabelCompact { display: block; flex: 1; text-align: start; font-size: .8125rem; }
 }
 
 .rightPanelIcon {

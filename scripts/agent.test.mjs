@@ -17,6 +17,126 @@ test("agent commands reject client identity grants and malformed captured target
   assert.deepEqual(parseAgentCommand(command), command);
   for (const modified of [{ ...command, namespaceId: "mine" }, { ...command, adapter: "real" }, { ...command, context: { ...command.context, grants: ["write"] } }, { ...command, context: { target: { ...context.target, worktreeId: "main" }, surface: "home" } }, { ...command, text: "x".repeat(8001) }]) assert.throws(() => parseAgentCommand(modified));
 });
+
+const testSession = { namespaceId: "n", profileId: "jw", generation: "g", workspaceEpoch: "e", expiresAt: "future" };
+const visit = (requestId, surface) => ({ kind: "visit", requestId, context: { target: context.target, surface } });
+const savedVisit = (surface, revision = 1) => ({ id: "navigation-thread", threadKey: "unbound", revision,
+  conversation: { scopeKey: surface, messages: [{ id: revision, role: "agent", text: `Ready in ${surface}` }] } });
+const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
+
+test("only an explicit global Home visit can request a fresh Today", () => {
+  const command = { ...visit("return-home", "home"), refreshToday: true };
+  assert.deepEqual(parseAgentCommand(command), command);
+  for (const modified of [{ ...command, refreshToday: false }, { ...command, workId: "work" },
+    { ...command, context: { ...command.context, surface: "build" } },
+    { ...command, context: { ...command.context, target: { ...context.target, projectId: "crm" } } }]) {
+    assert.throws(() => parseAgentCommand(modified));
+  }
+});
+
+test("a Home return replaces an unsent plain visit and survives duplicate route visits and clicks", async () => {
+  const first = deferred(), sent = [];
+  const client = new AgentClient(testSession, {
+    read: async () => ({ conversations: [], runs: [] }),
+    send: async command => { sent.push(command); if (sent.length === 1) await first.promise; return { conversation: savedVisit(command.context.surface, sent.length) }; },
+  }, () => {}, () => {});
+  try {
+    await client.refresh(); const initial = client.command(visit("first", "build"));
+    const plain = client.command(visit("plain", "home"));
+    const refresh = client.command({ ...visit("return-home", "home"), refreshToday: true });
+    assert.equal(await plain, null);
+    assert.equal(await client.command(visit("route-visit", "home")), null);
+    assert.equal(await client.command({ ...visit("second-click", "home"), refreshToday: true }), null);
+    first.resolve(); await Promise.all([initial, refresh]);
+    assert.deepEqual(sent.map(command => command.requestId), ["first", "return-home"]);
+    assert.equal(sent[1].refreshToday, true);
+  } finally { first.resolve(); client.deactivate(); }
+});
+
+test("visit acknowledgements display history without a follow-up read and survive a stale in-flight snapshot", async () => {
+  let reads = 0; const stale = deferred();
+  const client = new AgentClient(testSession, {
+    read: async () => ++reads === 1 ? { conversations: [], runs: [] } : stale.promise,
+    send: async () => ({ conversationId: "navigation-thread", conversation: savedVisit("build", 2) }),
+  }, () => {}, () => {});
+  try {
+    await client.refresh(); const reading = client.refresh();
+    await client.command(visit("build", "build"));
+    assert.equal(reads, 2, "Acknowledged history needs no extra GET");
+    assert.equal(client.getSnapshot().data.conversations[0].revision, 2);
+    assert.equal(client.getSnapshot().pending, false);
+    stale.resolve({ conversations: [], runs: [] }); await reading;
+    assert.equal(client.getSnapshot().data.conversations[0].conversation.scopeKey, "build");
+    const older = mergeAgentSnapshot(client.getSnapshot().data, { conversations: [savedVisit("home", 1)], runs: [] });
+    assert.equal(older.conversations[0].revision, 2);
+  } finally { stale.resolve({ conversations: [], runs: [] }); client.deactivate(); }
+});
+
+test("rapid navigation coalesces only unsent visits and preserves intervening user commands", async () => {
+  const first = deferred(), sent = [];
+  const client = new AgentClient(testSession, {
+    read: async () => ({ conversations: [], runs: [] }),
+    send: async command => {
+      sent.push(structuredClone(command)); if (sent.length === 1) await first.promise;
+      return command.kind === "visit" ? { conversation: savedVisit(command.context.surface, sent.length) } : {};
+    },
+  }, () => {}, () => {});
+  try {
+    await client.refresh(); const build = client.command(visit("build", "build"));
+    const obsolete = client.command(visit("code-old", "code"));
+    const govern = client.command(visit("govern", "govern"));
+    const submit = client.command({ ...visit("message", "govern"), kind: "submit", text: "Keep this captured context" });
+    const oldTail = client.command(visit("code-tail", "code"));
+    const alm = client.command(visit("alm", "alm"));
+    assert.equal(await obsolete, null); assert.equal(await oldTail, null);
+    first.resolve(); await Promise.all([build, govern, submit, alm]);
+    assert.deepEqual(sent.map(command => command.requestId), ["build", "govern", "message", "alm"]);
+    assert.equal(sent[2].context.surface, "govern"); assert.equal(sent[2].text, "Keep this captured context");
+    assert.equal(client.getSnapshot().data.conversations[0].conversation.scopeKey, "alm");
+  } finally { first.resolve(); client.deactivate(); }
+});
+
+test("navigation coalescing preserves an explicit work action before the latest destination", async () => {
+  const first = deferred(), sent = [];
+  const client = new AgentClient(testSession, {
+    read: async () => ({ conversations: [], runs: [] }),
+    send: async command => { sent.push(command); if (sent.length === 1) await first.promise; return { conversation: savedVisit(command.context.surface, sent.length) }; },
+  }, () => {}, () => {});
+  try {
+    await client.refresh(); const initial = client.command(visit("first", "home"));
+    const work = client.command({ ...visit("resume-work", "code"), workId: "explicit-work" });
+    const old = client.command(visit("old", "build")); const latest = client.command(visit("latest", "alm"));
+    assert.equal(await old, null); first.resolve(); await Promise.all([initial, work, latest]);
+    assert.deepEqual(sent.map(command => command.requestId), ["first", "resume-work", "latest"]);
+    assert.equal(sent[1].workId, "explicit-work");
+  } finally { first.resolve(); client.deactivate(); }
+});
+
+test("legacy acknowledgements await a fresh history read after an older read finishes", async () => {
+  const stale = deferred(); let reads = 0;
+  const client = new AgentClient(testSession, {
+    read: async () => { reads++; return reads === 2 ? stale.promise : { conversations: reads > 2 ? [savedVisit("build")] : [], runs: [] }; },
+    send: async () => ({ conversationId: "navigation-thread" }),
+  }, () => {}, () => {});
+  try {
+    await client.refresh(); const reading = client.refresh(); const command = client.command(visit("legacy", "build"));
+    await Promise.resolve(); assert.equal(client.getSnapshot().pending, true);
+    stale.resolve({ conversations: [], runs: [] }); await reading; await command;
+    assert.equal(reads, 3); assert.equal(client.getSnapshot().data.conversations[0].conversation.scopeKey, "build");
+    assert.equal(client.getSnapshot().pending, false);
+  } finally { stale.resolve({ conversations: [], runs: [] }); client.deactivate(); }
+});
+
+test("idle chat polls every five seconds without slowing active work observation", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"], now: 1000 });
+  let reads = 0;
+  const client = new AgentClient(testSession, { read: async () => { reads++; return { conversations: [], runs: [] }; }, send: async () => ({}) }, () => {}, () => {});
+  try {
+    client.start(); await settleProgress();
+    t.mock.timers.tick(4000); await settleProgress(); assert.equal(reads, 1);
+    t.mock.timers.tick(1000); await settleProgress(); assert.equal(reads, 2);
+  } finally { client.deactivate(); }
+});
 test("replaceable adapters preserve captured input and deliver explicit progress/failure", async () => {
   const input = { kind: "chat", text: "Build an automation", context, destination: demoPolicy.recommend("Build an automation", context) };
   const signal = new AbortController().signal, first = await demoAdapter.step(input, 0, context.capturedAt, signal), last = await deterministicAdapter({ delayMs: 2 }).step(input, 1, context.capturedAt, signal);

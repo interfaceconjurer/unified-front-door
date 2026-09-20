@@ -4,7 +4,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useNavigationActions } from "@/components/navigation/NavigationProvider";
 import { createContext, useContext, useMemo, useSyncExternalStore, useCallback } from "react";
 import type { SurfaceId } from "@/lib/workspace/model";
-import { canvasId, OVERVIEW_CANVAS, type CanvasSpec } from "@/lib/surface-canvas/model";
+import { canvasId, canvasVisibleInProject, OVERVIEW_CANVAS, type CanvasSpec } from "@/lib/surface-canvas/model";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore } from "@/lib/application/client";
 
@@ -40,6 +40,7 @@ export function useSurfaceCanvasActions() {
 /** Only the requested surface changes this subscription's data snapshot. */
 export function useSurfaceCanvases(surfaceId: SurfaceId) {
   const { store, decision } = useOwner();
+  const { target: { projectId } } = useWorkspace();
   const get = useCallback(() => store.getSnapshot()[surfaceId], [store, surfaceId]);
   const server = useCallback(() => store.getServerSnapshot()[surfaceId], [store, surfaceId]);
   const slice = useSyncExternalStore(store.subscribe, get, server);
@@ -51,7 +52,8 @@ export function useSurfaceCanvases(surfaceId: SurfaceId) {
     const missing = destination?.surface === surfaceId && input && store.canViewCanvas(surfaceId, input) && !slice.canvases.some(item => item.id === selectedId)
       ? [{ ...input, id: selectedId, draft: slice.closedDrafts?.[selectedId] } as CanvasSpec] : [];
     const open = slice.canvases.map(canvas => canvas.kind !== "overview" && !canvas.draft && slice.closedDrafts?.[canvas.id] ? { ...canvas, draft: slice.closedDrafts[canvas.id] } : canvas);
-    return { ...actions, recovery: slice.recovery, canvases: [OVERVIEW_CANVAS, ...open, ...missing],
+    const canvases = [OVERVIEW_CANVAS, ...open, ...missing].filter(canvas => canvasVisibleInProject(canvas, projectId, slice.targets?.[canvas.id]));
+    return { ...actions, recovery: slice.recovery, canvases,
       activeCanvasId: decision.kind === "absent" ? slice.activeCanvasId : destination?.surface === surfaceId ? selectedId : "overview" };
-  }, [actions, slice, decision, surfaceId, store]);
+  }, [actions, slice, decision, surfaceId, store, projectId]);
 }

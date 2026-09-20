@@ -1,5 +1,7 @@
 import { sameTarget, parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { BrowserPersistenceStore, type Decoded } from "../browser-persistence";
+import { RESOURCE_TYPES } from "../org-resources/model";
+import { canonicalCanvasSurface } from "./routing";
 /**
  * Persisted slice of surface-canvas state — per surface, the ordered list of
  * open (launched) canvases and which tab is active. Deliberately a sibling of
@@ -127,7 +129,7 @@ function parseSlice(value: unknown, surfaceId: SurfaceId): SurfaceCanvasSlice {
   const preserve = (title: string, reason: string, original: unknown) => recovery.push({ id: `recovery-${recovery.length}`, title, reason, original });
   if (Array.isArray(value.canvases)) for (const entry of value.canvases) {
     const input = legacyInput(entry, surfaceId);
-    if (!input || (input.kind === "capability" && input.params.surface !== surfaceId) || (input.kind === "work" && returningWorkById(input.params.workId) && workForCanvas(input.params)?.surfaceId !== surfaceId)) { preserve("Legacy canvas", "Its target could not be reconstructed.", entry); continue; }
+    if (!input || (input.kind === "org-assessment" && surfaceId !== "govern") || (input.kind === "capability" && input.params.surface !== surfaceId) || (input.kind === "org-resource" && RESOURCE_TYPES[input.params.resourceType].surface !== surfaceId) || (input.kind === "work" && returningWorkById(input.params.workId) && workForCanvas(input.params)?.surfaceId !== canonicalCanvasSurface(surfaceId, input))) { preserve("Legacy canvas", "Its target could not be reconstructed.", entry); continue; }
     const id = canvasId(input.kind, input.params), original = entry as Record<string, unknown>;
     if (typeof original.id === "string") aliases.set(original.id, [...(aliases.get(original.id) ?? []), id]);
     const draft = original.draft === undefined ? undefined : sanitizeStringRecord(original.draft);
@@ -170,12 +172,61 @@ export function parseState(parsed: unknown): Decoded<PersistedCanvases> {
       if (!target || !input || !sameTarget(canvasTarget(input, target), target)) return { error: "invalid" };
     }
   }
-  return { value: Object.fromEntries(SURFACE_IDS.map((id) => [id, parseSlice(parsed[id], id)])) as PersistedCanvases };
+  return { value: migrateCanvasSurfaces(Object.fromEntries(SURFACE_IDS.map((id) => [id, parseSlice(parsed[id], id)])) as PersistedCanvases) };
+}
+
+/** Move view preferences, never canvas identity or captured scope. If both old
+ * and current surfaces contain edits, the current version wins and the full
+ * older version remains available in recovery instead of being overwritten. */
+export function migrateCanvasSurfaces(state: PersistedCanvases): PersistedCanvases {
+  let next = state;
+  const without = <T,>(map: Record<string, T> | undefined, id: string) => Object.fromEntries(Object.entries(map ?? {}).filter(([key]) => key !== id));
+  const equalFields = (a: Record<string, string>, b: Record<string, string>) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(key => a[key] === b[key]);
+  for (const from of SURFACE_IDS) {
+    const original = state[from];
+    const ids = new Set([...original.canvases.map(canvas => canvas.id), ...Object.keys(original.closedDrafts ?? {}), ...Object.keys(original.targets ?? {})]);
+    for (const id of ids) {
+      const incoming = original.canvases.find(canvas => canvas.id === id), input = incoming ?? inputFromCanonicalId(id);
+      if (!input || input.kind === "overview") continue;
+      const to = canonicalCanvasSurface(from, input);
+      if (to === from) continue;
+      if (next === state) next = { ...state };
+      const source = next[from], destination = next[to], existing = destination.canvases.find(canvas => canvas.id === id);
+      const fields = incoming?.draft ?? original.closedDrafts?.[id], savedFields = existing?.draft ?? destination.closedDrafts?.[id];
+      const target = original.targets?.[id], savedTarget = destination.targets?.[id];
+      const conflict = fields && savedFields && !equalFields(fields, savedFields) || target && savedTarget && !sameTarget(target, savedTarget);
+      const recovery = conflict ? [...(destination.recovery ?? []), {
+        id: `surface-move-${from}-${id}`, title: input.title,
+        reason: "An older surface contains a different draft or target. Its complete version is preserved here.",
+        original: { id, surface: from, canvas: incoming, closedDraft: original.closedDrafts?.[id], target, active: original.activeCanvasId === id },
+      }] : destination.recovery;
+      // Keep the newer target/fields together on a target conflict.
+      const targetConflict = target && savedTarget && !sameTarget(target, savedTarget);
+      const draft = savedFields ?? (targetConflict ? undefined : fields);
+      const canvases = existing ? destination.canvases.map(canvas => canvas.id === id && canvas.kind !== "overview" && draft ? { ...canvas, draft } : canvas)
+        : incoming && incoming.kind !== "overview" && !targetConflict ? [...destination.canvases, { ...incoming, ...(draft ? { draft } : {}) }] : destination.canvases;
+      const isOpen = canvases.some(canvas => canvas.id === id);
+      next[to] = { ...destination, canvases, recovery,
+        activeCanvasId: original.activeCanvasId === id && isOpen && destination.activeCanvasId === OVERVIEW_CANVAS_ID ? id : destination.activeCanvasId,
+        closedDrafts: isOpen ? without(destination.closedDrafts, id) : draft ? { ...destination.closedDrafts, [id]: draft } : destination.closedDrafts,
+        targets: !savedTarget && target ? { ...destination.targets, [id]: target } : destination.targets,
+      };
+      next[from] = { ...source, canvases: source.canvases.filter(canvas => canvas.id !== id),
+        activeCanvasId: source.activeCanvasId === id ? OVERVIEW_CANVAS_ID : source.activeCanvasId,
+        closedDrafts: without(source.closedDrafts, id), targets: without(source.targets, id) };
+    }
+  }
+  return next;
+}
+
+function surfaceForId(surface: SurfaceId, id: string): SurfaceId {
+  const input = inputFromCanonicalId(id);
+  return input ? canonicalCanvasSurface(surface, input) : surface;
 }
 
 export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvases> {
   constructor(storageKey: string, initialState: PersistedCanvases = emptyState()) {
-    super(storageKey, initialState, parseState);
+    super(storageKey, migrateCanvasSurfaces(initialState), parseState);
   }
 
   reset = (): void => {
@@ -193,17 +244,20 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
    *  a matching tab already exists it's focused rather than duplicated;
    *  otherwise the new canvas is appended and activated. */
   canOpenCanvas = (surfaceId: SurfaceId, input: CanvasSpecInput): boolean => {
+    surfaceId = canonicalCanvasSurface(surfaceId, input);
     const slice = this.getSnapshot()[surfaceId], id = canvasId(input.kind, input.params);
     return slice.canvases.some(canvas => canvas.id === id) || slice.canvases.length < OPEN_CANVAS_LIMIT;
   };
   /** A closed, previously captured draft may still own this tab's current URL. */
   canViewCanvas = (surfaceId: SurfaceId, input: CanvasSpecInput): boolean => {
+    surfaceId = canonicalCanvasSurface(surfaceId, input);
     const slice = this.getSnapshot()[surfaceId], id = canvasId(input.kind, input.params);
     return this.canOpenCanvas(surfaceId, input) || Object.hasOwn(slice.targets ?? {}, id) || Object.hasOwn(slice.closedDrafts ?? {}, id);
   };
   openCanvas = (surfaceId: SurfaceId, input: CanvasSpecInput): boolean => {
     const valid = parseCanvasInput(input);
-    if (!valid || (valid.kind === "capability" && valid.params.surface !== surfaceId) || (valid.kind === "work" && returningWorkById(valid.params.workId) && workForCanvas(valid.params)?.surfaceId !== surfaceId)) throw new TypeError("Invalid canvas input");
+    if (valid) surfaceId = canonicalCanvasSurface(surfaceId, valid);
+    if (!valid || (valid.kind === "org-assessment" && surfaceId !== "govern") || (valid.kind === "capability" && valid.params.surface !== surfaceId) || (valid.kind === "org-resource" && RESOURCE_TYPES[valid.params.resourceType].surface !== surfaceId) || (valid.kind === "work" && returningWorkById(valid.params.workId) && workForCanvas(valid.params)?.surfaceId !== surfaceId)) throw new TypeError("Invalid canvas input");
     if (!this.canOpenCanvas(surfaceId, valid)) return false;
     const id = canvasId(valid.kind, valid.params);
     this.updateSlice(surfaceId, (slice) => {
@@ -220,6 +274,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
   };
 
   captureTarget = (surfaceId: SurfaceId, id: string, target: WorkspaceTarget): boolean => {
+    surfaceId = surfaceForId(surfaceId, id);
     const input = inputFromCanonicalId(id), valid = parseTarget(target);
     if (!input || !valid || !sameTarget(canvasTarget(input, valid), valid)) return false;
     const previous = this.getSnapshot()[surfaceId].targets?.[id];
@@ -244,6 +299,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
   };
 
   updateDraft = (surfaceId: SurfaceId, id: string, fields: Record<string, string>): void => {
+    surfaceId = surfaceForId(surfaceId, id);
     this.updateSlice(surfaceId, (slice) => {
       if (!slice.canvases.some((canvas) => canvas.id === id && canvas.kind !== "overview")) return slice;
       return {
@@ -260,6 +316,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
    *  sensible neighbor — the tab that slid into its slot (the next one), else
    *  the previous one, else the overview. */
   closeCanvas = (surfaceId: SurfaceId, id: string): void => {
+    surfaceId = surfaceForId(surfaceId, id);
     if (id === OVERVIEW_CANVAS_ID) return;
     this.updateSlice(surfaceId, (slice) => {
       const index = slice.canvases.findIndex((c) => c.id === id);
@@ -284,6 +341,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
   /** Focus a tab. Ignores ids that don't exist (guards against a stale click
    *  racing a close), except the always-present overview. */
   setActiveCanvas = (surfaceId: SurfaceId, id: string): void => {
+    surfaceId = surfaceForId(surfaceId, id);
     this.updateSlice(surfaceId, (slice) => {
       if (id !== OVERVIEW_CANVAS_ID && !slice.canvases.some((c) => c.id === id)) return slice;
       return { ...slice, activeCanvasId: id };

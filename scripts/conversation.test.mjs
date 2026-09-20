@@ -20,6 +20,44 @@ const home = (snapshot = first) => ({ type: "today", snapshot });
 const build = { type: "surface", scopeKey: "build", label: "Build & Setup", reply: "What would you like to build?" };
 const messages = (store, key = "crm:main") => store.getSnapshot().sessions[key].messages;
 
+test("target-org changes append context without replacing history and survive surface and send events", () => {
+  const store = new ConversationStore(), org = { type: "org", orgId: "uat", label: "UAT Sandbox" };
+  store.dispatch("global", { type: "org", orgId: null, label: null });
+  store.dispatch("global", home());
+  store.dispatch("global", org); store.dispatch("global", build);
+  store.dispatch("global", { type: "send", text: "Keep working", reply: "Working in UAT" });
+  const before = store.getSnapshot().sessions.global;
+  store.dispatch("global", org);
+  assert.equal(store.getSnapshot().sessions.global, before);
+  store.dispatch("global", { type: "org", orgId: "prod", label: "Production" });
+  assert.deepEqual(messages(store, "global").slice(0, -1), before.messages);
+  assert.equal(messages(store, "global").at(-1).text, "Target org · Production");
+  assert.equal(store.getSnapshot().sessions.global.targetOrgId, "prod");
+  assert.equal(messages(store, "global").filter(message => message.text === "Target org · UAT Sandbox").length, 1);
+  store.dispatch("global", home());
+  assert.equal(store.getSnapshot().sessions.global.targetOrgId, "prod");
+});
+
+test("project opening seeds an empty or legacy Today-only thread once and resumes existing work verbatim", () => {
+  const store = new ConversationStore(), introduction = { type: "project", label: "CRM", reply: "Your project is ready for planning." };
+  store.dispatch("new", introduction);
+  assert.deepEqual(messages(store, "new").map(message => message.role), ["context", "agent"]);
+  store.dispatch("new-with-org", { type: "org", orgId: "uat", label: "UAT Sandbox" });
+  store.dispatch("new-with-org", introduction);
+  assert.deepEqual(messages(store, "new-with-org").map(message => message.role), ["context", "context", "agent"]);
+  assert.equal(messages(store, "new-with-org").at(-1).text, introduction.reply);
+  store.dispatch("new-with-org", introduction);
+  assert.equal(messages(store, "new-with-org").length, 3);
+  store.dispatch("crm:main", home());
+  store.dispatch("crm:main", introduction);
+  assert.deepEqual(messages(store).map(message => message.role), ["today", "context", "agent"]);
+  assert.deepEqual(messages(store)[0].snapshot, first, "legacy briefing remains stored");
+  store.dispatch("crm:main", build);
+  const before = store.getSnapshot().sessions["crm:main"];
+  store.dispatch("crm:main", introduction);
+  assert.equal(store.getSnapshot().sessions["crm:main"], before, "returning to the project must not append a new entry or change its scope");
+});
+
 test("Today survives exploration, messages, and the return home in chronological order", () => {
   const store = new ConversationStore();
   store.dispatch("crm:main", home());

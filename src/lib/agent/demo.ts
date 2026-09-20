@@ -2,7 +2,7 @@ import type { CapturedContext, RunInput, AgentAdapter, AgentPolicy } from "./con
 import { SURFACES, type SurfaceId } from "../workspace/surfaces";
 import { ASSESSMENT_STEPS, ASSESSMENT_ORGS, findingsForScope } from "../onboarding/assessment";
 import { captureFindings } from "../assessment/model";
-import { isStarterPrompt } from "./starters";
+import { requestedSurface } from "./navigation-intent";
 
 export const SURFACE_QUESTIONS: Record<SurfaceId, string> = {
   build: "What would you like to build or set up? I can help with your data, automations, agents, or app experiences.",
@@ -10,12 +10,13 @@ export const SURFACE_QUESTIONS: Record<SurfaceId, string> = {
   alm: "What would you like to move forward in ALM? We can plan work, review a release, or investigate a deployment.",
   govern: "What would you like to review in Govern & Observe? I can help with access, platform health, or policy controls.",
 };
+export function projectIntroduction(context: CapturedContext): string {
+  if (context.improvement) return `“${context.projectName}” is ready for planning.\n\n${context.greeting}\n\nChoose a work item to review its approach and decide the next step.`;
+  return `“${context.projectName}” · ${context.branch}\n\n${context.greeting ?? "Your project workspace is ready. Tell me what you’d like to work on first."}`;
+}
 export function recommendSurface(text: string, context: CapturedContext): SurfaceId | null {
-  if (context.surface !== "home" && !isStarterPrompt(text)) return null;
-  const preferred = /deploy|release|pipeline|work item|lifecycle/i.test(text) ? "alm"
-    : /code|react|apex|lwc|test|debug|source/i.test(text) ? "code"
-    : /security|permission|monitor|observe|health|trust|govern/i.test(text) ? "govern" : "build";
-  return context.profile.surfaceAccess.find(id => id === preferred) ?? context.profile.surfaceAccess[0] ?? null;
+  const requested = requestedSurface(text);
+  return requested && context.profile.surfaceAccess.includes(requested) ? requested : null;
 }
 export function demoReply(input: Extract<RunInput, { kind: "chat" }>): string {
   const { context: c, text, destination } = input, improvement = c.improvement;
@@ -31,7 +32,10 @@ export function demoReply(input: Extract<RunInput, { kind: "chat" }>): string {
     ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, sandbox, and work item plans, then choose Create project."
     : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Each finding includes sample evidence and an approach to investigate. Review the scope and findings on the home screen.";
   if (destination) return `I’d start this in ${SURFACES[destination].label}. I’ll carry your goal and the context we establish here into that workspace.`;
-  const label = c.surface === "home" ? "Front Door" : SURFACES[c.surface].label;
+  if (c.surface === "home") return /plan|steps|approach/i.test(text)
+    ? "A starting plan is to confirm the current workflow, choose one useful improvement, and validate it with the people who will use it. Which outcome would make the first version successful? This is a demo planning reply; no work has been created or executed."
+    : "Let’s shape this in the conversation. Who is this for, and what problem should the first version solve? This is a demo planning reply; no work has been created or executed.";
+  const label = SURFACES[c.surface].label;
   if (!c.hasProjects) return `This is a wireframe response scoped to ${label}. In the full experience I’d help you establish the project context as we begin.`;
   return `This is a wireframe response scoped to ${label}, working in ${c.projectName}${c.worktreeLabel ? ` · ${c.worktreeLabel}` : ""} against ${c.orgLabel ?? "no connected org"}. In the full experience I’d act on this using ${label}’s tools while keeping that context.`;
 }

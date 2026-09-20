@@ -1,0 +1,76 @@
+import assert from "node:assert/strict";
+import { after, afterEach, test } from "node:test";
+import { testModules } from "./test-modules.mjs";
+const modules = testModules(); after(modules.cleanup); afterEach(() => { delete global.window; });
+const { projectCreationCanvas, projectDraftView } = modules.load("lib/projects/creation");
+const { capabilitiesForSurface } = modules.load("lib/surface-canvas/capabilities");
+const { canvasTarget } = modules.load("lib/surface-canvas/model");
+const { applyAssessmentCommand } = modules.load("lib/application/assessment-commands");
+const { INITIAL } = modules.load("lib/assessment/state-codec");
+const { captureFindings } = modules.load("lib/assessment/model");
+const { ASSESSMENT_FINDINGS, ASSESSMENT_ORGS } = modules.load("lib/onboarding/assessment");
+const { liveAssessmentView, assessmentBriefing } = modules.load("lib/chat/today-snapshot");
+const source = { id: "original", completedAt: "2026-09-19T12:00:00Z", startedAt: "2026-09-19T11:59:00Z", scopeOrgIds: ["prod", "uat"],
+  findings: captureFindings("original", ASSESSMENT_FINDINGS, ASSESSMENT_ORGS, "2026-09-19T12:00:00Z"), source: { adapter: "demo-org-assessment", version: "1" } };
+const completed = { ...INITIAL, status: "complete", currentRunId: source.id, runs: [source] };
+const begin = { kind: "draft.begin", runId: source.id, fields: { name: "Captured plan", goal: "Keep the original evidence", targetOrgId: "sit", findingIds: [source.findings[0].id] }, commandId: "begin", expectedRevision: 0 };
+const ctx = { id: () => "test-id", now: "2026-09-19T12:02:00Z", owner: "Sam Patel" };
+
+test("the shared project capability is a scoped planning brief with explicit project fields", () => {
+  const capability = capabilitiesForSurface("alm").find(capability => capability.id === "project");
+  assert.ok(capability); assert.deepEqual(capability.fields.map(field => field.id), ["name", "goal", "repository"]);
+  for (const scope of [{ scope: "unbound", orgId: "uat" }, { scope: "project", projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" }]) {
+    const input = projectCreationCanvas(scope);
+    assert.equal(input.params.capability, "project"); assert.equal(input.params.surface, "alm");
+    assert.deepEqual(canvasTarget(input, {}), { projectId: scope.projectId ?? null, worktreeId: scope.worktreeId ?? null, orgId: scope.orgId });
+  }
+});
+
+test("project review retains draft source findings while Today follows a new scan without rewriting captured history", () => {
+  const drafted = applyAssessmentCommand(completed, begin, ctx), history = assessmentBriefing(drafted), originalHistory = JSON.stringify(history);
+  const rescanned = applyAssessmentCommand(drafted, { kind: "assessment.rescan", orgIds: ["uat"], commandId: "scan", expectedRevision: 1 }, ctx);
+  const view = projectDraftView(rescanned);
+  assert.equal(view.draft.id, drafted.draft.id); assert.equal(view.run.id, source.id); assert.equal(view.sourceAvailable, true);
+  assert.equal(view.findings[0].id, source.findings[0].id); assert.deepEqual(view.findings[0].evidence, source.findings[0].evidence);
+  assert.deepEqual(liveAssessmentView(rescanned).findings, []);
+  assert.equal(JSON.stringify(history), originalHistory); assert.equal(history.draft.name, "Captured plan"); assert.equal(history.draft.goal, "Keep the original evidence");
+  const created = applyAssessmentCommand(rescanned, { kind: "project.create", draftId: view.draft.id, draftRevision: view.draft.revision, commandId: `create:${view.draft.id}`, expectedRevision: 2 }, ctx);
+  assert.equal(created.draft, null); assert.equal(created.projects[0].runId, source.id); assert.deepEqual(created.projects[0].workItems[0].finding, source.findings[0]);
+});
+
+test("missing, foreign or allocated source findings cannot be represented as a ready project draft", () => {
+  const drafted = applyAssessmentCommand(completed, begin, ctx);
+  assert.equal(projectDraftView({ ...drafted, runs: [] }).sourceAvailable, false);
+  assert.equal(projectDraftView({ ...drafted, draft: { ...drafted.draft, findingIds: ["foreign"] } }).sourceAvailable, false);
+  assert.equal(projectDraftView({ ...drafted, projects: [{ workItems: [{ findingId: source.findings[0].id }] }] }).sourceAvailable, false);
+});
+
+test("beginDraft returns only the acknowledged server draft, never a speculative draft or a timer guess", async () => {
+  const { applicationClient, getActiveAssessmentStore } = modules.load("lib/application/client");
+  const { RemoteWorkspaceStore, EMPTY_APPLICATION } = modules.load("lib/application/remote-store");
+  const session = { namespaceId: "phase3", profileId: "sp", generation: "generation", expiresAt: "2099-01-01T00:00:00Z" };
+  let saved = { ...structuredClone(EMPTY_APPLICATION), session, assessment: completed, assessmentRevision: 0 };
+  let release; let gate = new Promise(resolve => { release = resolve; });
+  let sent = false;
+  const remote = new RemoteWorkspaceStore(session, { read: async () => structuredClone(saved), send: async (_session, command) => {
+    sent = true; await gate;
+    saved = { ...saved, assessment: applyAssessmentCommand(saved.assessment, command, ctx), assessmentRevision: saved.assessmentRevision + 1 };
+    return { revision: saved.assessmentRevision, ...(command.kind === "project.create" ? { project: saved.assessment.projects.at(-1) } : {}) };
+  } }, "phase3-test", () => {});
+  await remote.load(); applicationClient.workspace = remote;
+  try {
+    const adapter = getActiveAssessmentStore();
+    let settled = false;
+    const pending = adapter.beginDraft(source.id, begin.fields).then(draft => { settled = true; return draft; });
+    await Promise.resolve(); assert.equal(sent, true); assert.equal(settled, false); assert.equal(adapter.getSnapshot().draft, null); assert.equal(adapter.isBeginningDraft(), true);
+    release(); const acknowledged = await pending;
+    assert.deepEqual(acknowledged, saved.assessment.draft); assert.equal(acknowledged.runId, source.id); assert.equal(remote.getPersistenceSnapshot(), "saved");
+    assert.equal(adapter.isBeginningDraft(), false);
+    gate = new Promise(resolve => { release = resolve; });
+    const creation = adapter.createProject("Sam Patel", { draftId: acknowledged.id, expectedRevision: acknowledged.revision, commandId: `create:${acknowledged.id}` });
+    assert.equal(adapter.isCreatingProject(acknowledged.id), true, "Re-entered views can recognize a draft already being consumed");
+    assert.equal(adapter.isCreatingProject("another-draft"), false);
+    release(); const project = await creation;
+    assert.equal(project.sourceDraftId, acknowledged.id); assert.equal(adapter.isCreatingProject(acknowledged.id), false);
+  } finally { applicationClient.workspace = null; remote.deactivate(); }
+});

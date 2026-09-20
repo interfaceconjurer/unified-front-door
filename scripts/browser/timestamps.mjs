@@ -27,7 +27,7 @@ try {
     for (const summary of summaries) await workspace.getByText(summary, { exact: true }).waitFor();
     out.checks.push('Workspace session summaries display fixed scenario UTC times');
 
-    await page.getByRole('button', { name: 'Go to a surface', exact: true }).click();
+    await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('tab', { name: 'Sessions', exact: true }).click();
     for (const summary of summaries) await dialog.getByRole('option').filter({ hasText: summary }).waitFor();

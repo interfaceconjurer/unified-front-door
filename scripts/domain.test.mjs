@@ -6,7 +6,11 @@ const { AssessmentStore } = load("lib/onboarding/persistence");
 const { ASSESSMENT_FINDINGS, ASSESSMENT_ORGS, ASSESSMENT_STEPS } = load("lib/onboarding/assessment");
 const { currentFindings, orgAvailability } = load("lib/assessment/model");
 const { workspaceProject } = load("lib/projects/model");
-const { buildProjectTree } = load("lib/workspace/selectors");
+const { projectDraftView } = load("lib/projects/creation");
+const { buildProjectTree, allSessionRows } = load("lib/workspace/selectors");
+const { PROJECTS } = load("lib/workspace/fixtures");
+const { destinationHref, resolveDestination } = load("lib/navigation/model");
+const { updateConversation } = load("lib/chat/conversation");
 const { primaryWorktree, sessionKey } = load("lib/workspace/model");
 const { assessmentBriefing, liveAssessmentView, captureToday, BRIEFING_LIMITS } = load("lib/chat/today-snapshot");
 const { SurfaceCanvasStore } = load("lib/surface-canvas/persistence");
@@ -66,7 +70,8 @@ test("rescan keeps edited draft origin and field commands cannot overwrite unrel
   store.editDraft(origin.id, { field: "goal", value: "New goal" });
   store.editDraft(origin.id, { field: "name", value: "New name" }); assert.equal(store.getSnapshot().draft.goal, "New goal");
   store.rescan(["uat"]); assert.equal(store.getSnapshot().draft.runId, firstRun);
-  assert.equal(liveAssessmentView(store.getSnapshot()).findings[0].runId, firstRun);
+  assert.equal(projectDraftView(store.getSnapshot()).findings[0].runId, firstRun);
+  assert.deepEqual(liveAssessmentView(store.getSnapshot()).findings, [], "Today follows the current unfinished scan; the project canvas retains its original evidence");
   const project = store.createProject("Sam", { draftId: origin.id, commandId: "origin-create", expectedRevision: store.getSnapshot().draft.revision }); assert.ok(project); assert.equal(project.runId, firstRun);
   complete(store); const next = draft(store); store.editDraft(origin.id, { field: "name", value: "Stale overwrite" }); store.discardDraft(origin.id);
   assert.equal(store.getSnapshot().draft.id, next.id); assert.equal(store.getSnapshot().draft.name, "Captured plan");
@@ -113,13 +118,45 @@ test("Today snapshot clips recent display without copying source/activity and ex
   assert.equal(today.recent.length, 12); assert.equal(today.totalRecent, 20); assert.equal(today.truncated, true); assert.equal(today.recent[0].source, undefined); assert.deepEqual(today.recent[0].activity, []);
 });
 
+test("returning review scenarios agree with waiting sessions and route to their owned project/worktree", () => {
+  const added = ["hotfix-tests", "storefront-health", "storefront-release"], profile = DEMO_PROFILES.find(profile => profile.id === "am");
+  assert.equal(RETURNING_WORK.filter(work => work.attention).length, 5);
+  for (const id of added) {
+    const work = RETURNING_WORK.find(work => work.id === id), project = PROJECTS.find(project => project.id === work.projectId);
+    assert.equal(work.attention, true); assert.equal(work.status, "review");
+    assert.equal(project.agentSessions.find(session => session.worktreeId === work.worktreeId).status, "waiting");
+    const target = { projectId: project.id, worktreeId: work.worktreeId, orgId: project.defaultOrgId };
+    const result = resolveDestination(destinationHref({ version: 1, owner: profile.id, surface: work.surfaceId, target, canvas: workCanvasInput(work) }), profile.id, profile.surfaceAccess, {});
+    assert.equal(result.kind, "available"); assert.deepEqual(result.destination.target, target); assert.equal(result.destination.canvas.params.workId, id);
+  }
+  assert.deepEqual(allSessionRows(PROJECTS).map(row => row.session.status), ["waiting", "waiting", "waiting", "working"]);
+  assert.equal(RETURNING_WORK.find(work => work.id === "storefront-app").surfaceId, "alm");
+});
+
+test("a refreshed attention briefing leaves earlier Today statuses, routes and absolute timestamps intact", () => {
+  const profile = DEMO_PROFILES.find(profile => profile.id === "am"), state = complete().getSnapshot();
+  const historical = structuredClone(RETURNING_WORK).map(work => ["hotfix-tests", "storefront-health", "storefront-release"].includes(work.id)
+    ? { ...work, attention: false, status: "saved", statusLabel: "Previously saved" } : work.id === "storefront-app" ? { ...work, surfaceId: "build" } : work);
+  const capture = recent => captureToday({ capturedAt: "2026-09-20T10:00:00Z", profile, scope: "global", projectName: "All projects", branch: "", hasProjects: true, working: 1, recent, assessment: state });
+  let conversation = updateConversation(undefined, { type: "today", snapshot: capture(historical) });
+  const before = JSON.stringify(conversation.messages[0]);
+  conversation = updateConversation(conversation, { type: "surface", scopeKey: "code", label: "Code", reply: "Review the captured regression coverage." });
+  conversation = updateConversation(conversation, { type: "today", snapshot: capture(RETURNING_WORK), force: true });
+  assert.equal(JSON.stringify(conversation.messages[0]), before);
+  assert.equal(conversation.messages[0].snapshot.recent.filter(work => work.attention).length, 2);
+  assert.equal(conversation.messages.at(-1).snapshot.recent.filter(work => work.attention).length, 5);
+  for (const [id, timestamp] of [["hotfix-tests", "2026-09-14T14:35:00Z"], ["storefront-health", "2026-09-14T13:00:00Z"], ["storefront-release", "2026-09-13T15:00:00Z"]]) {
+    assert.equal(conversation.messages.at(-1).snapshot.recent.find(work => work.id === id).updated, timestamp);
+  }
+});
+
 test("canvas contracts reject missing required fields and canonical IDs are delimiter-safe and label-independent", () => {
   for (const kind of ["app", "capability", "work", "improvement-project"]) assert.equal(parseCanvasInput({ kind, title: "Invalid", params: {} }), null);
   assert.equal(parseCanvasInput({ kind: "capability", title: "Invalid", params: { surface: "other", capability: "apex" } }), null);
   const a = { kind: "app", title: "One", params: { appId: "x&projectId=y", projectId: "z" } }, b = { kind: "app", title: "Two", params: { appId: "x", projectId: "y&projectId=z" } };
   const id = canvasId(a.kind, a.params); assert.notEqual(id, canvasId(b.kind, b.params)); assert.deepEqual(inputFromCanonicalId(id).params, a.params);
   assert.equal(id, canvasId(a.kind, { projectId: "z", appId: "x&projectId=y", name: "Renamed" }));
-  const store = new SurfaceCanvasStore("canvases"); store.openCanvas("build", a); store.openCanvas("build", { ...a, title: "Renamed" }); assert.equal(store.getSnapshot().build.canvases.length, 1);
+  const store = new SurfaceCanvasStore("canvases"); store.openCanvas("build", a); store.openCanvas("build", { ...a, title: "Renamed" }); assert.equal(store.getSnapshot().alm.canvases.length, 1);
 });
 
 test("legacy migration maps active structured spec, preserves competing closed bytes and duplicate colliding tabs", () => {

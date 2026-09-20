@@ -53,7 +53,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
-  const [homeRequest, setHomeRequest] = useState(0);
   const shellRef = useRef<HTMLDivElement>(null);
   const waitForLayout = useCallback(async (signal: AbortSignal) => {
     if (shellRef.current) await waitForWorkspaceMotion(shellRef.current, signal);
@@ -148,8 +147,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
       <div className={styles.shell} ref={shellRef}>
         <TopBar
-          onOpenHome={() => { if (isFrontDoor) setHomeRequest((value) => value + 1); }}
           onOpenPalette={() => openPalette("surfaces")}
+          onOpenProjects={() => openPalette("projects")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
           surfaceOpen={surfaceOpen}
@@ -167,11 +166,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
-                  <AgentPanel homeRequest={homeRequest} waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
+                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
                 </div>
               </div>
               {/* The surface is an overlay pinned at its final 60% width: adding
@@ -186,10 +185,13 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 inert={!surfaceOpen}
               >
                 {surface ? (
-                  // Matching names retain the outgoing canvas image across a
-                  // surface swap. Only shared transitions animate: entering or
-                  // leaving home keeps the existing agent/panel sequence.
-                  <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
+                  // Project/Home changes dissolve; surface-only swaps retain
+                  // their movement without mounting duplicate live canvases.
+                  <ViewTransition key={surface.id} name="surface-canvas" default="none"
+                    share={{ "workspace-context": "workspace-dissolve", default: "surface-swap" }}
+                    update={{ "workspace-context": "workspace-dissolve", default: "none" }}
+                    enter={{ "workspace-context": "workspace-dissolve", default: "none" }}
+                    exit={{ "workspace-context": "workspace-dissolve", default: "none" }}>
                     <div className={styles.surfaceInner}>
                       <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
                     </div>

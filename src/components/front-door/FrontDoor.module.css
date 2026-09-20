@@ -7,11 +7,50 @@
   width: 100%;
   min-width: 0;
   min-height: 0;
+  transition: filter 500ms ease, opacity 500ms ease;
 }
 
 .content {
   width: 100%;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
   padding: 1rem 0 1.5rem;
+}
+
+/* History keeps the cards, spacing and type; only paint and controls change. */
+.frontDoor[data-read-only] { filter: grayscale(1); opacity: 0.78; }
+.frontDoor[data-read-only] * { animation: none !important; }
+.frontDoor[data-read-only] :is(button, input, select, textarea, summary) {
+  pointer-events: none;
+  cursor: default;
+}
+.frontDoor[data-read-only] button:disabled { opacity: 1; }
+
+/* Restore the Today reveal from f6313a2 in the current continuous transcript. */
+.frontDoor [data-today-row] {
+  transform-origin: center top;
+  animation: todayRowReveal var(--shell-motion-duration, 500ms)
+    var(--shell-motion-easing, cubic-bezier(0.22, 0.61, 0.36, 1))
+    calc(var(--today-order, 0) * 75ms) backwards;
+}
+
+@keyframes todayRowReveal {
+  from { opacity: 0; filter: blur(6px); transform: translateY(10px) scale(0.985); }
+  72% { opacity: 1; filter: blur(0); transform: translateY(-1px) scale(1.003); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+
+/* Don't spend the reveal while the transcript or navigation snapshot hides it.
+   This also coordinates the existing day-zero animations. */
+:global([data-pending]) .frontDoor *,
+:global(:root:active-view-transition) .frontDoor * { animation-play-state: paused; }
+
+.frontDoor [data-today-row]:focus-within { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .frontDoor [data-today-row] { animation: none; }
+  .frontDoor { transition: none; }
 }
 
 .hero {

@@ -138,11 +138,13 @@ test('tab budget rejects new views without deleting older data; existing overflo
   const input = i => ({ kind: 'app', title: `App ${i}`, params: { projectId: 'project', appId: `app-${i}` } });
   for (let i = 0; i < 22; i++) { const item = input(i); prefs.build.canvases.push({ ...item, id: canvasId(item.kind, item.params), draft: { notes: String(i) } }); }
   const store = new SurfaceCanvasStore('tabs', prefs);
-  assert.equal(store.getSnapshot().build.canvases.length, 22);
+  // Legacy Build app inputs normalize into ALM without losing the overflow.
+  assert.equal(store.getSnapshot().build.canvases.length, 0);
+  assert.equal(store.getSnapshot().alm.canvases.length, 22);
   assert.equal(store.openCanvas('build', input(22)), false); assert.equal(store.openCanvas('build', input(0)), true);
   for (let i = 0; i < 3; i++) store.closeCanvas('build', canvasId(input(i).kind, input(i).params));
-  assert.equal(store.openCanvas('build', input(22)), true); assert.equal(store.getSnapshot().build.canvases.length, 20);
-  assert.equal(Object.keys(store.getSnapshot().build.closedDrafts).length, 3);
+  assert.equal(store.openCanvas('build', input(22)), true); assert.equal(store.getSnapshot().alm.canvases.length, 20);
+  assert.equal(Object.keys(store.getSnapshot().alm.closedDrafts).length, 3);
 });
 
 test('rejected navigation does not push a phantom destination or supersede the previous accepted href', () => {
@@ -222,7 +224,7 @@ test('a previously captured closed URL view survives20 shared tabs while unknown
   controller.navigate(home);
   const badUrl = destinationHref({ ...home, surface: 'build', canvas: unknown, target: projectTarget });
   assert.equal(controller.restore(badUrl, true), false); controller.navigate(home);
-  assert.equal(controller.restore(badUrl, true), false); assert.equal(store.getSnapshot().build.targets[unknownId], undefined);
-  assert.equal(store.getSnapshot().build.closedDrafts[selectedId].notes, 'preserved closed draft');
-  assert.equal(store.getSnapshot().build.canvases.length, 20);
+  assert.equal(controller.restore(badUrl, true), false); assert.equal(store.getSnapshot().alm.targets[unknownId], undefined);
+  assert.equal(store.getSnapshot().alm.closedDrafts[selectedId].notes, 'preserved closed draft');
+  assert.equal(store.getSnapshot().alm.canvases.length, 20);
 });

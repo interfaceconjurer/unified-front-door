@@ -1,11 +1,11 @@
 import { ApplicationError, stableJson, type SessionView } from "../application/contracts";
-import { activeRun, parseAgentCommand, type AgentCommand, type AgentReceipt, type AgentSnapshot, type RunView } from "./contracts";
+import { activeRun, parseAgentCommand, type AgentAcknowledgement, type AgentCommand, type AgentReceipt, type AgentSnapshot, type RunView } from "./contracts";
 import { mergeAgentSnapshot, mergeRunProgress } from "./progress";
 
 export const EMPTY_AGENT: AgentSnapshot = { conversations: [], runs: [] };
 const INITIAL: { data: AgentSnapshot; ready: boolean; error: string; pending: boolean; requestIssue: "retry" | "rejected" | null; recovery: string | null; acknowledged: { command: AgentCommand; receipt: AgentReceipt } | null } = { data: EMPTY_AGENT, ready: false, error: "", pending: false, requestIssue: null, recovery: null, acknowledged: null };
 export const inactiveAgent = { getSnapshot: () => INITIAL, getServerSnapshot: () => INITIAL, subscribe: (listener: () => void) => { void listener; return () => {}; }, start: () => {}, setThread: (threadKey: string) => { void threadKey; }, command: async (command: AgentCommand): Promise<AgentReceipt | null> => { void command; return null; }, retry: () => {}, discardRecovery: () => {} };
-type Transport = { read(): Promise<AgentSnapshot>; readRun?(runId: string, after: number): Promise<{ run: RunView }>; send(command: AgentCommand): Promise<AgentReceipt> };
+type Transport = { read(): Promise<AgentSnapshot>; readRun?(runId: string, after: number): Promise<{ run: RunView }>; send(command: AgentCommand): Promise<AgentAcknowledgement> };
 type Pending = { command: AgentCommand; resolve?: (receipt: AgentReceipt | null) => void };
 /** A captured session owns requests; selection changes never rewrite queued input. */
 export class AgentClient {
@@ -16,7 +16,7 @@ export class AgentClient {
   private blocked = false;
   private queue: Pending[] = [];
   private timer: ReturnType<typeof setInterval> | null = null;
-  private reading = false;
+  private reading: Promise<void> | null = null;
   private threadKey: string | null = null;
   private progressTimer: ReturnType<typeof setTimeout> | null = null;
   private readingProgress = false;
@@ -57,9 +57,12 @@ export class AgentClient {
   start = () => {
     if (this.timer || !this.active) return;
     void this.refresh(); this.timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (this.sending && this.queue[0]?.command.kind === "visit") return;
       const run = this.selectedRun();
       const progressHealthy = run?.id === this.lastProgressRun && Date.now() - this.lastProgressRead < 2500;
-      if (!progressHealthy || Date.now() - this.lastFullRead >= 5000) void this.refresh();
+      const active = this.view.data.runs.some(run => activeRun(run.status));
+      if (active && !progressHealthy || this.blocked || this.readFailed || Date.now() - this.lastFullRead >= 5000) void this.refresh();
     }, 1000);
   };
   setThread = (threadKey: string) => {
@@ -105,8 +108,17 @@ export class AgentClient {
     if (this.progressTimer) clearTimeout(this.progressTimer); this.progressTimer = null;
     for (const pending of this.queue) pending.resolve?.(null);
   }
-  refresh = async () => {
-    if (!this.active || this.reading) return; this.reading = true;
+  refresh = (): Promise<void> => {
+    if (!this.active) return Promise.resolve();
+    if (!this.reading) this.reading = this.readSnapshot().finally(() => { this.reading = null; });
+    return this.reading;
+  };
+  refreshAfterWrite = async () => {
+    // A read already in flight can predate the acknowledged write.
+    if (this.reading) await this.reading;
+    await this.refresh();
+  };
+  private async readSnapshot() {
     let refreshed = false;
     try {
       const incoming = await this.transport.read(); if (!this.active) return;
@@ -122,7 +134,7 @@ export class AgentClient {
     } catch (error) {
       if (this.active) { this.readFailed = true; this.publish({ error: error instanceof Error ? error.message : "Agent history is unavailable." }); if (error instanceof ApplicationError && ["session_changed", "unauthorized"].includes(error.code)) this.sessionChanged(); }
     } finally {
-      this.reading = false; this.scheduleProgress();
+      this.scheduleProgress();
       // Visits only update navigation context; they never start model work.
       // Recover them after connectivity returns, preserving their receipt IDs.
       // User commands still require an explicit retry after an uncertain result.
@@ -130,15 +142,23 @@ export class AgentClient {
         this.blocked = false; void this.drain();
       }
     }
-  };
+  }
   command(command: AgentCommand): Promise<AgentReceipt | null> {
     const recoveringVisits = this.blocked && command.kind === "visit" && this.queue.length > 0 && this.queue.every(item => item.command.kind === "visit");
     if (!this.active || !this.view.ready || this.blocked && !recoveringVisits) return Promise.resolve(null);
     const last = this.queue.at(-1)?.command;
-    if (command.kind === "visit" && last?.kind === "visit" && stableJson(last.context) === stableJson(command.context) && last.workId === command.workId) return Promise.resolve(null);
-    // Retain the uncertain first visit, but only the newest not-yet-sent
-    // destination behind it. Recovery must finish in the currently chosen surface.
-    if (recoveringVisits) for (const superseded of this.queue.splice(1)) superseded.resolve?.(null);
+    if (command.kind === "visit" && last?.kind === "visit" && stableJson(last.context) === stableJson(command.context) && last.workId === command.workId
+      && (!command.refreshToday || last.refreshToday)) return Promise.resolve(null);
+    // Plain navigation can supersede other unsent navigation, but never a
+    // submitted message, explicit work action, or an in-flight/uncertain request.
+    if (command.kind === "visit" && !command.workId) {
+      const protectedCount = this.sending || this.blocked ? 1 : 0;
+      while (this.queue.length > protectedCount) {
+        const tail = this.queue.at(-1)!;
+        if (tail.command.kind !== "visit" || tail.command.workId) break;
+        this.queue.pop(); tail.resolve?.(null);
+      }
+    }
     const result = new Promise<AgentReceipt | null>(resolve => this.queue.push({ command, resolve }));
     this.persist(); this.publish({ pending: true, ...(command.kind !== "visit" ? { requestIssue: null } : {}) }); void this.drain(); return result;
   }
@@ -158,8 +178,16 @@ export class AgentClient {
         const pending = this.queue[0]!;
         try {
           const receipt = await this.transport.send(pending.command); if (!this.active) return;
-          this.queue.shift(); this.persist(); this.publish({ pending: this.queue.length > 0, error: "", requestIssue: null, acknowledged: { command: pending.command, receipt } });
-          await this.refresh(); pending.resolve?.(this.active ? receipt : null);
+          this.queue.shift(); this.persist();
+          const data = receipt.conversation ? mergeAgentSnapshot(this.view.data, { conversations: [receipt.conversation], runs: [] }) : this.view.data;
+          this.publish({ data, pending: !receipt.conversation || this.queue.length > 0, error: "", requestIssue: null, acknowledged: { command: pending.command, receipt } });
+          if (!receipt.conversation) {
+            // Legacy acknowledgements and run commands still need history.
+            // A read already in flight may predate this write; finish it first.
+            await this.refreshAfterWrite();
+            if (this.active) this.publish({ pending: this.queue.length > 0 });
+          }
+          pending.resolve?.(this.active ? receipt : null);
         } catch (error) {
           if (!this.active) return;
           const rejected = error instanceof ApplicationError && error.status < 500;

@@ -57,15 +57,16 @@ export function waitForWorkspaceMotion(shell: HTMLElement, signal: AbortSignal):
 export async function scrollToEntry(container: HTMLElement, entry: HTMLElement, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
   const start = container.scrollTop;
+  const style = getComputedStyle(container);
+  const inset = parseFloat(style.scrollPaddingBlockStart) || 0;
   const target = Math.max(0, Math.min(
-    entry.getBoundingClientRect().top - container.getBoundingClientRect().top + start - 20,
+    entry.getBoundingClientRect().top - container.getBoundingClientRect().top + start - inset,
     container.scrollHeight - container.clientHeight,
   ));
   if (Math.abs(target - start) < 1 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     container.scrollTop = target;
     return;
   }
-  const style = getComputedStyle(container);
   const time = style.getPropertyValue("--chat-scroll-duration").trim();
   const duration = parseFloat(time) * (time.endsWith("ms") ? 1 : 1000);
   const animation = container.animate([{}, {}], {

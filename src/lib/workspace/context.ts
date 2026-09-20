@@ -12,6 +12,13 @@ export type WorkspaceResolution = {
   sessionKey: string;
 };
 export const UNBOUND_TARGET: WorkspaceTarget = { projectId: null, worktreeId: null, orgId: null };
+export const GLOBAL_SESSION_KEY = JSON.stringify(["unbound-session", null]);
+export function conversationKey(target: WorkspaceTarget): string {
+  return target.projectId ? sessionKey(target.projectId, target.worktreeId) : GLOBAL_SESSION_KEY;
+}
+export function homeTarget(target: WorkspaceTarget): WorkspaceTarget {
+  return { projectId: null, worktreeId: null, orgId: target.orgId };
+}
 export function sameTarget(a: WorkspaceTarget, b: WorkspaceTarget): boolean {
   return a.projectId === b.projectId && a.worktreeId === b.worktreeId && a.orgId === b.orgId;
 }
@@ -28,7 +35,7 @@ export function resolveWorkspace(target: WorkspaceTarget, projects: readonly Pro
   return {
     target, project, worktree, org, reason,
     status: !loaded ? "loading" : reason ? "unavailable" : !project ? "empty" : !project.worktrees.length ? "planning" : "ready",
-    sessionKey: project || target.projectId ? sessionKey(target.projectId!, target.worktreeId) : JSON.stringify(["unbound-session", target.orgId]),
+    sessionKey: conversationKey(target),
   };
 }
 

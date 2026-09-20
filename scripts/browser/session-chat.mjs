@@ -60,7 +60,7 @@ try {
     out.checks.push(`${motion}: reload restores the exact message anchor, including an older history page`);
     await page.getByRole('button', { name: 'Latest messages', exact: true }).click();
     await page.locator('[data-message-id="81"]').waitFor();
-    await page.getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+    await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/build');
     await page.getByText('What would you like to build?', { exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
@@ -68,7 +68,8 @@ try {
     const contextTop = await page.locator('[data-kind="context"]').last().evaluate(node => node.getBoundingClientRect().top);
     const logTop = await transcript.evaluate(node => node.getBoundingClientRect().top);
     assert(Math.abs(contextTop - logTop - 20) < 3, `Surface context offset ${contextTop - logTop}`);
-    assert.equal(await page.getByRole('navigation', { name: 'Explore surfaces', exact: true }).count(), 0);
+    assert((await page.locator('fieldset:disabled').getByRole('navigation', { name: 'Explore surfaces', exact: true }).count()) > 0);
+    assert.equal(await page.locator('fieldset:disabled').locator('button:enabled, a[href]').count(), 0);
     out.checks.push(`${motion}: Today becomes history, the new surface context scrolls into place, and content reveals`);
 
     disconnected = true;
