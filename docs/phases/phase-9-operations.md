@@ -248,7 +248,7 @@ Official references checked by the coordinator:
 [Heroku release phase](https://devcenter.heroku.com/articles/release-phase),
 [GitHub environment protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments),
 and [Heroku pricing](https://www.heroku.com/pricing/). Full operational steps are in
-the [README release runbook](../../README.md#heroku-release-runbook).
+the [release runbook](../operations.md#heroku-release-runbook).
 
 ## Final disposition
 

@@ -204,7 +204,7 @@ The existing tests are useful but cover only conversation and assessment stores.
 
 **Smallest coherent fix:** require locked install on Node 22, both suites, lint, and build for the revision being released. Add a small production-browser suite for the identified seams. Check the running Heroku release for expected unauthenticated rejection and an authenticated page/asset; make failed readiness visible and document recovery. Apply the same verification to manual releases. External branch protection and hosting controls may exist; they were not inspected.
 
-Local setup also points to a missing `.env.example` ([README](../README.md#L94), [DB helper](../src/lib/db.ts#L24)); the ignore rule excludes all `.env*`. Add a secret-free tracked template or correct the instructions, keeping Basic Auth required and the database optional.
+Local setup also points to a missing `.env.example` ([setup guide](development.md#getting-started), [DB helper](../src/lib/db.ts#L24)); the ignore rule excludes all `.env*`. Add a secret-free tracked template or correct the instructions, keeping Basic Auth required and the database optional.
 
 **Acceptance:** a failing existing test prevents deployment; omitted runtime auth configuration fails the smoke check; a fresh checkout runs using the documented steps on the declared runtime.
 
