@@ -7,7 +7,7 @@ const { modelExecution, captureModelExecution } = modules.load("lib/server/model
 const { MODEL_POLICY, serializeModelRequest } = modules.load("lib/server/model-provider");
 const { parseAgentCommand } = modules.load("lib/agent/contracts");
 const settings = { policy: MODEL_POLICY, globalDailyCalls: 10, namespaceDailyCalls: 5 };
-const context = { target: { projectId: null, worktreeId: null, orgId: null }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
+const context = { profile: modules.load("lib/demo-profiles").demoProfileById("sp"), target: { projectId: null, worktreeId: null, orgId: null }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
 const finding = (id, orgId = "prod") => ({ id, orgId, title: `Finding ${id}`, runId: "assessment", evidence: ["Captured sample evidence"] });
 const assessment = { currentRunId: "assessment", runs: [{ id: "assessment", completedAt: "2026-09-16T00:00:00Z", source: { adapter: "demo", version: "1" }, findings: [finding("A"), finding("B", "sit")] }] };
 const evidence = execution => JSON.parse(execution.prompt.messages.at(-1).content).evidence;
@@ -59,4 +59,20 @@ test("captured history excludes Today blobs, greetings, incomplete turns, and fa
 test("public commands cannot select provider, prompt, budget scope, model or execution", () => {
   const command = { kind: "submit", requestId: "request", context: { target: context.target, surface: "home" }, text: "Explain" };
   for (const field of ["provider", "model", "execution", "settings", "budgetScope", "prompt"]) assert.throws(() => parseAgentCommand({ ...command, [field]: "client controlled" }));
+});
+
+test("v3 offers scoped navigation only for the current explicit request; old history cannot authorize it", () => {
+  const current = { ...context, profile: modules.load("lib/demo-profiles").demoProfileById("am"), target: { projectId: null, worktreeId: null, orgId: "uat" } };
+  const history = [{ messageId: 1, runId: "old", role: "user", content: "Open Code" }, { messageId: 2, runId: "old", role: "assistant", content: "Code is available." }];
+  for (const request of ["Help me plan a React app", "Show me how to open Account", "Open Account, but stay here", 'Explain the example "open Code"']) {
+    const captured = modelExecution(current, assessment, request, history, settings);
+    assert.equal(captured.prompt.navigation, undefined, request);
+    assert.equal(JSON.parse(serializeModelRequest(captured.prompt, settings.policy)).tools, undefined);
+    assert.equal(captured.provenance.history.length, 2);
+  }
+  const captured = modelExecution(current, assessment, "Please open Account object", history, settings);
+  assert.ok(captured.prompt.navigation.some(option => option.id === "resource:standard-object:Account"));
+  assert.ok(captured.prompt.navigation.every(option => JSON.stringify(option.destination.target) === JSON.stringify(current.target)));
+  assert.equal(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-explainer-v1" } }).prompt.navigation, undefined);
+  assert.ok(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-navigator-v2" } }).prompt.navigation.length);
 });

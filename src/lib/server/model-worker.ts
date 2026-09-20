@@ -1,4 +1,6 @@
 import "server-only";
+import { navigationMatchesContext } from "../agent/navigation";
+import { destinationIdentity } from "../navigation/model";
 import type { PoolClient } from "pg";
 import type { RunError, StepOutcome } from "../agent/contracts";
 import { transaction } from "../db";
@@ -101,11 +103,14 @@ export async function executeModelRun(lease: RunLease, boundary: Boundary, signa
     const interrupted = new Promise<never>((_, reject) => controller.signal.addEventListener("abort", () => reject(new ModelProviderError("aborted", dispatched)), { once: true }));
     dispatched = true;
     const result = await Promise.race([(runtime.complete ?? completeModel)(execution.prompt, execution.settings.policy, controller.signal, { onText }), interrupted]);
+    if (result.navigation && (!execution.prompt.navigation?.some(option => option.id === result.navigation!.id
+      && destinationIdentity(option.destination) === destinationIdentity(result.navigation!.destination))
+      || !navigationMatchesContext(result.navigation, lease.run.input.context))) throw new ModelProviderError("invalid_response", true);
     stopped = true; clearTimeout(heartbeat); clearTimeout(progressTimer); await renewal; await progressWrite;
     if (controller.signal.aborted) { await fail(interruption()); return; }
     await transaction(async client => {
       if (!await boundary.valid(client, lease)) return;
-      if (!await boundary.publish(client, lease, { kind: "complete", text: result.text })) return;
+      if (!await boundary.publish(client, lease, { kind: "complete", text: result.text, ...(result.navigation ? { navigation: result.navigation } : {}) })) return;
       await client.query(`UPDATE model_attempts SET status='succeeded',message_id=$2,request_id=$3,input_tokens=$4,output_tokens=$5,updated_at=clock_timestamp()
         WHERE run_id=$1 AND status='intent'`, [lease.run.id, result.messageId, result.requestId ?? null, result.usage.inputTokens, result.usage.outputTokens]);
       // A validated response establishes that this local dispatch has ended.

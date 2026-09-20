@@ -1,8 +1,9 @@
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { testModules } from "./test-modules.mjs";
 const modules = testModules(); after(modules.cleanup);
-const { MODEL_POLICY, MODEL_SYSTEM_PROMPT, modelSettings, serializeModelRequest, completeModel, ModelProviderError } = modules.load("lib/server/model-provider");
+const { MODEL_POLICY, MODEL_SYSTEM_PROMPT, MODEL_PLANNER_SYSTEM_PROMPT, modelSettings, serializeModelRequest, completeModel, ModelProviderError } = modules.load("lib/server/model-provider");
 const env = { AGENT_PROVIDER: "anthropic", ANTHROPIC_API_KEY: "synthetic-private-api-key" };
 const prompt = { messages: [{ role: "user", content: "Explain the captured finding and propose next steps." }] };
 const response = patch => ({ type: "message", id: "msg_test123", role: "assistant", model: MODEL_POLICY.model, container: null,
@@ -40,7 +41,7 @@ test("provider is explicitly enabled with server-only credentials, fixed model a
 
 test("serialized request has fixed authority and includes the full UTF8 envelope in its bound", () => {
   const body = serializeModelRequest(prompt, MODEL_POLICY), value = JSON.parse(body);
-  assert.equal(value.model, MODEL_POLICY.model); assert.equal(value.system, MODEL_SYSTEM_PROMPT); assert.equal(value.max_tokens, 1024);
+  assert.equal(value.model, MODEL_POLICY.model); assert.equal(value.system, MODEL_PLANNER_SYSTEM_PROMPT); assert.equal(value.max_tokens, 1024);
   assert.deepEqual(value.thinking, { type: "disabled" }); assert.equal(value.stream, true);
   assert.deepEqual(Object.keys(value).sort(), ["max_tokens", "messages", "model", "stream", "system", "thinking"]);
   const empty = JSON.stringify({ ...value, messages: [{ role: "user", content: "" }] }), allowance = MODEL_POLICY.maxRequestBytes - Buffer.byteLength(empty);
@@ -258,4 +259,112 @@ test("known truncation remains incomplete even when reported output usage exceed
     values.at(-2).delta.stop_reason = "end_turn";
     await assert.rejects(call(async () => stream(values)), errorCode("invalid_response"));
   }
+});
+
+const navigationContext = {
+  profile: modules.load("lib/demo-profiles").demoProfileById("am"),
+  target: { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" },
+  orgLabel: "UAT Sandbox", improvement: null,
+};
+const { navigationOptions } = modules.load("lib/agent/navigation");
+const navigation = navigationOptions(navigationContext);
+const navigationPrompt = { ...prompt, navigation };
+const toolCall = (id = "surface:build", name = "open_surface") => ({ type: "tool_use", id: "toolu_open1", name, input: { destinationId: id } });
+const toolEvents = (call = toolCall(), patch = {}) => [
+  { type: "message_start", message: { ...response(), content: [], stop_reason: null } },
+  { type: "content_block_start", index: 0, content_block: { ...call, input: {} } },
+  ...[JSON.stringify(call.input).slice(0, 7), JSON.stringify(call.input).slice(7)].map(partial_json =>
+    ({ type: "content_block_delta", index: 0, delta: { type: "input_json_delta", partial_json } })),
+  { type: "content_block_stop", index: 0 },
+  { type: "message_delta", delta: { stop_reason: "tool_use", ...patch }, usage: { output_tokens: 24 } },
+  { type: "message_stop" },
+];
+const navigate = (values, onText) => completeModel(navigationPrompt, MODEL_POLICY, new AbortController().signal,
+  { env, fetch: async () => stream(values), onText });
+
+test("navigation catalog exposes scoped tools without exposing raw URLs or permitting parallel calls", () => {
+  const body = JSON.parse(serializeModelRequest(navigationPrompt, MODEL_POLICY));
+  assert.deepEqual(body.tools.map(tool => tool.name), ["open_surface", "open_canvas"]);
+  assert.deepEqual(body.tool_choice, { type: "auto", disable_parallel_tool_use: true });
+  assert(!body.system.includes("You have no tools"));
+  assert(!JSON.stringify(body.tools).includes("destination="));
+  assert(!JSON.stringify(body.tools).includes("Acme Storefront"));
+  const legacy = { ...MODEL_POLICY, promptVersion: "workspace-explainer-v1" };
+  assert.equal(JSON.parse(serializeModelRequest(prompt, legacy)).tools, undefined);
+  assert.throws(() => serializeModelRequest(navigationPrompt, legacy), errorCode("input_limit", false));
+});
+
+test("fragmented tool JSON becomes one scoped navigation only after validated message_stop", async () => {
+  for (const [id, name] of [["surface:build", "open_surface"], ["resource:standard-object:Account", "open_canvas"]]) {
+    const emitted = [], result = await navigate(toolEvents(toolCall(id, name)), text => emitted.push(text));
+    assert.deepEqual(result.navigation.destination.target, navigationContext.target);
+    assert.equal(result.navigation.id, id); assert.equal(result.navigation.toolCallId, "toolu_open1");
+    assert.equal(result.navigation.destination.surface, "build");
+    assert(result.text.trim()); assert.deepEqual(emitted, [], "Tool input is never rendered as reply text");
+  }
+});
+
+test("unknown, mismatched, injected, incomplete, refused and duplicate navigation calls cannot execute", async () => {
+  const wrong = [
+    toolCall("surface:build", "open_canvas"), toolCall("surface:unknown"), toolCall("surface:build", "write"),
+    { ...toolCall(), input: { destinationId: "surface:build", url: "https://evil.test" } },
+    { ...toolCall(), id: "invalid" },
+  ];
+  for (const call of wrong) await assert.rejects(navigate(toolEvents(call)), errorCode("invalid_response"));
+  await assert.rejects(navigate(toolEvents().slice(0, -1)), errorCode("invalid_response"));
+  await assert.rejects(navigate(toolEvents(toolCall(), { stop_reason: "end_turn" })), errorCode("invalid_response"));
+  await assert.rejects(navigate(toolEvents(toolCall(), { stop_reason: "max_tokens" })), errorCode("incomplete"));
+  await assert.rejects(navigate(toolEvents(toolCall(), { stop_reason: "refusal" })), errorCode("refused"));
+  const duplicate = toolEvents(), blocks = toolEvents().slice(1, -2).map(event => ({ ...event, index: 1 }));
+  duplicate.splice(-2, 0, ...blocks);
+  await assert.rejects(navigate(duplicate), errorCode("invalid_response"));
+  const malformed = toolEvents(); malformed[2].delta.partial_json = "{not json";
+  await assert.rejects(navigate(malformed), errorCode("invalid_response"));
+});
+
+test("catalog respects profile access, connected org and exact project/worktree scope", () => {
+  for (const option of navigation) assert.deepEqual(option.destination.target, navigationContext.target);
+  const restricted = navigationOptions({ ...navigationContext, profile: modules.load("lib/demo-profiles").demoProfileById("sp") });
+  assert(restricted.every(option => ["build", "govern", "alm"].includes(option.destination.surface)));
+  const unbound = navigationOptions({ ...navigationContext, target: { projectId: null, worktreeId: null, orgId: null } });
+  assert(unbound.every(option => !option.id.startsWith("resource:") && !option.id.startsWith("work:")));
+  assert(navigation.some(option => option.id === "surface:build"));
+});
+
+test("a reply can stream explanatory text and then finish with a navigation handoff", async () => {
+  const start = events(response()).slice(0, -2);
+  const tail = toolEvents();
+  tail.shift();
+  for (const event of tail) if ("index" in event) event.index = 1;
+  const emitted = [], result = await navigate([...start, ...tail], text => emitted.push(text));
+  assert.equal(result.text, response().content[0].text);
+  assert.equal(result.navigation.id, "surface:build");
+  assert.deepEqual(emitted, [response().content[0].text]);
+  const ordinary = await navigate(events(response()));
+  assert.equal(ordinary.navigation, undefined);
+});
+
+test("queued v1/v2 request bytes retain their prior system, tool descriptions and schemas", () => {
+  const messages = [{ role: "user", content: "Open Account object" }];
+  const option = { id: "resource:standard-object:Account", label: "Account · Standard object", destination: {
+    version: 1, owner: "am", surface: "build", target: { projectId: null, worktreeId: null, orgId: "uat" },
+    canvas: { kind: "org-resource", title: "Account · UAT Sandbox", params: { orgId: "uat", resourceType: "standard-object", apiName: "Account" } },
+  } };
+  const hash = (value, version) => createHash("sha256").update(serializeModelRequest(value, { ...MODEL_POLICY, promptVersion: version })).digest("hex");
+  // Recorded from the pre-v3 serializer, independently of the new prompt constants.
+  const plain = "ca6fec5da00cbf1aeb8a12277a2c159e2fdc9d4f1963858898ad54bea03c05f7";
+  assert.equal(hash({ messages }, "workspace-explainer-v1"), plain);
+  assert.equal(hash({ messages }, "workspace-navigator-v2"), plain);
+  assert.equal(hash({ messages, navigation: [] }, "workspace-navigator-v2"), plain);
+  assert.equal(hash({ messages, navigation: [option] }, "workspace-navigator-v2"), "9b31ea56bd1dbb92cf862f099e81b55defee5f3d8404f8d7284f46d8c3c2da92");
+  assert.equal(JSON.parse(serializeModelRequest({ messages }, { ...MODEL_POLICY, promptVersion: "workspace-explainer-v1" })).system, MODEL_SYSTEM_PROMPT);
+  const planner = JSON.parse(serializeModelRequest({ messages, navigation: [option] }, MODEL_POLICY));
+  assert.match(planner.system, /ask one focused question/); assert.match(planner.system, /completed conversation history/);
+  assert.match(planner.tools[0].description, /only when the current user request explicitly asks/);
+  assert.doesNotMatch(planner.tools[0].description, /view directly helps/);
+});
+
+test("a planning request without a catalog rejects unsolicited streamed navigation", async () => {
+  await assert.rejects(completeModel(prompt, MODEL_POLICY, new AbortController().signal,
+    { env, fetch: async () => stream(toolEvents()) }), errorCode("invalid_response"));
 });
