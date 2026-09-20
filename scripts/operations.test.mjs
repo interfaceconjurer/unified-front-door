@@ -64,7 +64,7 @@ function ownedConnection(hangAt) {
   client.query = async sql => {
     if (released) throw Error("Connection was destroyed");
     queries.push(sql);
-    if (sql === hangAt) await new Promise(resolve => { resolveHang = resolve; });
+    if (hangAt && sql.split(";")[0] === hangAt) await new Promise(resolve => { resolveHang = resolve; });
     return { rows: [] };
   };
   client.release = destroy => { assert.equal(released, false, "Release occurs exactly once"); released = true; releases.push(destroy); };
@@ -113,9 +113,9 @@ test("actual pg pool contains handshake-handoff and between-query FATAL packets 
         if (startup) { startup = false; socket.write(Buffer.concat(index === 1 ? [auth, ready, fatal] : [auth, ready])); continue; }
         if (message[0] === 88) { socket.end(); continue; }
         if (message[0] !== 81) continue;
-        const sql = message.subarray(5, -1).toString(); if (sql === "BEGIN") begins++;
+        const sql = message.subarray(5, -1).toString(), beginning = sql.split(";")[0] === "BEGIN"; if (beginning) begins++;
         const response = [packet("C", sql.split(" ")[0] + "\0"), ready];
-        if (index === 2 && begins === 2 && sql === "BEGIN") response.push(fatal);
+        if (index === 2 && begins === 2 && beginning) response.push(fatal);
         socket.write(Buffer.concat(response));
       }
     });
