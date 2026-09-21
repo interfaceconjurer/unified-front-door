@@ -57,6 +57,20 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const waitForLayout = useCallback(async (signal: AbortSignal) => {
     if (shellRef.current) await waitForWorkspaceMotion(shellRef.current, signal);
   }, []);
+  useEffect(() => {
+    // Breakpoints and viewport-based insets can start the same CSS transitions
+    // used for panel toggles. Finish them before the resize frame is painted so
+    // the layout follows the window immediately, including mid-toggle resizes.
+    const finishResizeTransitions = () => {
+      shellRef.current?.querySelectorAll("[data-workspace-motion]").forEach(node => {
+        for (const animation of node.getAnimations()) {
+          if (animation instanceof CSSTransition) animation.finish();
+        }
+      });
+    };
+    window.addEventListener("resize", finishResizeTransitions);
+    return () => window.removeEventListener("resize", finishResizeTransitions);
+  }, []);
   // Which surface (if any) this route belongs to — drives whether the route
   // content is wrapped in its per-surface canvas/tab host. The front door and
   // any non-surface route render their content bare.
@@ -131,7 +145,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       if (event.shiftKey && key === "p") {
         event.preventDefault();
         if (paletteOpen) closePalette();
-        else openPalette("surfaces");
+        else openPalette("all");
       } else if (key === "b") {
         event.preventDefault();
         if (event.shiftKey) toggleSurfacePanel();
@@ -147,7 +161,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
       <div className={styles.shell} ref={shellRef}>
         <TopBar
-          onOpenPalette={() => openPalette("surfaces")}
+          onOpenPalette={() => openPalette("all")}
           onOpenProjects={() => openPalette("projects")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}

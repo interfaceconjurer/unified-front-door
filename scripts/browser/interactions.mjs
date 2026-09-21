@@ -25,7 +25,7 @@ try {
         await search.evaluate(n => n.setSelectionRange(2, 2));
         await page.keyboard.press('ArrowLeft');
         assert.equal(await search.evaluate(n => n.selectionStart), 1);
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Surfaces');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
         await page.keyboard.press('ArrowRight');
         assert.equal(await search.evaluate(n => n.selectionStart), 2);
         await search.fill('');
@@ -44,7 +44,7 @@ try {
         await page.keyboard.press('End');
         assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Resources');
         await page.keyboard.press('Home');
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Surfaces');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
         await page.keyboard.press('Escape');
         await dialog.waitFor({ state: 'detached' });
         assert(await trigger.evaluate(n => n === document.activeElement));
@@ -57,7 +57,7 @@ try {
                 await dialog.getByRole('button', { name: 'Start your first project' }).focus();
             }
             else if (kind === 'result') {
-                await dialog.getByRole('option').first().getByRole('button').focus();
+                await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
             }
             else
                 await dialog.locator('input').focus();
@@ -99,7 +99,7 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
+        await dialog.getByRole('listbox').getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');

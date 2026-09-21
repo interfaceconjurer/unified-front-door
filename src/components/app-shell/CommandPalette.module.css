@@ -119,6 +119,37 @@
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
+.searchActions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 2rem;
+}
+
+.clearSearch {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+
+.clearSearch:hover {
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-3, #03234d);
+}
+
+.clearSearch:focus-visible,
+.orgPill:focus-visible {
+  outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
+  outline-offset: 2px;
+}
+
 .input {
   min-width: 0;
   border: 0;
@@ -441,6 +472,36 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
+.searchScope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
+  padding: .75rem 1.5rem .25rem;
+}
+
+.searchScope .contextHint { padding: 0; }
+
+.orgPill {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: .375rem .625rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-pill, 999px);
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  font: inherit;
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+.orgPill svg { flex-shrink: 0; }
+.orgPill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.orgPill:hover { border-color: var(--slds-g-color-accent-1, #0176d3); color: var(--slds-g-color-accent-1, #0176d3); }
+
 .resourceFilters { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; padding: .75rem 1.5rem 0; }
 .resourceFilters label { display: grid; gap: .25rem; min-width: 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .6875rem; }
 .resourceFilters select { width: 100%; min-width: 0; padding: .5rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: .5rem; background: var(--slds-g-color-surface-2, #f3f3f3); color: var(--slds-g-color-on-surface-2, #2e2e2e); font: inherit; font-size: .75rem; }
@@ -449,7 +510,7 @@
 @media (max-width: 480px) {
   .overlay { padding: .5rem; }
   .tabs, .searchRow, .footer { padding-inline: 1rem; }
-  .resourceFilters { padding-inline: 1rem; }
+  .resourceFilters, .searchScope { padding-inline: 1rem; }
   .surfaceLabel { display: none; }
   .result { gap: .5rem; padding: .625rem; }
   .footer { gap: .5rem .75rem; }

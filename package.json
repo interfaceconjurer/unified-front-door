@@ -16,7 +16,7 @@
     "prebuild": "node scripts/copy-slds.mjs",
     "test:persistence": "node --test scripts/persistence.test.mjs",
     "test:domain": "node --test scripts/domain.test.mjs scripts/org-resources.test.mjs",
-    "test:navigation": "node --test scripts/navigation.test.mjs scripts/starters.test.mjs scripts/assessment-canvas.test.mjs scripts/alm-app-migration.test.mjs",
+    "test:navigation": "node --test scripts/navigation.test.mjs scripts/palette-search.test.mjs scripts/starters.test.mjs scripts/assessment-canvas.test.mjs scripts/alm-app-migration.test.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/database.mjs migrate",
     "test:application": "node --test scripts/application.test.mjs scripts/profile-reset.test.mjs",
     "test:cli": "node --test scripts/private-session-file.test.mjs",
