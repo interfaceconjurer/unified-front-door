@@ -1,0 +1,47 @@
+.menu {
+  /* Top-layer placement stays anchored while the pane resizes or scrolls. */
+  position: fixed;
+  position-anchor: --surface-switcher;
+  position-try-fallbacks: flip-block;
+  inset: auto;
+  top: calc(anchor(bottom) + 0.375rem);
+  left: clamp(0.5rem, anchor(left), calc(100vw - 17.5rem));
+  width: min(17rem, calc(100vw - 1rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.375rem;
+  border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: var(--slds-g-radius-border-2, 0.5rem);
+  background: var(--slds-g-color-surface-1, #fff);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+}
+
+.menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.menu button[aria-checked="true"] {
+  color: var(--slds-g-color-accent-2, #0176d3);
+}
+
+.menu button:hover, .menu button:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 14%, transparent);
+}
+
+.menu svg { flex-shrink: 0; }
+.check { margin-inline-start: auto; }

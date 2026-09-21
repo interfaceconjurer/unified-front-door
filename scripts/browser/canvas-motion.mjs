@@ -66,11 +66,28 @@ try {
     await selected('Build & Setup');
     await page.keyboard.press('End');
     await selected('experience');
-    // Close while an incoming canvas can still be animating.
+    await settle(page);
+    await page.getByRole('tabpanel').evaluate(panel => {
+      const label = panel.getAttribute('aria-labelledby');
+      window.__closeFrames = [];
+      const capture = () => {
+        if (!panel.isConnected || panel.getAttribute('aria-labelledby') !== label) return;
+        window.__closeFrames.push({ opacity: Number(getComputedStyle(panel).opacity), inert: panel.inert });
+        requestAnimationFrame(capture);
+      };
+      requestAnimationFrame(capture);
+    });
+    // Observe the complete fade-to-replacement handoff, not just its end state.
     await page.keyboard.press('Delete');
     await tab('experience').waitFor({ state: 'detached' });
     await selected('agent');
     await settle(page);
+    if (motion === 'no-preference') {
+      const frames = await page.evaluate(() => window.__closeFrames);
+      const faded = frames.findIndex(frame => frame.opacity < .05);
+      assert(faded >= 0, 'Closing canvas fades before removal');
+      assert(frames.slice(faded).every(frame => frame.opacity < .05 && frame.inert), `Outgoing canvas must stay faded and inert until replacement commits: ${JSON.stringify(frames.slice(faded))}`);
+    }
     assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'agent');
     assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none'));
     await tab('Build an automation').click();
@@ -80,7 +97,24 @@ try {
     await selected('agent');
     await settle(page);
     assert.equal(await composer.inputValue(), 'Keep this draft while switching canvases');
-    out.checks.push(`${motion}: active-tab no-op, rapid arrow selection, Home/End, close during motion, Back, retained draft`);
+    out.checks.push(`${motion}: active-tab no-op, rapid arrow selection, Home/End, close without outgoing flash, Back, retained draft`);
+
+    await tab('Build an automation').click();
+    await selected('Build an automation');
+    // Close while the incoming canvas can still be animating.
+    await page.keyboard.press('Delete');
+    await tab('Build an automation').waitFor({ state: 'detached' });
+    await selected('data-model'); await settle(page);
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'data-model');
+    assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none' && getComputedStyle(node).opacity === '1'));
+    await page.keyboard.press('Delete');
+    await tab('Build & Setup').click();
+    await tab('data-model').waitFor({ state: 'detached' });
+    await selected('Build & Setup'); await settle(page);
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent.trim()), 'Build & Setup');
+    assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none' && getComputedStyle(node).opacity === '1'));
+    assert.equal(await composer.inputValue(), 'Keep this draft while switching canvases');
+    out.checks.push(`${motion}: close during entry and interrupted exit release blur/inert state and retain focus for the latest selection`);
     await context.close();
   }
 } catch (error) {

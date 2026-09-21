@@ -52,6 +52,7 @@
 /* Matching hairline dividers frame the pinned surface icon and name, keeping
    the surface identity distinct from the launched canvases that follow it. */
 .tabWrapSurface {
+  anchor-name: --surface-switcher;
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
@@ -86,6 +87,28 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
+.surfaceTrigger {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+.surfaceTrigger:hover,
+.surfaceTrigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 12%, transparent);
+}
+.surfaceChevron { flex-shrink: 0; transform: rotate(90deg); }
+
 /* The surface glyph on the pinned tab — fixed size so it never shrinks as the
    label truncates, and slightly muted so the surface name carries the weight. */
 .surfaceTabIcon {
@@ -104,7 +127,8 @@
   color: var(--slds-g-color-on-surface-3, #03234d);
 }
 
-.tab:focus-visible {
+.tab:focus-visible,
+.surfaceTrigger:focus-visible {
   outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
   outline-offset: -2px;
 }
