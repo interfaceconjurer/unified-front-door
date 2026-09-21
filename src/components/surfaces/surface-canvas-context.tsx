@@ -15,8 +15,8 @@ const Context = createContext<{ store: CanvasStore; decision: ReturnType<typeof 
 /** Stable store/actions owner. Only selectors below subscribe to draft data. */
 export function SurfaceCanvasProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useDemoProfile();
-  const { destination: decision } = useWorkspace();
-  const store = getActiveCanvasStore(profile?.id ?? "jw");
+  const { destination: decision, target } = useWorkspace();
+  const store = getActiveCanvasStore(profile?.id ?? "jw", target);
   const value = useMemo(() => ({ store, decision, updateDraft: (surfaceId: SurfaceId, id: string, fields: Record<string, string>) => {
     const destination = decision.kind === "available" ? decision.destination : null;
     const input = destination?.canvas;

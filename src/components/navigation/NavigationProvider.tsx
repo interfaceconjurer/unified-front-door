@@ -47,9 +47,10 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const workspace = useWorkspace();
   const [problem, setProblem] = useState<string | null>(null);
   const owner = profile!.id;
-  const selection = getWorkspaceSelectionStore(owner), canvases = getSurfaceCanvasStore(owner);
+  const selection = getWorkspaceSelectionStore(owner), canvases = getSurfaceCanvasStore(owner, workspace.target);
   const controller = useMemo(() => new NavigationController((destination, source) => {
     applicationClient.workspace?.flushEdits();
+    const canvases = getSurfaceCanvasStore(owner, destination.target);
     const decision = resolveDestination(destinationHref(destination), owner, profile?.surfaceAccess ?? [], canvases.getSnapshot());
     if (decision.kind === "unavailable") { setProblem(decision.reason); return false; }
     if (source !== "capture" && destination.surface && destination.canvas
@@ -82,7 +83,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const options = { scroll: false, transitionTypes: changedContext ? ["workspace-context"] : changedCanvas ? ["canvas-change"] : [] };
     if (replace) router.replace(href, options);
     else router.push(href, options);
-  }), [owner, selection, canvases, router, profile]);
+  }), [owner, selection, router, profile]);
 
   function targetForCanvas(surface: SurfaceId, input: CanvasSpecInput): WorkspaceTarget {
     surface = canonicalCanvasSurface(surface, input);

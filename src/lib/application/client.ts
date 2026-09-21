@@ -3,11 +3,12 @@ import type { DemoProfileId } from "../demo-profiles";
 import { INITIAL } from "../assessment/state-codec";
 import type { DraftEdit, ProjectDraftFields } from "../projects/model";
 import { SurfaceCanvasStore, emptyState, type PersistedCanvases } from "../surface-canvas/persistence";
+import { preferencesForWorkspace } from "../surface-canvas/workspace-preferences";
 import { canvasId, canvasTarget, inputFromCanonicalId, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
 import { WorkspaceSelectionStore } from "../workspace/persistence";
-import type { WorkspaceTarget } from "../workspace/context";
+import { conversationKey, UNBOUND_TARGET, type WorkspaceTarget } from "../workspace/context";
 import type { SurfaceId } from "../workspace/model";
 import { ApplicationError, stableJson, text, type ApplicationSnapshot, type CommandResult, type ImportedSource, type ImportSummary, type LegacySource, type SessionView } from "./contracts";
 import { EMPTY_APPLICATION, RemoteWorkspaceStore } from "./remote-store";
@@ -42,6 +43,7 @@ class ApplicationClient {
   private archives = new Map<string, RecoverableBuffer>();
   workspace: RemoteWorkspaceStore | null = null;
   canvases: RemoteCanvasStore | null = null;
+  private canvasStores = new Map<string, RemoteCanvasStore>();
   selection: WorkspaceSelectionStore | null = null;
   agent: AgentClient | null = null;
   getSnapshot = () => this.view;
@@ -51,7 +53,10 @@ class ApplicationClient {
   private adopt(session: SessionView | null) {
     if (!this.needsSessionAdoption && stableJson(session) === stableJson(this.view.session)) { this.publish({ resolved: true, message: "" }); return; }
     this.needsSessionAdoption = false;
-    this.archivePending(); this.workspace?.deactivate(); this.canvases?.dispose(); this.agent?.deactivate(); this.workspace = null; this.canvases = null; this.selection = null; this.agent = null;
+    this.archivePending(); this.workspace?.deactivate();
+    for (const store of this.canvasStores.values()) store.dispose();
+    this.canvasStores.clear();
+    this.agent?.deactivate(); this.workspace = null; this.canvases = null; this.selection = null; this.agent = null;
     if (session?.profileId) {
       let storage: Storage | null = null; try { storage = window.sessionStorage; } catch { /* Queue remains in memory. */ }
       const buffer = allocateBuffer(session, storage);
@@ -65,7 +70,7 @@ class ApplicationClient {
           return result;
         },
       }, buffer.key, () => { void this.reconnect(); }, buffer.restoreKey);
-      this.canvases = new RemoteCanvasStore(this.workspace);
+      this.canvases = this.canvasStoreFor(UNBOUND_TARGET);
       this.agent = new AgentClient(session, {
         read: () => api<AgentSnapshot>(`/api/agent?generation=${encodeURIComponent(session.generation)}`),
         readRun: (runId, after) => api<{ run: RunView }>(`/api/agent?generation=${encodeURIComponent(session.generation)}&runId=${encodeURIComponent(runId)}&after=${after}`),
@@ -89,6 +94,18 @@ class ApplicationClient {
     window.addEventListener("storage", (event) => { if (event.key === "ufd.session.changed") void this.reconnect(); });
     window.addEventListener("focus", () => { void this.reconnect(); });
     window.setInterval(() => { if (document.visibilityState === "visible" && !this.workspace?.hasPending()) { void this.reconnect(); } }, 5000);
+  };
+  /** View preferences belong to a conversation/workspace; saved drafts still
+   * share the same remote owner and revision stream across those views. */
+  canvasStoreFor = (target: WorkspaceTarget): RemoteCanvasStore | null => {
+    if (!this.workspace) return null;
+    const key = conversationKey(target);
+    let store = this.canvasStores.get(key);
+    if (!store) {
+      store = new RemoteCanvasStore(this.workspace, target);
+      this.canvasStores.set(key, store);
+    }
+    return store;
   };
   reconnect = async () => {
     if (this.resettingProfile || this.changing) return;
@@ -237,10 +254,12 @@ class RemoteCanvasStore {
   private listeners = new Set<() => void>();
   private unsubscribe: () => void;
   private stopPrefs: () => void;
-  constructor(private remote: RemoteWorkspaceStore) {
+  constructor(private remote: RemoteWorkspaceStore, workspace: WorkspaceTarget) {
     const initial = emptyState(), session = remote.session;
     if (session.profileId === "am") for (const work of RETURNING_WORK) { const input = workCanvasInput(work); initial[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) }); }
-    this.prefs = new SurfaceCanvasStore(`ufd.canvas-preferences.v2.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`, initial);
+    const owner = `${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`;
+    const legacy = new SurfaceCanvasStore(`ufd.canvas-preferences.v2.${owner}`, initial).getSnapshot();
+    this.prefs = new SurfaceCanvasStore(`ufd.canvas-preferences.v3.${owner}.${conversationKey(workspace)}`, preferencesForWorkspace(legacy, workspace));
     this.snapshot = this.prefs.getSnapshot();
     this.unsubscribe = remote.subscribe(this.refresh); this.stopPrefs = this.prefs.subscribe(this.refresh); this.refresh();
   }
@@ -298,7 +317,7 @@ class RemoteCanvasStore {
 }
 const emptyCanvasStore = new SurfaceCanvasStore("ufd.anonymous.preferences");
 const emptySelection = new WorkspaceSelectionStore("ufd.anonymous.workspace");
-export function getActiveCanvasStore(profile?: DemoProfileId) { return profile && applicationClient.getSnapshot().session?.profileId !== profile ? emptyCanvasStore : applicationClient.canvases ?? emptyCanvasStore; }
+export function getActiveCanvasStore(profile?: DemoProfileId, workspace: WorkspaceTarget = UNBOUND_TARGET) { return profile && applicationClient.getSnapshot().session?.profileId !== profile ? emptyCanvasStore : applicationClient.canvasStoreFor(workspace) ?? emptyCanvasStore; }
 export function getActiveSelectionStore(profile?: DemoProfileId) { return profile && applicationClient.getSnapshot().session?.profileId !== profile ? emptySelection : applicationClient.selection ?? emptySelection; }
 
 const noopSubscribe = () => () => {};

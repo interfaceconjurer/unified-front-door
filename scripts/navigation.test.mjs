@@ -6,6 +6,7 @@ const { resolveWorkspace, UNBOUND_TARGET } = modules.load("lib/workspace/context
 const { NavigationController, destinationHref, readDestination, canvasTarget, canvasDestination, destinationCanvasTarget, resolveDestination, destinationIdentity } = modules.load("lib/navigation/model");
 const { canvasId, parseCanvasInput, canvasVisibleInWorkspace } = modules.load("lib/surface-canvas/model");
 const { SurfaceCanvasStore } = modules.load("lib/surface-canvas/persistence");
+const { preferencesForWorkspace } = modules.load("lib/surface-canvas/workspace-preferences");
 const { WorkspaceSelectionStore } = modules.load("lib/workspace/persistence");
 const { PROJECTS, ORGS } = modules.load("lib/workspace/fixtures");
 afterEach(() => { delete global.window; });
@@ -14,6 +15,32 @@ const project = PROJECTS[0], worktree = project.worktrees[0];
 const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.defaultOrgId };
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
+
+test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {
+  browser(); const legacy = new SurfaceCanvasStore("legacy-tabs");
+  const global = capability({ scope: "unbound", orgId: "prod" });
+  const own = capability({ scope: "project", projectId: ready.projectId, worktreeId: ready.worktreeId, orgId: ready.orgId });
+  const otherBranch = capability({ scope: "project", projectId: ready.projectId, worktreeId: "other", orgId: ready.orgId });
+  for (const input of [global, own, otherBranch]) {
+    const id = canvasId(input.kind, input.params);
+    legacy.openCanvas("code", input); legacy.captureTarget("code", id, canvasTarget(input, UNBOUND_TARGET));
+    legacy.updateDraft("code", id, { source: id });
+  }
+  legacy.closeCanvas("code", canvasId(otherBranch.kind, otherBranch.params));
+  const before = structuredClone(legacy.getSnapshot());
+  const home = preferencesForWorkspace(before, UNBOUND_TARGET), project = preferencesForWorkspace(before, ready);
+  assert.deepEqual(home.code.canvases.map(c => c.id), [canvasId(global.kind, global.params)]);
+  assert.equal(home.code.activeCanvasId, "overview");
+  assert.deepEqual(project.code.canvases.map(c => c.id), [canvasId(own.kind, own.params)]);
+  assert.equal(project.code.activeCanvasId, canvasId(own.kind, own.params));
+  assert.equal(project.code.canvases[0].draft.source, canvasId(own.kind, own.params));
+  assert.deepEqual(preferencesForWorkspace(before, { ...ready, worktreeId: "other" }).code.closedDrafts, before.code.closedDrafts);
+  const homeStore = new SurfaceCanvasStore("home-tabs", home), projectStore = new SurfaceCanvasStore("project-tabs", project);
+  homeStore.openCanvas("code", own); homeStore.closeCanvas("code", canvasId(own.kind, own.params));
+  assert.equal(projectStore.getSnapshot().code.activeCanvasId, canvasId(own.kind, own.params));
+  assert.deepEqual(legacy.getSnapshot(), before);
+  assert.deepEqual(new SurfaceCanvasStore("home-tabs").getSnapshot(), homeStore.getSnapshot());
+});
 
 test("preview identity captures project, worktree and org while global inspection retains global scope", () => {
   browser();

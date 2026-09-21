@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from "next/navigation";
 import { selectedSnapshot } from "@/lib/selected-snapshot";
-import { resolveDestination, type DestinationDecision } from "@/lib/navigation/model";
+import { readDestination, resolveDestination, type DestinationDecision } from "@/lib/navigation/model";
 import { createContext, useContext, useMemo, useState, useSyncExternalStore } from "react";
 import { primaryWorktree, type AgentSession, type Org, type Project, type Worktree } from "@/lib/workspace/model";
 import { homeTarget, resolveWorkspace, UNBOUND_TARGET, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
@@ -47,7 +47,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const orgs = dayZero ? ASSESSMENT_ORGS : ORGS;
   const store = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
-  const canvasStore = getSurfaceCanvasStore(profile?.id ?? "jw");
+  const decoded = readDestination(route);
+  const canvasStore = getSurfaceCanvasStore(profile?.id ?? "jw", decoded.kind === "destination" ? decoded.value.target
+    : pathname === "/" ? UNBOUND_TARGET : selection.target ?? UNBOUND_TARGET);
   const destinationReader = useMemo(() => {
     const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases);
     const equal = (a: DestinationDecision, b: DestinationDecision) => JSON.stringify(a) === JSON.stringify(b);

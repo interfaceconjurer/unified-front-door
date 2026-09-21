@@ -10,6 +10,7 @@ const { projectCanvases } = modules.load('lib/surface-canvas/projection');
 const { NavigationController } = modules.load('lib/navigation/model');
 const { applyAssessmentCommand } = modules.load('lib/application/assessment-commands');
 const { AssessmentStore } = modules.load('lib/onboarding/persistence');
+const { applicationClient } = modules.load('lib/application/client');
 const session = { namespaceId: 'phase6-test', profileId: 'sp', generation: 'generation', workspaceEpoch: 'epoch', expiresAt: '2099-01-01' };
 const canvas = { kind: 'capability', title: 'Automation', params: { scope: 'unbound', surface: 'build', capability: 'automation' } };
 const target = { projectId: null, worktreeId: null, orgId: null };
@@ -33,6 +34,30 @@ function remote() {
   const store = new RemoteWorkspaceStore(session, transport, 'pending', () => {});
   return { store, transport, sent, saved: () => saved };
 }
+
+test('workspace tab stores separate views while sharing one remote draft and one global scope across orgs', async () => {
+  browser(); const r = remote(); await r.store.load();
+  const client = new applicationClient.constructor(); client.workspace = r.store;
+  const home = client.canvasStoreFor(target), projectTarget = { projectId: 'crm', worktreeId: 'main', orgId: 'uat' };
+  const project = client.canvasStoreFor(projectTarget), branch = client.canvasStoreFor({ ...projectTarget, worktreeId: 'feature' });
+  try {
+    assert.equal(client.canvasStoreFor({ ...target, orgId: 'prod' }), home);
+    assert.equal(client.canvasStoreFor({ ...projectTarget, orgId: 'prod' }), project);
+    assert.notEqual(home, project); assert.notEqual(project, branch);
+    const input = { ...canvas, params: { ...canvas.params, scope: 'project', ...projectTarget } }, id = canvasId(input.kind, input.params);
+    project.openCanvas('build', input);
+    assert.equal(home.getSnapshot().build.canvases.length, 0);
+    assert.equal(branch.getSnapshot().build.canvases.length, 0);
+    home.openCanvas('build', input);
+    await r.store.enqueue({ ...save({ notes: 'One saved file' }), canvas: input, target: projectTarget });
+    assert.equal(home.getSnapshot().build.canvases[0].draft.notes, 'One saved file');
+    assert.equal(project.getSnapshot().build.canvases[0].draft.notes, 'One saved file');
+    home.closeCanvas('build', id);
+    assert.equal(project.getSnapshot().build.activeCanvasId, id);
+    assert.equal(project.getSnapshot().build.canvases.length, 1);
+    assert.equal(home.getSnapshot().build.canvases.length, 0);
+  } finally { for (const store of [home, project, branch]) store.dispose(); r.store.deactivate(); }
+});
 
 test('100 edits synchronously buffer the latest fields, coalesce one request and resolve every caller only after ACK', async () => {
   const { disk } = browser(), r = remote(); await r.store.load();

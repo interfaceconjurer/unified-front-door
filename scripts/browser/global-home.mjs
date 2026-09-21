@@ -11,6 +11,9 @@ const { captureToday } = modules.load('lib/chat/today-snapshot');
 const { demoProfileById } = modules.load('lib/demo-profiles');
 const { PROJECTS, ORGS } = modules.load('lib/workspace/fixtures');
 const { RETURNING_WORK } = modules.load('lib/workspace/returning-work');
+const { workCanvasInput } = modules.load('lib/workspace/returning-work');
+const { canvasId } = modules.load('lib/surface-canvas/model');
+const { emptyState } = modules.load('lib/surface-canvas/persistence');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
 const key = target => JSON.stringify(target.projectId ? ['project-session', target.projectId, target.worktreeId] : ['unbound-session', null]);
@@ -60,6 +63,16 @@ try {
     });
     const { state } = await install(context, { drafts: 0, messages: 0 });
     const current = { ...session, profileId: 'am' };
+    // This scenario starts with project files previously opened explicitly in
+    // Home. Global tabs no longer inherit the project's open-tab preferences.
+    const globalPrefs = emptyState();
+    for (const work of RETURNING_WORK) {
+      const canvas = workCanvasInput(work);
+      globalPrefs[work.surfaceId].canvases.push({ ...canvas, id: canvasId(canvas.kind, canvas.params) });
+    }
+    await context.addInitScript(({ key, prefs }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(prefs));
+    }, { key: `ufd.canvas-preferences.v3.${current.namespaceId}.${current.profileId}.${current.workspaceEpoch}.${key({})}`, prefs: globalPrefs });
     state.snapshot.session = current;
     const projectKey = key({ projectId: 'trailblazer-crm', worktreeId: 'main' });
     state.agent.conversations = [{ id: 'crm-thread', threadKey: projectKey, revision: 1, conversation: { scopeKey: 'code', messages: [
