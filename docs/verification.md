@@ -171,6 +171,7 @@ browser registry. Restored behaviors have these checks:
 
 | Behavior | Registered browser suite | Supporting pure checks |
 | --- | --- | --- |
+| All profiles choose a connected org at sign-in; required choice, retry, first agent target, reload, profile switching, matching saved links and mobile layout | `org-sign-in.mjs`, `profile-reset.mjs` | `navigation.test.mjs`, `profile-reset.test.mjs` |
 | Starter cards open scoped canvases and seed without submitting | `starter-canvases.mjs` | `starters.test.mjs` |
 | Assessment scope, captured findings, rescan and retry | `assessment-canvas.mjs` | `assessment-canvas.test.mjs` |
 | Project templates, saved intent, brief-to-project creation on all profiles, visible creation action, explicit scoped planning action with retained composer draft, sidebar/reload/reopen, second project, delayed navigation, retry recovery and assessment creation | `project-creation.mjs`, `project-create-end-to-end.mjs`; `project-create-database.mjs` in the database browser gate | `project-creation.test.mjs`, `database.test.mjs` (atomic creation, ownership, duplicate retries), `model-context.test.mjs` |
@@ -178,14 +179,16 @@ browser registry. Restored behaviors have these checks:
 | Planning stays in chat; explicit agent navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (no-tool planning and saved-catalog validation) |
 | Project links reveal the sidebar parent without changing scope; persistent Start project footer on all profiles; Sessions only lists chats | `project-panel.mjs` | Navigation tests |
 | Default All navigator search, ranked typed results, intact project trees, org pill/category filters, clear search, scope-preserving selection and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs` |
+| Build & Setup org browsers: objects, permissions and features; explicit org, captured tabs, global/project scope, no draft writes, all profiles and narrow/light layout | `org-setup.mjs`, `org-resources.mjs` | `org-resources.test.mjs` |
+| Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |
 | Deployed apps open in ALM; legacy URLs and drafts survive | `alm-app-migration.mjs` | `alm-app-migration.test.mjs` |
 | Project preview launch, captured worktree/org, global inspection and explicit entry, sample interactions, responsive viewer, new tab and reload | `project-preview.mjs` | `navigation.test.mjs` (scope, identity, availability and mutation rejection) |
 | Attention cards reach the correct work and retain historical Today | `attention-scenarios.mjs` | Domain and conversation tests |
 | Work canvases distinguish type, project, worktree and branch; explicit global entry retains the current canvas, captured target, draft and history | `work-project-entry.mjs` | Navigation tests |
 | Global file browsing preserves chat/org and file ownership; only explicit project actions enter a project | `global-home.mjs`, `attention-scenarios.mjs` | Navigation and agent database tests |
-| Inactive Today removes container paint while retaining exact layout and disabled controls | `global-home.mjs` | — |
+| Today keeps its active appearance until it scrolls offscreen, including interrupted scrolling and reduced motion; history retains faint container fills/outlines, layout and disabled controls in light and dark themes | `today-departure.mjs`, `global-home.mjs` | — |
 | Home reuses trailing Today after project activity, including the first return carrying a different org; explicit org selections stay logged and intervening global content earns one new card | `global-home.mjs` | `conversation.test.mjs`, `agent-database.test.mjs` |
-| Opening a surface from Today preserves sharp continuous chat; project/worktree changes and returning Home retain the dissolve, respecting reduced motion | `global-home.mjs` | — |
+| Today surface links do not replay their reveal on focus changes; surface entry and global surface-to-Today preserve sharp chat, while project/worktree/global context changes retain the dissolve | `today-departure.mjs`, `global-home.mjs` | — |
 | Instant same-surface canvas/overview selection and closing, rapid keyboard/focus and retained drafts; whole-surface transitions and reduced motion | `canvas-motion.mjs` | Navigation tests |
 | Surface label opens overview; separate chevron opens dropdown; keyboard/dismissal, profile access, scoped canvas restoration | `surface-switcher.mjs` | Navigation tests |
 | Project/worktree-contained work lists and tabs; project-wide app ownership; global navigation | `project-surface-scope.mjs`, `global-home.mjs` | Navigation tests |

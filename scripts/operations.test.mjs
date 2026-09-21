@@ -42,7 +42,7 @@ test("direct/runtime targets match host, port and database while allowing separa
   for (const query of ["host=other", "port=7777", "database=other", "dbname=other", "service=other", "user=other", "options=-c%20search_path=other", "search_path=other", "schema=other"]) assert.throws(() => targets.databaseTarget(valid.DATABASE_URL + "?" + query));
 });
 test("readiness rejects unknown, missing and altered migration history and probes required columns read-only", async () => {
-  const manifest = await migrationManifest(); assert.equal(manifest.length, 7);
+  const manifest = await migrationManifest(); assert.equal(manifest.length, 9);
   const calls = [], client = { query: async text => { calls.push(text); return { rows: text.includes("schema_migrations") ? manifest : [] }; } };
   await checkDatabaseSchema(client, manifest); assert.equal(calls[0], "SET TRANSACTION READ ONLY"); assert(calls.some(sql => sql.includes("effect_state") && sql.includes("LIMIT 0")));
   for (const rows of [manifest.slice(1), [...manifest, { name: "999_extra.sql", checksum: "x" }], manifest.map((row, i) => i ? row : { ...row, checksum: "changed" })]) await assert.rejects(checkDatabaseSchema({ query: async () => ({ rows }) }, manifest), /schema version/);

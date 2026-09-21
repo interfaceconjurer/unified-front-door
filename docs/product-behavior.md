@@ -2,6 +2,25 @@
 
 [← README](../README.md)
 
+## Sign-in and connected orgs
+
+Sign-in first chooses a profile, then a connected org before entering the
+workspace. Continue stays disabled until an org is selected; expired connections
+are excluded. These are the same demo connections shown by the workspace org
+selector. This step selects an existing connection, rather than creating one.
+
+All four profiles have UAT Sandbox as their connected starting default. The
+explicit sign-in choice is saved in that profile's workspace preferences and is
+present in the first agent context, status bar, resource browsing and reload.
+Switching profiles from the avatar restores their own selected connected org,
+falling back to UAT when the remembered org is unavailable. Home retains the org.
+
+A saved link suggests its org at sign-in and resumes unchanged when its profile
+and org match. Choosing another org or profile opens global Home there instead
+of changing the saved canvas's target. Returning to a bare surface without a
+captured canvas uses the selected org. Clear data remains available before
+profile selection, with its existing confirmation and per-profile scope.
+
 ## Global Home and project resumption
 
 Home (including a bare `/` URL, the Home icon, and the platform wordmark) is
@@ -36,15 +55,21 @@ Changing the target org appends a context marker without replacing the thread;
 accepted agent work keeps its captured target. Earlier org-specific threads remain
 available under **Earlier conversation** in the global transcript.
 Leaving Today for a surface or canvas keeps its headings, cards, surface tiles,
-and recent-work rows in the same layout. Colors become subdued, backgrounds,
-shadows, and visible container borders disappear, controls are disabled, surface
+and recent-work rows in the same layout and preserves their active appearance
+while they scroll away. Once the content is outside the transcript viewport,
+colors become subdued, containers retain barely visible neutral backgrounds
+(3% opacity) and outlines (6%), shadows disappear, controls are disabled, surface
 links become static text, and the conversation continues below
-the captured briefing. History stays readable and does not replay the entrance
-animation. Responsive wrapping still follows the chat column width.
+the captured briefing. Outgoing controls stop accepting input immediately;
+interrupting the scroll keeps the active appearance until the content leaves view.
+Reduced motion uses the same visibility boundary without animated scrolling.
+History stays readable and does not replay the entrance animation. Responsive
+wrapping still follows the chat column width.
 Active Today content reveals in reading order with overlapping 500ms blur/rise
 animations staggered by 75ms. The reveal pauses while the transcript is hidden or
 a page transition is active. Historical briefings stay static, keyboard focus
 reveals its target immediately, and reduced motion disables the animation.
+Focusing and leaving a revealed row never restarts its entrance animation.
 
 Project/worktree rows and session rows resume that line of work's last surface,
 canvas, and org. Destinations are browser preferences scoped to the signed-in
@@ -63,7 +88,7 @@ Project surface overviews and canvas tabs include work from the selected worktre
 plus project-wide resources. Selecting or closing a tab cannot switch projects
 or worktrees. Project-wide apps retain their saved ownership without clearing
 the selected worktree. Global
-surface browsing can show tabs from multiple projects; selecting one retains the
+surface browsing can show explicitly opened tabs from multiple projects; selecting one retains the
 global workspace while the file keeps its captured ownership. Tabs hidden by
 project scope and their drafts stay saved.
 
@@ -135,13 +160,14 @@ assessment of the connected orgs in Sam's demo workspace.
 Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
 The front door and surfaces share one persistent agent panel and composer.
-Switching projects/worktrees, or returning to global Home, dissolves
+Switching projects/worktrees, or entering/leaving global workspace context, dissolves
 the outgoing conversation and canvas with a strong 24px blur, then brings the new
 content into focus over a combined 500ms. The composer's 440ms layout movement
 runs alongside it; its text stays sharp and the input remains mounted. Draft text,
 text selection, and session conversations survive client-side navigation home and
-back. Opening a surface from Today, browsing within that conversation, and org-only
-changes keep the continuous transcript sharp as it scrolls and adds content.
+back. Opening a surface from Today, returning to Today from a global surface
+(through either the Home icon or Platform Studio), and org-only changes keep the
+continuous transcript sharp as it resizes, scrolls and adds content.
 Reduced-motion preferences skip the transitions.
 
 The transcript and composer share a 1200px maximum width. They center when both
@@ -204,8 +230,14 @@ The top bar provides a wide **Search workspace** launcher on every surface
 (⌘⇧P / Ctrl+Shift+P). When a project is selected, a project badge shows its name
 and branch; clicking it opens the palette's Projects tab. A Home icon to its left
 returns to the global front door, clearing project and branch while retaining the org.
-Saved tabs remain available within their project/worktree scope; global browsing
-can expose all of them. Surface and tab selection retain project/worktree context,
+Home and each project/worktree retain independent open tabs and active tabs per
+surface, across navigation and reload. Org changes keep the same global tab set.
+Opening or closing a tab in a project never changes Home's tab strip. Home can
+explicitly open project work from Today without entering the project; that tab
+belongs to Home's view while its edits keep the original file ownership. Closing
+it in Home does not close the project's copy of that view. Legacy shared tab
+preferences migrate by captured ownership; the original data remains intact.
+Surface and tab selection retain project/worktree context,
 while edits continue using each tab's captured ownership.
 On narrow screens,
 the search launcher occupies a second row so project context stays visible.
@@ -229,6 +261,20 @@ Resources opened globally stay global; older org-only links retain that scope.
 The metadata is
 explicitly marked as demo data; this does not query a live Salesforce org or
 save an editable resource draft.
+
+Build & Setup exposes **Configure your org** on both first-visit and returning
+overviews. **Data & Objects** opens Object Manager; **Access & Permissions**
+browses permission sets, groups, profiles, and related access configuration;
+**Org Settings & Features** lists feature status and integration configuration.
+Each area is a read-only capability canvas with search and type filters. It
+captures the selected org and preserves global or project/worktree scope.
+Without an org, it asks for an explicit connection selection. Selecting a resource
+opens the existing resource canvas; it does not enter a project or save a draft.
+The All and Resources navigator tabs also find these setup areas when an org is
+selected. Org features are captured demo data: their details offer configuration
+review, without a live enablement action. Enablement is org-wide even when viewed
+from a project. Existing build starters and current project work remain present;
+Govern & Observe retains access review, policy, and monitoring.
 
 The workspace panel slides in and out from the left over 500ms, preserving its
 content width and filter selection. It reserves space on desktop and overlays the
