@@ -70,12 +70,10 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
   }, (href, replace) => {
     const from = readDestination(window.location.href), to = readDestination(href);
-    // Dissolve between conversations or on return to global Home. Opening a
-    // surface from Today only extends the current chat, so keep it sharp.
-    const changedContext = from.kind === "destination" && to.kind === "destination" && (
-      conversationKey(from.value.target) !== conversationKey(to.value.target)
-      || (from.value.surface !== null && to.value.surface === null && to.value.target.projectId === null)
-    );
+    // Dissolve only when changing project/worktree/global conversations.
+    // Surfaces and Today within the same workspace keep the chat sharp.
+    const changedContext = from.kind === "destination" && to.kind === "destination"
+      && conversationKey(from.value.target) !== conversationKey(to.value.target);
     const changedCanvas = from.kind === "destination" && to.kind === "destination"
       && from.value.surface !== null && from.value.surface === to.value.surface
       && (from.value.canvas ? canvasId(from.value.canvas.kind, from.value.canvas.params) : "overview")

@@ -75,7 +75,7 @@
   }
 }
 
-/* Project/worktree and Home navigation share the shell's strong blur. Browser
+/* Changes between projects/worktrees and global Home share the strong blur. Browser
    snapshots preserve outgoing content while the mounted composer keeps focus,
    its draft, and its existing layout animation. No navigation delay is added. */
 ::view-transition-group(.workspace-dissolve) {

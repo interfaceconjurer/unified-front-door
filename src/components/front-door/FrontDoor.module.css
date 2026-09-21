@@ -7,7 +7,6 @@
   width: 100%;
   min-width: 0;
   min-height: 0;
-  transition: filter 500ms ease, opacity 500ms ease;
 }
 
 .content {
@@ -18,14 +17,19 @@
   padding: 1rem 0 1.5rem;
 }
 
-/* History keeps the exact layout as unboxed text. Transparent borders retain
-   their space so cards and rows do not jump when the briefing becomes history. */
+.briefing { display: flow-root; }
+
+/* History keeps its layout and readable text, with barely visible containers. */
 .frontDoor[data-read-only] { filter: grayscale(1); opacity: 0.78; }
 .frontDoor[data-read-only] * {
   animation: none !important;
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
+}
+.frontDoor[data-read-only] [data-today-container] {
+  background: light-dark(rgb(0 0 0 / 3%), rgb(255 255 255 / 3%)) !important;
+  border-color: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 6%)) !important;
 }
 .frontDoor[data-read-only] :is(progress, input[type="checkbox"]) { visibility: hidden; }
 .frontDoor[data-read-only] :is(button, input, select, textarea, summary) {
@@ -53,11 +57,11 @@
 :global([data-pending]) .frontDoor *,
 :global(:root:active-view-transition) .frontDoor * { animation-play-state: paused; }
 
-.frontDoor [data-today-row]:focus-within { animation: none; }
+/* Departing content stays fully revealed throughout the outgoing scroll. */
+.frontDoor[data-retiring] [data-today-row] { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .frontDoor [data-today-row] { animation: none; }
-  .frontDoor { transition: none; }
 }
 
 .hero {

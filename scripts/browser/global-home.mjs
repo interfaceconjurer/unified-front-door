@@ -168,9 +168,10 @@ try {
     assert((await historicalToday.locator('button:disabled').count()) > 10, 'Retain the actual attention cards and recent work rows');
     assert(await readOnlyToday.evaluate(node => [...node.querySelectorAll('*')].every(element => {
       const style = getComputedStyle(element);
-      return style.backgroundColor === 'rgba(0, 0, 0, 0)' && style.backgroundImage === 'none' && style.boxShadow === 'none'
-        && ['Top', 'Right', 'Bottom', 'Left'].every(side => style[`border${side}Width`] === '0px' || style[`border${side}Color`] === 'rgba(0, 0, 0, 0)');
-    })), 'Inactive Today keeps its text and geometry with no painted containers');
+      const container = element.hasAttribute('data-today-container');
+      return style.backgroundColor === (container ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0)') && style.backgroundImage === 'none' && style.boxShadow === 'none'
+        && ['Top', 'Right', 'Bottom', 'Left'].every(side => style[`border${side}Width`] === '0px' || style[`border${side}Color`] === (container ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0)'));
+    })), 'Inactive Today keeps its text and geometry with barely visible container fills and outlines');
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
     assert.equal(state.agent.conversations.filter(saved => saved.threadKey === key({})).length, 1);
     assert.equal(state.agent.conversations.find(saved => saved.id === 'earlier-prod-thread').conversation.messages[0].text, 'Earlier Production discussion is preserved.');
@@ -210,9 +211,10 @@ try {
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Org changes stay in the same continuous chat without a dissolve');
     assert.equal(globalThread.conversation.messages.some(message => message.id === firstToday.id && message.role === 'today'), true);
-    await page.getByRole('link', { name: 'Global home', exact: true }).click();
+    await page.getByRole('link', { name: 'Platform Studio home', exact: true }).click();
     await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
-    await checkContextMotion(page, motion, beforeOrg);
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
+    assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Platform Studio returns to Today within global context without blurring chat');
     assert.deepEqual(destination(page).target, { projectId: null, worktreeId: null, orgId: 'uat' });
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
     assert.equal(await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).count(), 1);
@@ -264,10 +266,12 @@ try {
       savedPosition = await transcript.evaluate(readingPosition);
     }
     const beforeReturn = todayCount();
+    const beforeProjectHome = await page.evaluate(() => window.__contextMotion.length);
     const trailingToday = structuredClone(globalThread.conversation.messages.at(-1));
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.locator(`[data-message-id="${trailingToday.id}"] fieldset[aria-label="Today"]`).waitFor();
+    await checkContextMotion(page, motion, beforeProjectHome);
     assert.equal(todayCount(), beforeReturn, 'Project activity must not duplicate a trailing global Today');
     assert.deepEqual(globalThread.conversation.messages.at(-1), trailingToday, 'Reuse the same Today identity, content and timestamp');
     out.checks.push(`${motion}: Home reuses trailing Today after project activity; global surface or org content still earns a new Today`);
@@ -304,7 +308,7 @@ try {
     await page.waitForURL(url => url.pathname === '/alm');
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
     out.checks.push(`${motion}: independent branch resumption and browser Back retain context`);
-    out.checks.push(`${motion}: Home and project/worktree changes dissolve, org-only changes do not; composer remains mounted and sharp`);
+    out.checks.push(`${motion}: entering/leaving projects and worktrees dissolves; global surface-to-Today and org-only changes keep chat sharp`);
 
     // Keep a project builder draft, then browse cross-project operations in
     // global ALM and confirm project scope isolates tabs on return.

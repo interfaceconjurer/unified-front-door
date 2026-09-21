@@ -199,7 +199,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 inert={!surfaceOpen}
               >
                 {surface ? (
-                  // Project/Home changes dissolve; surface-only swaps retain
+                  // Workspace changes dissolve; surface-only swaps retain
                   // their movement without mounting duplicate live canvases.
                   <ViewTransition key={surface.id} name="surface-canvas" default="none"
                     share={{ "workspace-context": "workspace-dissolve", default: "surface-swap" }}

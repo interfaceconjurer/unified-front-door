@@ -26,12 +26,13 @@ export function SurfaceNav({ revealOrder, readOnly = false, profile: capturedPro
             <span>{surface.label}</span>
             <ChevronRightIcon className={styles.arrow} width={16} height={16} aria-hidden="true" />
           </>;
-          return readOnly ? <span key={surface.id} className={styles.link} aria-disabled="true">{content}</span> : <Link
+          return readOnly ? <span key={surface.id} className={styles.link} data-today-container aria-disabled="true">{content}</span> : <Link
             key={surface.id}
             href={hrefForSurface(surface.id)}
             scroll={false}
             onNavigate={(event) => { event.preventDefault(); navigateSurface(surface.id); }}
             className={styles.link}
+            data-today-container
             title={surface.description}
           >
             {content}

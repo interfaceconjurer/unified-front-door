@@ -37,7 +37,7 @@ function LiveWorkRows({ items }: { items: readonly ReturningWork[] }) {
 }
 function WorkRows({ items, openWork, branchFor, revealFrom }: { items: readonly ReturningWork[]; openWork: (work: ReturningWork) => void; branchFor: (work: ReturningWork) => string; revealFrom?: number }) {
   return (
-    <ul className={styles.list}>
+    <ul className={styles.list} data-today-container>
       {items.map((work, index) => {
         const surface = surfaceAppById(work.surfaceId);
         return <li key={work.id} {...(revealFrom === undefined ? {} : todayRow(revealFrom + index))}>

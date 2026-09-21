@@ -85,7 +85,7 @@ function DayZeroView({ state, profile, snapshot = false, store, run, openProject
       <p>Your agent is getting to know your Salesforce environment.<br />Let’s turn the opportunities it finds into your first project.</p>
     </header>
 
-    <div className={styles.connection}>
+    <div className={styles.connection} data-today-container>
       <span className={styles.orgIcon}><DatabaseIcon width={19} height={19} aria-hidden="true" /></span>
       <div><strong>{ASSESSMENT_ACCOUNT.company} workspace</strong><span>{ASSESSMENT_ACCOUNT.domain}</span></div>
       <span className={styles.demoBadge}>Demo connection</span>
@@ -94,11 +94,11 @@ function DayZeroView({ state, profile, snapshot = false, store, run, openProject
       </button>
     </div>
 
-    {state.draft && <section className={styles.scope} aria-label="Project draft">
+    {state.draft && <section className={styles.scope} data-today-container aria-label="Project draft">
       <h2>{state.draft.name}</h2><p>{state.draft.goal}</p>
       <button type="button" className={styles.primary} onClick={continueProject}>Continue project draft</button>
     </section>}
-      <section className={styles.assessment} aria-labelledby={`${id}-assessment`}>
+      <section className={styles.assessment} data-today-container aria-labelledby={`${id}-assessment`}>
         <div className={styles.assessmentHead}>
           <span className={styles.agentIcon}><SparklesIcon width={21} height={21} aria-hidden="true" /></span>
           <div><p className={styles.kicker}>YOUR AGENT · ORG ASSESSMENT</p><h2 id={`${id}-assessment`}>{complete ? state.findingsAvailable ? "Your first opportunities are ready." : "Original assessment findings unavailable." : needsScope ? "Choose accessible orgs to continue." : idle ? "Your org assessment is ready to start." : state.status === "paused" ? "Assessment paused. Pick up anytime." : "I’m finding where you can make an impact."}</h2></div>
@@ -125,14 +125,14 @@ function DayZeroView({ state, profile, snapshot = false, store, run, openProject
         {findings.length ? <div className={styles.findingGrid}>{findings.map((finding) => {
           const project = state.projects.find((project) => project.findingIds.includes(finding.id));
           return <FindingCard key={finding.id} finding={finding} readOnly={snapshot} selected={selectedIds.includes(finding.id) && !project} onToggle={() => setSelected(selectedIds.includes(finding.id) ? selectedIds.filter((id) => id !== finding.id) : [...selectedIds, finding.id])} projectName={project?.name} onOpenProject={() => { if (project) openProject?.(project); }} onOpenEvidence={() => openAssessment?.(finding)} />;
-        })}</div> : <div className={styles.empty}><CheckIcon width={24} height={24} aria-hidden="true" /><h3>No findings in this demo scope</h3><p>This sample has no flagged issues for the selected orgs. It is not a comprehensive health certification.</p><button className={styles.textButton} type="button" onClick={openScope}>Review org scope</button></div>}
-        {!!available.length && <div className={styles.selectionBar}>
+        })}</div> : <div className={styles.empty} data-today-container><CheckIcon width={24} height={24} aria-hidden="true" /><h3>No findings in this demo scope</h3><p>This sample has no flagged issues for the selected orgs. It is not a comprehensive health certification.</p><button className={styles.textButton} type="button" onClick={openScope}>Review org scope</button></div>}
+        {!!available.length && <div className={styles.selectionBar} data-today-container>
           <div><strong>{chosen.length} {chosen.length === 1 ? "opportunity" : "opportunities"} selected</strong><span>Your agent will draft the goal and a plan for each work item.</span></div>
           <button type="button" className={styles.primary} disabled={!chosen.length || startingProject} onClick={() => { void startProject?.(chosen); }}>{startingProject ? "Preparing project draft…" : "Shape a project"} <ChevronRightIcon width={16} height={16} aria-hidden="true" /></button>
         </div>}
       </section>}
 
-      {!!state.projects.length && <section className={styles.savedProjects} aria-labelledby={`${id}-projects`}><h2 id={`${id}-projects`}>Your improvement projects</h2>{state.projects.map((project) => <button type="button" key={project.id} className={styles.projectLink} onClick={() => openProject?.(project)}>
+      {!!state.projects.length && <section className={styles.savedProjects} aria-labelledby={`${id}-projects`}><h2 id={`${id}-projects`}>Your improvement projects</h2>{state.projects.map((project) => <button type="button" key={project.id} className={styles.projectLink} data-today-container onClick={() => openProject?.(project)}>
         <LayersIcon width={20} height={20} aria-hidden="true" /><span><strong>{project.name}</strong><small>{project.workItemCount} work items · {project.completedCount} complete</small></span><ChevronRightIcon width={16} height={16} aria-hidden="true" />
       </button>)}</section>}
     </fieldset>
@@ -144,7 +144,7 @@ function FindingCard({ finding, selected, onToggle, projectName, onOpenProject, 
   finding: Finding; readOnly: boolean; selected: boolean; onToggle: () => void; projectName?: string; onOpenProject: () => void; onOpenEvidence: () => void;
 }) {
   const org = { label: finding.orgLabel };
-  return <article className={styles.findingCard} data-selected={selected}>
+  return <article className={styles.findingCard} data-today-container data-selected={selected}>
     <div className={styles.findingTop}><span className={styles.priority} data-priority={finding.priority}>{finding.priority} priority</span><span>{finding.category}</span></div>
     <h3>{finding.title}</h3><p>{finding.summary}</p>
     <div className={styles.metric}><strong>{finding.metric}</strong><span>{finding.metricLabel}<small>{org?.label}</small></span></div>

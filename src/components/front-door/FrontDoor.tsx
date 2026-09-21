@@ -8,7 +8,7 @@ import {
   SparklesIcon,
   type IconComponent,
 } from "@/components/icons";
-import { useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { startersForProfile, type StarterId } from "@/lib/agent/starters";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
@@ -33,6 +33,23 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
 }) {
   const { profile } = snapshot;
   const id = useId();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [inactiveAppearance, setInactiveAppearance] = useState(!active);
+  // A reused trailing Today becomes live again without remounting its content.
+  if (active && inactiveAppearance) setInactiveAppearance(false);
+  const readOnly = !active && inactiveAppearance;
+  useEffect(() => {
+    const content = contentRef.current, transcript = content?.closest<HTMLElement>('[role="log"]');
+    if (active || inactiveAppearance || !content || !transcript) return;
+    // Observe the content, excluding responsive fieldset padding. Subdue only
+    // outside the viewport, even if the reader interrupts the outgoing scroll.
+    let cancelled = false;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!cancelled && entry && !entry.isIntersecting) setInactiveAppearance(true);
+    }, { root: transcript, threshold: 0 });
+    observer.observe(content);
+    return () => { cancelled = true; observer.disconnect(); };
+  }, [active, inactiveAppearance]);
   const availableSurfaces = profile
     ? surfaceApps.filter((surface) => canAccessSurface(profile, surface.id))
     : [];
@@ -44,9 +61,16 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
   const canUseCode = availableSurfaces.some((surface) => surface.id === "code");
 
   return (
-    <div className={styles.frontDoor} data-read-only={!active || undefined}>
-        <fieldset className={styles.content} disabled={!active} aria-label={active ? "Today" : "Earlier Today (read only)"}>
-          {dayZero ? <DayZeroHome snapshot={active ? undefined : snapshot.assessment} profile={snapshot.profile} /> : returning ? <ReturningHome active={active} snapshot={snapshot} onOpenWork={onOpenWork} /> : <>
+    <div className={styles.frontDoor} data-read-only={readOnly || undefined} data-retiring={!active && !readOnly || undefined} inert={!active && !readOnly}>
+        <fieldset className={styles.content} disabled={readOnly} aria-label={active ? "Today" : "Earlier Today (read only)"}>
+          <div ref={contentRef} className={styles.briefing} onFocusCapture={(event) => {
+            // Reveal a keyboard-focused row by completing its existing timeline.
+            // Toggling animation:none would restart it when focus leaves.
+            event.target.closest<HTMLElement>("[data-today-row]")?.getAnimations().forEach(animation => {
+              if (animation instanceof CSSAnimation && animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
+            });
+          }}>
+          {dayZero ? <DayZeroHome snapshot={readOnly ? snapshot.assessment : undefined} profile={snapshot.profile} /> : returning ? <ReturningHome active={!readOnly} snapshot={snapshot} onOpenWork={onOpenWork} /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome} {...todayRow(0)}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -57,7 +81,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
             </p>
           </header>
 
-          <SurfaceNav revealOrder={3} readOnly={!active} profile={profile} />
+          <SurfaceNav revealOrder={3} readOnly={readOnly} profile={profile} />
 
           <section className={styles.starters} aria-labelledby={`${id}-starters`}>
             <div className={styles.sectionHeading} {...todayRow(5)}>
@@ -70,6 +94,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
                   <button
                     type="button"
                     className={styles.starterCard}
+                    data-today-container
                     data-surface={starter.surfaceId}
                     onClick={() => onStart(starter.id)}
                   >
@@ -94,7 +119,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
           </section>
 
           {canUseCode && (
-            <div className={styles.existingProject} {...todayRow(6 + starters.length)}>
+            <div className={styles.existingProject} data-today-container {...todayRow(6 + starters.length)}>
               <GitBranchIcon className={styles.existingIcon} width={20} height={20} aria-hidden="true" />
               <div className={styles.existingCopy}>
                 <h2>Have a project already?</h2>
@@ -107,6 +132,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
             </div>
           )}
           </>}
+          </div>
         </fieldset>
     </div>
   );

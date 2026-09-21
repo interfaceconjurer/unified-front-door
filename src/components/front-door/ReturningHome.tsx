@@ -32,21 +32,21 @@ export function ReturningHome({ snapshot, onOpenWork, active }: {
     <section className={styles.attention} aria-labelledby={`${id}-attention`}>
       <div className={styles.sectionHeading} {...todayRow(4)}><h2 id={`${id}-attention`}>Needs your attention <span className={styles.count}>{attention.length}</span></h2></div>
       {attention.length ? <div className={styles.attentionGrid}>
-        {attention.map((work, index) => <button key={work.id} {...todayRow(5 + index)} type="button" onClick={() => onOpenWork(work)} className={styles.attentionCard} aria-label={`Review ${work.title}`}>
+        {attention.map((work, index) => <button key={work.id} {...todayRow(5 + index)} type="button" onClick={() => onOpenWork(work)} className={styles.attentionCard} data-today-container aria-label={`Review ${work.title}`}>
           <span className={styles.attentionLabel}>{work.statusLabel}</span>
           <strong>{work.title}</strong>
           <span className={styles.workContext}>{work.projectName ?? work.projectId} · {work.branch ?? work.worktreeId}</span>
           <span className={styles.attentionDescription}>{work.summary}</span>
           <span className={styles.attentionAction}>Review in {SURFACES[work.surfaceId].label}<ChevronRightIcon width={15} height={15} aria-hidden="true" /></span>
         </button>)}
-      </div> : <p className={styles.empty} {...todayRow(5)}>Nothing needs your attention here.</p>}
+      </div> : <p className={styles.empty} data-today-container {...todayRow(5)}>Nothing needs your attention here.</p>}
     </section>
     <SurfaceNav revealOrder={surfacesOrder} readOnly={!active} profile={profile} />
     <section aria-labelledby={`${id}-recent`}>
       <div className={styles.sectionHeading} {...todayRow(surfacesOrder + 2)}>
         <h2 id={`${id}-recent`}>Recent work <span className={styles.count}>{recent.length}</span></h2>
       </div>
-      {recent.length ? <RecentWorkList items={[...recent].sort((a, b) => b.updated.localeCompare(a.updated))} onOpenWork={onOpenWork} showProject revealFrom={surfacesOrder + 3} /> : <p className={styles.empty} {...todayRow(surfacesOrder + 3)}>No recent work yet.</p>}
+      {recent.length ? <RecentWorkList items={[...recent].sort((a, b) => b.updated.localeCompare(a.updated))} onOpenWork={onOpenWork} showProject revealFrom={surfacesOrder + 3} /> : <p className={styles.empty} data-today-container {...todayRow(surfacesOrder + 3)}>No recent work yet.</p>}
     </section>
   </div>;
 }
