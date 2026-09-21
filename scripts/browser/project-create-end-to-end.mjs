@@ -25,6 +25,7 @@ try {
     const name = `${owner} service app`;
     const create = page.getByRole('button', { name: 'Create project', exact: true });
     assert(await create.isDisabled());
+    assert.notEqual(await create.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)', 'The creation action has a visible button fill');
     await page.getByLabel('Project name', { exact: true }).fill(name);
     await page.getByRole('radio', { name: /^React app/ }).check();
     await page.getByLabel('What should this project achieve?', { exact: true }).fill('Reduce manual handoffs for the service team.');
@@ -37,6 +38,36 @@ try {
     assert.equal(await panel.getAttribute('data-open'), 'true');
     await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).waitFor();
     assert.equal(fixture.commands.filter(command => command.kind === 'project.createFromBrief').length, 1);
+    if (owner === 'kf') {
+      let release;
+      const gate = new Promise(resolve => { release = resolve; }), requests = [];
+      await page.route('**/api/agent*', async route => {
+        const request = route.request();
+        if (request.method() !== 'POST' || request.postDataJSON().command.kind !== 'submit') return route.fallback();
+        const command = request.postDataJSON().command; requests.push(command);
+        await gate;
+        const saved = fixture.state.agent.conversations.find(saved => saved.threadKey === JSON.stringify(['project-session', project.id, null]));
+        const nextId = Math.max(0, ...saved.conversation.messages.map(message => message.id)) + 1;
+        saved.conversation.messages.push({ id: nextId, role: 'user', text: command.text }, { id: nextId + 1, role: 'agent', text: 'Let’s clarify the first milestone for this project.' });
+        saved.revision++;
+        return route.fulfill({ json: { result: { conversationId: saved.id, conversation: saved } } });
+      });
+      assert.equal(requests.length, 0, 'Opening the project does not submit model work');
+      const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
+      await composer.fill('Keep my unsent note.');
+      const before = page.url(), planning = page.getByRole('button', { name: 'Start creating a plan', exact: true });
+      const sent = page.waitForRequest(request => request.method() === 'POST' && request.url().includes('/api/agent') && request.postDataJSON().command.kind === 'submit');
+      await planning.click(); await sent;
+      const pending = page.getByRole('button', { name: 'Starting plan…', exact: true });
+      assert(await pending.isDisabled()); await pending.evaluate(el => el.click());
+      release();
+      await page.getByText('Let’s clarify the first milestone for this project.', { exact: true }).waitFor();
+      assert.equal(requests.length, 1);
+      assert.deepEqual(requests[0].context, { surface: 'alm', target: { projectId: project.id, worktreeId: null, orgId } });
+      assert.match(requests[0].text, /create a plan.*saved type, goal, and context/);
+      assert.equal(await composer.inputValue(), 'Keep my unsent note.'); assert.equal(page.url(), before);
+      out.checks.push('Explicit planning action sends one scoped request, preserves unsent text, and continues in project chat beside the overview');
+    }
     await page.reload(); await page.getByRole('heading', { name, exact: true }).waitFor();
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/');

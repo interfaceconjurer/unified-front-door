@@ -440,6 +440,12 @@ briefs in the matching ALM context and the type/goals/context of a selected
 saved project. Pending edits are not treated as acknowledged context;
 selecting a template does not itself submit a model request.
 
+The saved project's **Start creating a plan** action submits an explicit planning
+request in that project's chat, using its saved type, goal, and context. It asks
+for milestones, tasks, success criteria, and missing requirements. The overview
+stays visible, existing composer text is preserved, and duplicate clicks are
+blocked while the request is pending. Opening the overview alone starts no model work.
+
 ## Saved application data and pending edits
 
 Assessment runs/findings, project drafts, planning projects/work-item status, and

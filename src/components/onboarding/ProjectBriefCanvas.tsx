@@ -27,7 +27,7 @@ export function ProjectBriefCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
       if (project && current()) { openImprovementProject(project); openProjectPanel(); }
     } finally { inFlight.current = false; setCreating(false); }
   }
-  return <>
+  return <div className={styles.projectCanvas}>
     <PersistenceStatus store={store} onlyProblems label="Project creation" />
     <fieldset className={styles.briefingFields} disabled={creating || queued} aria-busy={creating || queued}>
       <CapabilityDraftCanvas surfaceId="alm" capability={capabilityForCanvas("alm", "project")!} spec={spec} />
@@ -38,5 +38,5 @@ export function ProjectBriefCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
         {creating || queued ? "Creating project…" : "Create project"}
       </button>
     </div>
-  </>;
+  </div>;
 }
