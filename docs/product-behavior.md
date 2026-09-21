@@ -404,7 +404,8 @@ is lost; production identity and org grants remain a later integration boundary.
 
 On login, choose **Clear data** beside the intended profile, review its named
 confirmation, and confirm to restore its original demo state. **Cancel** is the
-default. This clears that profile's saved chats, assessments, projects, and drafts
+default. This clears that profile's saved chats, assessments, projects (including
+projects created directly from a brief without an assessment), and drafts
 in this browser's namespace while keeping starter demo fixtures, other profiles,
 and original browser import sources. The page stays on login. A lost response can
 be retried explicitly with the same saved command; loading the page or signing in

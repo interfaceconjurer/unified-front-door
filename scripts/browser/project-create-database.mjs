@@ -22,11 +22,11 @@ try {
   const initial = await sessionPost({ action: 'bootstrap' }); namespace = initial.namespaceId;
   assert.equal((await transaction(db => db.query('SELECT id FROM demo_namespaces WHERE id=$1', [namespace]))).rowCount, 1);
   confirmed = true;
-  await sessionPost({ action: 'select', profileId: 'jw', generation: initial.generation, commandId: randomUUID() });
+  await sessionPost({ action: 'select', profileId: 'kf', generation: initial.generation, commandId: randomUUID() });
   const page = await context.newPage(); page.on('pageerror', e => out.errors.push(e.message));
   // This check exercises creation and navigation only; never submits provider work.
   await page.route('**/api/agent*', route => route.request().method() === 'POST' && route.request().postDataJSON().command.kind !== 'visit' ? route.abort() : route.continue());
-  await page.goto(origin + destinationHref({ version: 1, owner: 'jw', surface: null, target: { projectId: null, worktreeId: null, orgId: null } }));
+  await page.goto(origin + destinationHref({ version: 1, owner: 'kf', surface: null, target: { projectId: null, worktreeId: null, orgId: null } }));
   await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
   const panel = page.locator('#workspace-panel');
   if (await panel.getAttribute('data-open') !== 'true') await page.locator('#workspace-panel-toggle').click();
@@ -39,7 +39,7 @@ try {
   await page.getByRole('button', { name: 'Create project', exact: true }).click({ timeout: 45000 });
   await page.getByRole('heading', { name, exact: true }).waitFor({ timeout: 45000 });
   const id = JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId;
-  const row = await transaction(async db => (await db.query("SELECT record FROM improvement_projects WHERE namespace_id=$1 AND profile_id='jw' AND id=$2", [namespace, id])).rows[0]);
+  const row = await transaction(async db => (await db.query("SELECT record FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf' AND id=$2", [namespace, id])).rows[0]);
   assert.equal(row.record.projectType, 'react'); assert.equal(row.record.context, 'Synthetic acceptance data.'); assert.equal(row.record.runId, null);
   await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).waitFor();
   await page.reload(); await page.getByRole('heading', { name, exact: true }).waitFor({ timeout: 45000 });
@@ -47,6 +47,20 @@ try {
   await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).click();
   await page.getByRole('heading', { name, exact: true }).waitFor();
   out.checks.push('Real database acknowledgement creates a project; sidebar entry, intent, reload, and explicit reopening work without provider calls');
+  await page.getByRole('button', { name: 'User menu for Karen Flores', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await page.waitForURL(url => url.pathname === '/login');
+  await page.getByRole('button', { name: 'Clear data for Karen Flores', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Clear data for Karen Flores?', exact: true }).getByRole('button', { name: 'Clear data', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: 'Clear data completed for Karen Flores.' }).waitFor();
+  assert.equal((await transaction(db => db.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf'", [namespace]))).rowCount, 0);
+  await page.getByRole('button', { name: /Karen Flores New platform builder/ }).click();
+  await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+  if (await panel.getAttribute('data-open') !== 'true') await page.locator('#workspace-panel-toggle').click();
+  assert.equal(await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).count(), 0);
+  await page.reload(); await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+  assert.equal(await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).count(), 0);
+  out.checks.push('Clearing Karen through the login dialog removes her brief-created project from the database and sidebar after sign-in and reload');
   assert.deepEqual(out.errors, []);
 } finally {
   await context.close(); await browser.close();
@@ -55,6 +69,7 @@ try {
     await db.query('DELETE FROM demo_sessions WHERE namespace_id=$1', [namespace]);
     await db.query('DELETE FROM workspaces WHERE namespace_id=$1', [namespace]);
     await db.query('DELETE FROM demo_namespaces WHERE id=$1', [namespace]);
+    assert.equal((await db.query('SELECT id FROM improvement_projects WHERE namespace_id=$1', [namespace])).rowCount, 0, 'Workspace cleanup must not leave orphaned projects');
     out.cleanup = true;
   });
   await databasePool().end(); modules.cleanup();

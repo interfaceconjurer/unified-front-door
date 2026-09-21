@@ -40,6 +40,13 @@ const run = (s,command)=>transaction(c=>executeCommand(c,s.token,s.session.gener
 const command = (kind,expectedRevision,fields={})=>({kind,expectedRevision,commandId:randomUUID(),...fields});
 async function complete(s) { let snap=await read(s);await run(s,command("assessment.start",snap.assessmentRevision));const execution=(await transaction(c=>observeAgent(c,s.token,s.session.generation))).runs.find(r=>r.kind==="assessment");for(let step=0;step<12;step++){await workerTick({runId:execution.id,adapter:fastAdapter});snap=await read(s);if(snap.assessment.status==="complete")return snap;}throw Error("Assessment worker did not complete"); }
 async function draft(s) { const snap=await complete(s);await run(s,command("draft.begin",snap.assessmentRevision,{runId:snap.assessment.currentRunId,fields:{name:"Integration project",goal:"Preserve captured evidence",targetOrgId:"sit",findingIds:[snap.assessment.runs[0].findings[0].id]}}));return read(s); }
+async function createBriefProject(s, name) {
+  const brief = { kind: "capability", title: "Start a project", params: { scope: "unbound", surface: "alm", capability: "project" } };
+  const sourceId = canvasId(brief.kind, brief.params), snapshot = await read(s);
+  const revision = snapshot.canvases.find(canvas => canvas.id === sourceId)?.revision ?? 0;
+  await run(s, command("canvas.save", revision, { canvas: brief, target, surface: "alm", fields: { name, goal: "Verify reset ownership", projectType: "standard" } }));
+  return (await run(s, command("project.createFromBrief", snapshot.assessmentRevision, { sourceId, sourceRevision: revision + 1 }))).project;
+}
 const canvas={kind:"capability",title:"Automation",params:{scope:"unbound",surface:"build",capability:"automation"}},target={projectId:null,worktreeId:null,orgId:null};
 const save = (fields,expectedRevision=0)=>command("canvas.save",expectedRevision,{canvas,target,surface:"build",fields});
 
@@ -143,6 +150,39 @@ test("clearing another profile preserves the selected workspace, generation and 
   assert.deepEqual(await read(s), before);
   assert.deepEqual((await transaction(c => c.query("SELECT * FROM agent_runs WHERE id=$1", [accepted.runId]))).rows[0], runBefore);
   assert.equal(await transaction(c => applyStep(c, lease, { kind: "complete", text: "Finished in the unchanged workspace" })), true);
+});
+test("clearing Karen deletes brief projects only in her workspace; rollback and receipt replay preserve work", async () => {
+  const s = await scope("kf"), other = await scope("kf");
+  await createBriefProject(s, "testing");
+  const otherProject = await createBriefProject(other, "Another browser's project");
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "jw", generation: s.session.generation, commandId: randomUUID() }));
+  const jordanProject = await createBriefProject(s, "Jordan's project");
+  s.session = await transaction(c => changeSession(c, s.token, { action: "signout", generation: s.session.generation, commandId: randomUUID() }));
+  const clear = { action: "reset-profile", profileId: "kf", generation: s.session.generation, commandId: randomUUID() };
+  const saved = () => transaction(async c => (await c.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf'", [s.session.namespaceId])).rows);
+  await assert.rejects(transaction(async c => { await changeSession(c, s.token, clear); throw Error("force rollback"); }), /force rollback/);
+  assert.equal((await saved()).length, 1, "A rolled-back reset retains the project");
+  assert.deepEqual(await transaction(c => changeSession(c, s.token, clear)), s.session);
+  assert.deepEqual(await saved(), [], "Brief projects must cascade without an assessment run");
+  assert.deepEqual((await read(other)).assessment.projects, [otherProject]);
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "jw", generation: s.session.generation, commandId: randomUUID() }));
+  assert.deepEqual((await read(s)).assessment.projects, [jordanProject]);
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "kf", generation: s.session.generation, commandId: randomUUID() }));
+  assert.deepEqual((await read(s)).assessment.projects, []);
+  const newProject = await createBriefProject(s, "Created after reset");
+  await transaction(c => changeSession(c, s.token, clear));
+  assert.deepEqual((await read(s)).assessment.projects, [newProject], "Retrying an acknowledged reset cannot delete later projects");
+  await assert.rejects(transaction(c => c.query("UPDATE improvement_projects SET namespace_id=$1 WHERE namespace_id=$2 AND profile_id='kf'", [randomUUID(), s.session.namespaceId])), e => e.code === "23503", "A brief project must have an owning workspace even without a run");
+});
+test("current-profile reset removes brief projects on every profile", async () => {
+  for (const profile of ["kf", "jw", "am", "sp"]) {
+    const s = await scope(profile);
+    await createBriefProject(s, "Current profile project");
+    const previousEpoch = s.session.workspaceEpoch;
+    s.session = await transaction(c => changeSession(c, s.token, { action: "reset", generation: s.session.generation, commandId: randomUUID() }));
+    assert.notEqual(s.session.workspaceEpoch, previousEpoch);
+    assert.deepEqual((await read(s)).assessment.projects, [], `${profile}'s project should be removed`);
+  }
 });
 test("current-profile reset fences stale writes and workers without refunding model reservations", async () => {
   const s = await scope("jw"), original = s.session, budgetScope = `profile-clear-test-${s.session.namespaceId}`;
