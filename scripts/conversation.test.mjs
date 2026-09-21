@@ -11,7 +11,7 @@ const source = readFileSync(new URL("../src/lib/chat/conversation.ts", import.me
 writeFileSync(join(output, "conversation.js"), ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText);
-const { ConversationStore } = createRequire(import.meta.url)(join(output, "conversation.js"));
+const { ConversationStore, updateConversation } = createRequire(import.meta.url)(join(output, "conversation.js"));
 after(() => rmSync(output, { recursive: true, force: true }));
 
 const first = { capturedAt: "2026-09-14T10:00:00Z", projectName: "CRM", branch: "main", assessment: { status: "running", step: 1 } };
@@ -77,6 +77,31 @@ test("repeated Home clicks refocus without replacing or duplicating the latest b
   assert.equal(messages(store).length, 1);
   assert.equal(messages(store)[0].snapshot, first);
   assert.equal(store.getSnapshot().scrollRevision, 2);
+});
+
+test("Home reuses trailing Today across project visits and legacy forced returns, retaining its timestamp", () => {
+  const store = new ConversationStore();
+  store.dispatch("global", home(first));
+  const original = store.getSnapshot().sessions.global;
+  store.dispatch("project", { type: "project", label: "CRM", reply: "Your project is ready." });
+  store.dispatch("project", { type: "send", text: "Plan this project", reply: "Here is the plan." });
+  store.dispatch("global", { ...home(second), force: true });
+  assert.equal(store.getSnapshot().sessions.global, original);
+  assert.equal(messages(store, "global").at(-1).snapshot.capturedAt, first.capturedAt);
+  const restored = updateConversation({ ...original, scopeKey: "build" }, home(second));
+  assert.equal(restored.scopeKey, "home"); assert.equal(restored.messages, original.messages);
+});
+
+test("Home appends Today only after intervening global messages or context, then reuses it", () => {
+  for (const event of [build, { type: "send", text: "Hello", reply: "How can I help?" }, { type: "org", orgId: "uat", label: "UAT Sandbox" }]) {
+    const firstVisit = updateConversation(undefined, home(first));
+    const intervening = updateConversation(firstVisit, event);
+    const returned = updateConversation(intervening, home(second));
+    assert.equal(returned.messages.length, intervening.messages.length + 1);
+    assert.equal(returned.messages[0], firstVisit.messages[0]);
+    assert.equal(returned.messages.at(-1).snapshot, second);
+    assert.equal(updateConversation(returned, { ...home(first), force: true }), returned);
+  }
 });
 
 test("route arrival does not duplicate a work-specific response or a sent prompt", () => {

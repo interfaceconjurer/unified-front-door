@@ -87,17 +87,24 @@ test("global work visits stay in one conversation and never enter their owning p
   await assert.rejects(send(empty, { kind: "visit", requestId: randomUUID(), workId: "lead-routing-agent", context: { ...context, surface: "build" } }), /unavailable/);
 });
 
-test("explicit Home return appends a fresh Today once; retries and route restoration do not duplicate it", async () => {
+test("Home reuses trailing Today after project visits and appends once after new global content", async () => {
   const s = await owner("am");
-  const first = await send(s, { kind: "visit", requestId: randomUUID(), context });
-  const command = { kind: "visit", requestId: randomUUID(), context, refreshToday: true };
+  const home = { ...context, target: { ...context.target, orgId: "uat" } };
+  const first = await send(s, { kind: "visit", requestId: randomUUID(), context: home });
+  await send(s, { kind: "visit", requestId: randomUUID(), context: { surface: "alm", target: { ...home.target, projectId: "trailblazer-crm", worktreeId: "main" } } });
+  const reused = await send(s, { kind: "visit", requestId: randomUUID(), context: home, refreshToday: true });
+  assert.equal(reused.conversationId, first.conversationId);
+  assert.deepEqual(reused.conversation.conversation.messages, JSON.parse(JSON.stringify(first.conversation.conversation.messages)));
+  const explored = await send(s, { kind: "visit", requestId: randomUUID(), context: { ...home, surface: "build" } });
+  const command = { kind: "visit", requestId: randomUUID(), context: home, refreshToday: true };
   const returned = await send(s, command);
-  const before = first.conversation.conversation.messages, after = returned.conversation.conversation.messages;
+  const before = explored.conversation.conversation.messages, after = returned.conversation.conversation.messages;
   assert.equal(after.length, before.length + 1);
   assert.deepEqual(after.slice(0, -1), JSON.parse(JSON.stringify(before)));
   assert.equal(after.at(-1).role, "today");
+  assert.notEqual(after.at(-1).id, first.conversation.conversation.messages.at(-1).id);
   assert.deepEqual((await send(s, command)).conversation, JSON.parse(JSON.stringify(returned.conversation)));
-  assert.deepEqual((await send(s, { kind: "visit", requestId: randomUUID(), context })).conversation.conversation.messages, JSON.parse(JSON.stringify(after)));
+  assert.deepEqual((await send(s, { kind: "visit", requestId: randomUUID(), context: home })).conversation.conversation.messages, JSON.parse(JSON.stringify(after)));
 });
 
 test("org changes share global history, log once, and preserve in-flight execution scope", async () => {

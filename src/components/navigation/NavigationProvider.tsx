@@ -173,10 +173,9 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     // Already at the live Today: no route, history entry, animation or write.
     if (pathname === "/" && !workspace.target.projectId && thread?.scopeKey === "home" && thread.messages.at(-1)?.role === "today") return;
     controller.navigate(globalHome);
-    // An explicit return gets a fresh briefing even if the global conversation
-    // last ended on Today before we entered a project. Route restoration remains
-    // idempotent, and the agent queue owns retries of this request.
-    void agent?.command({ kind: "visit", requestId: crypto.randomUUID(), context: { target: globalHome.target, surface: "home" }, refreshToday: true });
+    // The conversation reuses a trailing Today and appends one only after
+    // other global chat content. The agent queue owns retries of this visit.
+    void agent?.command({ kind: "visit", requestId: crypto.randomUUID(), context: { target: globalHome.target, surface: "home" } });
   };
   const value: Navigation = {
     problem: visibleProblem,

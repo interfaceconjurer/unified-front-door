@@ -34,9 +34,10 @@ export function updateConversation(current: Conversation | undefined, event: Con
     return { ...thread, targetOrgId: event.orgId, messages };
   }
   if (event.type === "today") {
-    // Restoration is idempotent; explicit returns can capture a new briefing.
+    // A Today card remains current until something else is printed after it.
+    // Older queued Home visits may carry force, but must not duplicate it.
     const last = thread.messages.at(-1);
-    if (!event.force && thread.scopeKey === "home" && last?.role === "today" && last.snapshot.scope === event.snapshot.scope) return thread;
+    if (last?.role === "today") return thread.scopeKey === "home" ? thread : { ...thread, scopeKey: "home" };
     return { ...target, scopeKey: "home", messages: [...thread.messages, { id, role: "today", snapshot: event.snapshot }] };
   }
   if (event.type === "project") {

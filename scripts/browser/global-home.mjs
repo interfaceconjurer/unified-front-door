@@ -236,11 +236,13 @@ try {
       savedPosition = await transcript.evaluate(readingPosition);
     }
     const beforeReturn = todayCount();
+    const trailingToday = structuredClone(globalThread.conversation.messages.at(-1));
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
-    await page.waitForFunction(id => Number(document.querySelector('[data-kind="today"]:last-child')?.dataset.messageId ?? 0) > id,
-      globalThread.conversation.messages.filter(message => message.role === 'today').at(-2)?.id ?? 0);
-    assert.equal(todayCount(), beforeReturn + 1, 'Returning from a project creates a fresh Today even when Home was previously at Today');
+    await page.locator(`[data-message-id="${trailingToday.id}"] fieldset[aria-label="Today"]`).waitFor();
+    assert.equal(todayCount(), beforeReturn, 'Project activity must not duplicate a trailing global Today');
+    assert.deepEqual(globalThread.conversation.messages.at(-1), trailingToday, 'Reuse the same Today identity, content and timestamp');
+    out.checks.push(`${motion}: Home reuses trailing Today after project activity; global surface or org content still earns a new Today`);
     assert.equal(destination(page).target.orgId, savedDestination.target.orgId, 'Leaving a project retains its org');
     await selectProject(page, 'Trailblazer CRM');
     await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();

@@ -11,8 +11,11 @@ attention items first and labeling each work item with its project and branch.
 The returning developer's briefing uses the existing demo work and session data.
 The Home icon is blue while in global context, including global surface browsing.
 Clicking it on the active Today card does nothing. Returning from a surface or
-project closes the surface and appends a fresh Today; existing history and the
-selected org remain. Retrying that request does not duplicate the card.
+project closes the surface and reuses Today if it is still the last entry in the
+global chat, retaining its timestamp. A new Today is appended only after other
+global chat content, such as a message, surface introduction, or org change.
+Activity in a project's separate chat does not create a new global Today.
+Existing history and the selected org remain; retries never duplicate the card.
 
 Global resource browsing shares one conversation and composer draft across orgs.
 Opening a project-owned tab, recent-work item, or attention card keeps this global

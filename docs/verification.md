@@ -183,6 +183,7 @@ browser registry. Restored behaviors have these checks:
 | Work canvases distinguish type, project, worktree and branch; explicit global entry retains the current canvas, captured target, draft and history | `work-project-entry.mjs` | Navigation tests |
 | Global file browsing preserves chat/org and file ownership; only explicit project actions enter a project | `global-home.mjs`, `attention-scenarios.mjs` | Navigation and agent database tests |
 | Inactive Today removes container paint while retaining exact layout and disabled controls | `global-home.mjs` | — |
+| Home reuses trailing Today after project activity; intervening global content earns one new card with retries remaining idempotent | `global-home.mjs` | `conversation.test.mjs`, `agent-database.test.mjs` |
 | Canvas transitions, frame-by-frame close handoff without outgoing flash, interruption/focus and reduced motion | `canvas-motion.mjs` | Navigation tests |
 | Surface label opens overview; separate chevron opens dropdown; keyboard/dismissal, profile access, scoped canvas restoration | `surface-switcher.mjs` | Navigation tests |
 | Project/worktree-contained work lists and tabs; project-wide app ownership; global navigation | `project-surface-scope.mjs`, `global-home.mjs` | Navigation tests |
