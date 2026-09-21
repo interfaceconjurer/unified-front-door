@@ -10,7 +10,9 @@ const target = page => JSON.parse(new URL(page.url()).searchParams.get('destinat
 const tab = (page, name) => page.getByRole('tab', { name, exact: true });
 async function home(page) {
   await page.getByRole('link', { name: 'Global home', exact: true }).click();
-  await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+  // Retiring Today cards remain enabled-but-inert until they leave view.
+  // Wait for the live briefing, rather than matching one still scrolling away.
+  await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
 }
 async function surface(page, name) {
   await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
@@ -72,7 +74,7 @@ try {
       // Explicit global inspection creates a Home tab, without taking over the
       // project's view or changing the saved draft's captured ownership.
       await home(page);
-      await page.locator('fieldset:not(:disabled)').getByRole('button', { name: 'Resume Lead routing assistant', exact: true }).click();
+      await page.getByRole('group', { name: 'Today', exact: true }).getByRole('button', { name: 'Resume Lead routing assistant', exact: true }).click();
       await page.getByRole('heading', { name: 'Lead routing assistant', exact: true }).waitFor();
       assert.equal(target(page).projectId, null);
       assert.equal(await notes.inputValue(), 'Keep this worktree draft');

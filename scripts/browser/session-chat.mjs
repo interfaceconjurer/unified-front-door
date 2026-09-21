@@ -60,7 +60,7 @@ try {
     out.checks.push(`${motion}: reload restores the exact message anchor, including an older history page`);
     await page.getByRole('button', { name: 'Latest messages', exact: true }).click();
     await page.locator('[data-message-id="81"]').waitFor();
-    await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/build');
     await page.getByText('What would you like to build?', { exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');

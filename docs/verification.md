@@ -205,6 +205,8 @@ attention checks assert immediate inertness, then wait for Today to scroll out
 before asserting its disabled historical state. The attention journey returns
 Home immediately after opening a canvas and still requires deactivation when
 batched intersection records place the old Today offscreen.
+Navigation checks select the live `Today` group by its accessible name; an
+enabled fieldset can still belong to a retiring, inert briefing during scroll.
 
 Browser files live in `scripts/browser`; pure checks live in `scripts`. For a
 focused check, run `node scripts/browser/<suite>.mjs candidate` against the same

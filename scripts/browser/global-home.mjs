@@ -104,7 +104,7 @@ try {
     const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
     const emptyHome = { version: 1, owner: 'am', surface: null, target: { projectId: null, worktreeId: null, orgId: null } };
     await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify(emptyHome)));
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     assert.equal(destination(page).target.projectId, null);
     assert.equal(await page.getByRole('button', { name: /Switch project, current/ }).count(), 0);
     await page.getByRole('button', { name: 'Review Lead routing → UAT', exact: true }).waitFor();
@@ -122,7 +122,7 @@ try {
     await selectProject(page, 'Trailblazer CRM');
     await page.waitForURL(url => url.pathname === '/code');
     await homeButton.click();
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     assert.equal(destination(page).target.orgId, 'uat', 'Home retains the org selected in the project');
     assert.deepEqual(state.agent.conversations.find(saved => saved.threadKey === key({})).conversation.messages.at(-1), initialToday, 'The first project return must reuse Today even when it brings back a newly selected org');
     assert.equal(await page.getByRole('article', { name: 'Today briefing' }).count(), 1);
@@ -212,12 +212,12 @@ try {
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Org changes stay in the same continuous chat without a dissolve');
     assert.equal(globalThread.conversation.messages.some(message => message.id === firstToday.id && message.role === 'today'), true);
     await page.getByRole('link', { name: 'Platform Studio home', exact: true }).click();
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Platform Studio returns to Today within global context without blurring chat');
     assert.deepEqual(destination(page).target, { projectId: null, worktreeId: null, orgId: 'uat' });
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
-    assert.equal(await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore surfaces', exact: true }).count(), 1);
     assert.equal(todayCount(), 2, 'Returning from a surface appends exactly one Today');
     assert.equal(await page.locator('#surface-panel').getAttribute('inert'), '', 'Home closes the surface');
     assert.equal(await historicalToday.locator('button:enabled, a[href]').count(), 0);
@@ -269,7 +269,7 @@ try {
     const beforeProjectHome = await page.evaluate(() => window.__contextMotion.length);
     const trailingToday = structuredClone(globalThread.conversation.messages.at(-1));
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.locator(`[data-message-id="${trailingToday.id}"] fieldset[aria-label="Today"]`).waitFor();
     await checkContextMotion(page, motion, beforeProjectHome);
     assert.equal(todayCount(), beforeReturn, 'Project activity must not duplicate a trailing global Today');
@@ -289,7 +289,7 @@ try {
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/');
     await page.reload();
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await composer.evaluate(node => { window.__originalComposer = node; });
     await selectProject(page, 'Trailblazer CRM');
     await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
@@ -322,10 +322,10 @@ try {
     const notes = page.getByRole('textbox', { name: 'Your notes', exact: true });
     await notes.fill('Keep this lead-routing draft');
     await homeButton.click();
-    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
     const beforeAlm = await page.evaluate(() => window.__contextMotion.length);
-    await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'ALM', exact: true }).click();
+    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'ALM', exact: true }).click();
     await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).waitFor();
     await page.getByRole('tab', { name: 'Lead routing → UAT', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
