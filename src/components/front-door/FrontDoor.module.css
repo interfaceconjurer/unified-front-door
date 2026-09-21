@@ -18,9 +18,16 @@
   padding: 1rem 0 1.5rem;
 }
 
-/* History keeps the cards, spacing and type; only paint and controls change. */
+/* History keeps the exact layout as unboxed text. Transparent borders retain
+   their space so cards and rows do not jump when the briefing becomes history. */
 .frontDoor[data-read-only] { filter: grayscale(1); opacity: 0.78; }
-.frontDoor[data-read-only] * { animation: none !important; }
+.frontDoor[data-read-only] * {
+  animation: none !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.frontDoor[data-read-only] :is(progress, input[type="checkbox"]) { visibility: hidden; }
 .frontDoor[data-read-only] :is(button, input, select, textarea, summary) {
   pointer-events: none;
   cursor: default;

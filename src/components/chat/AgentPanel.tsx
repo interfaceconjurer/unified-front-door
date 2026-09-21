@@ -277,9 +277,9 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
   const resumeWork = useCallback((work: ReturningWork) => {
     const project = projects.find(project => project.id === work.projectId);
     void agent.command({ kind: "visit", requestId: crypto.randomUUID(), workId: work.id,
-      context: { surface: work.surfaceId, target: { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
+      context: { surface: work.surfaceId, target: target.projectId === null ? target : { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
     openWork(work);
-  }, [projects, agent, openWork]);
+  }, [projects, agent, openWork, target]);
 
   const startStarter = useCallback((id: StarterId) => {
     if (!profile) return;

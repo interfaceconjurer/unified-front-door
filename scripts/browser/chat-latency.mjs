@@ -37,9 +37,29 @@ try {
     hold = true; const readsBefore = reads;
     await page.getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
     await activity.getByText('Updating conversation…', { exact: true }).waitFor();
+    const indicator = await activity.evaluate(node => {
+      const heading = node.parentElement.querySelector('h1').getBoundingClientRect();
+      const bounds = node.getBoundingClientRect();
+      const badge = node.nextElementSibling.getBoundingClientRect();
+      const spinner = node.querySelector('[aria-hidden="true"]');
+      return { gap: bounds.left - heading.right, right: bounds.right, badgeLeft: badge.left,
+        spinnerWidth: spinner.getBoundingClientRect().width, animation: getComputedStyle(spinner).animationName };
+    });
+    assert(indicator.gap >= 0 && indicator.gap <= 16, 'Activity belongs immediately after Agent');
+    assert(indicator.right <= indicator.badgeLeft && indicator.spinnerWidth >= 12, JSON.stringify(indicator));
+    assert.equal(indicator.animation === 'none', motion === 'reduce', 'Spinner respects reduced motion');
     assert.equal(await composer.inputValue(), 'Keep this draft while navigation waits');
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"] header [role="status"]')?.textContent.includes('Still updating'), null, { timeout: 8000 });
     await page.screenshot({ path: outputPath(`${label}-chat-waiting-${motion}.png`) });
+    if (motion === 'reduce') {
+      await page.setViewportSize({ width: 390, height: 844 });
+      assert(await activity.evaluate(node => {
+        const bounds = node.getBoundingClientRect(), badge = node.nextElementSibling.getBoundingClientRect();
+        return bounds.right <= badge.left && badge.right <= innerWidth && node.querySelector('[aria-hidden="true"]').getBoundingClientRect().width >= 12;
+      }), 'Narrow headers keep the spinner and scope badge visible without overlap');
+      await page.screenshot({ path: outputPath(`${label}-chat-waiting-mobile.png`) });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
     assert.equal(reads, readsBefore, 'A pending visit should not compete with redundant full-history polling');
     hold = false; release();
     if (motion === 'no-preference') {
@@ -60,6 +80,7 @@ try {
       failOnce = true;
       await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
       const dialog = page.getByRole('dialog');
+      await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
       await dialog.getByRole('option').filter({ has: page.getByText('Code', { exact: true }) }).getByRole('button').click();
       await activity.getByText('Reconnecting…', { exact: true }).waitFor();
       await page.getByText('Ready in code', { exact: true }).waitFor();

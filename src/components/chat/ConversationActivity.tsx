@@ -12,8 +12,8 @@ export function ConversationActivity({ active, loading, interrupted }: { active:
     return () => { clearTimeout(timer); setSlow(false); };
   }, [active]);
   return <span className={styles.activity} role="status" aria-live="polite" aria-atomic="true">
-    {active && <><span className={styles.activityDot} aria-hidden="true" />
-      {interrupted ? "Reconnecting…" : slow ? "Still updating…" : loading ? "Loading conversation…" : "Updating conversation…"}
+    {active && <><span className={styles.activitySpinner} aria-hidden="true" />
+      <span className={styles.activityText}>{interrupted ? "Reconnecting…" : slow ? "Still updating…" : loading ? "Loading conversation…" : "Updating conversation…"}</span>
     </>}
   </span>;
 }
