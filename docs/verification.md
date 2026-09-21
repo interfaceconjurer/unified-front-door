@@ -186,7 +186,7 @@ browser registry. Restored behaviors have these checks:
 | Inactive Today removes container paint while retaining exact layout and disabled controls | `global-home.mjs` | — |
 | Home reuses trailing Today after project activity, including the first return carrying a different org; explicit org selections stay logged and intervening global content earns one new card | `global-home.mjs` | `conversation.test.mjs`, `agent-database.test.mjs` |
 | Opening a surface from Today preserves sharp continuous chat; project/worktree changes and returning Home retain the dissolve, respecting reduced motion | `global-home.mjs` | — |
-| Canvas transitions, frame-by-frame close handoff without outgoing flash, interruption/focus and reduced motion | `canvas-motion.mjs` | Navigation tests |
+| Instant same-surface canvas/overview selection and closing, rapid keyboard/focus and retained drafts; whole-surface transitions and reduced motion | `canvas-motion.mjs` | Navigation tests |
 | Surface label opens overview; separate chevron opens dropdown; keyboard/dismissal, profile access, scoped canvas restoration | `surface-switcher.mjs` | Navigation tests |
 | Project/worktree-contained work lists and tabs; project-wide app ownership; global navigation | `project-surface-scope.mjs`, `global-home.mjs` | Navigation tests |
 | Chat activity beside Agent, spinner/reduced motion, narrow layout and request recovery | `chat-latency.mjs` | Client reliability tests |

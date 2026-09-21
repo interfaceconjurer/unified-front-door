@@ -174,17 +174,13 @@ reduced-motion users get an immediate swap. Browser Back/Forward restores the
 addressed workspace destination without replaying the surface animation. The home
 transition remains separate.
 
-Switching canvas tabs within the same surface and conversation uses the same
-recede/land effect on the canvas body alone. The tab strip, chat, and composer
-stay sharp and stationary. Selecting the current tab does not replay it; rapid
-keyboard selection advances from the focused tab. Project/worktree changes take
-precedence and use the conversation dissolve. Reduced motion skips the effect,
-and Back/Forward restores the selected canvas without replaying it.
-
-Closing the active canvas holds its finished blur/fade and disabled interaction
-until the replacement canvas commits. An asynchronous route change must not
-briefly reveal the outgoing content again. Interrupted closes preserve the
-latest selection and focus; reduced motion closes without the exit animation.
+Opening, switching and closing canvas tabs within the same surface are immediate,
+including returning to the surface overview. There is no recede/land effect,
+blur, crossfade or exit delay. The tab strip, chat and composer stay sharp;
+keyboard selection advances from the focused tab. Closing selects the neighboring
+tab and restores focus while preserving the saved draft. Browser Back/Forward
+also restores the addressed canvas immediately. Project/worktree changes still
+use the conversation dissolve, even when both destinations use the same surface.
 
 Canvas content shares `src/components/canvas/CanvasLayout.tsx`: responsive gutters
 and a left-aligned inner column capped at 72rem. `SurfaceCanvasHost` supplies it

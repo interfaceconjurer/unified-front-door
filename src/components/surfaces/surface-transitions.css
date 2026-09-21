@@ -112,6 +112,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root),
   ::view-transition-group(.surface-swap),
   ::view-transition-old(.surface-swap),
   ::view-transition-new(.surface-swap),
