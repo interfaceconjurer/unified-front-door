@@ -1,7 +1,6 @@
 /* Status → dot color. Canonical copy: the command palette and the
    WorkspacePanel both render this component rather than their own dot markup,
-   so this is the one place the mapping lives (the Code surface's
-   AgentSessionsRail still carries its own pre-existing copy — see plan.md). */
+   so this is the one place the mapping lives. */
 .dot {
   flex: 0 0 auto;
   width: 0.5rem;

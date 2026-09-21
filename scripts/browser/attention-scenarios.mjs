@@ -28,7 +28,8 @@ try {
     await page.waitForURL(url => url.pathname === '/' + work.surfaceId);
     const selected = JSON.parse(new URL(page.url()).searchParams.get('destination'));
     assert.equal(selected.canvas.params.workId, work.id);
-    assert.deepEqual(selected.target, { projectId: project.id, worktreeId: work.worktreeId, orgId: project.defaultOrgId });
+    assert.deepEqual(selected.target, { projectId: null, worktreeId: null, orgId: 'uat' });
+    assert.deepEqual(selected.canvasTarget, { projectId: project.id, worktreeId: work.worktreeId, orgId: project.defaultOrgId });
     await page.getByRole('heading', { name: work.title, exact: true }).waitFor();
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/');
@@ -37,9 +38,11 @@ try {
     assert(await earlier.getByRole('button', { name: `Review ${work.title}`, exact: true }).isDisabled());
     assert.deepEqual(global.conversation.messages.find(message => message.id === original.id), original);
     assert.equal(await today.getByRole('button', { name: /^Review / }).count(), 5);
-    out.checks.push(`${id}: global attention opens matching project/worktree/surface and leaves original Today unchanged and disabled`);
+    out.checks.push(`${id}: attention opens matching work without entering its project, retains global org/chat, and leaves original Today unchanged and disabled`);
   }
   assert(fixture.commands.every(command => command.kind === 'visit'));
+  assert(fixture.commands.every(command => command.context.target.projectId === null));
+  assert.equal(fixture.state.agent.conversations.length, 1);
   // Opening a work canvas registers its empty draft through the existing store.
   // Navigation must not submit a review, edit content, or invoke agent work.
   for (const command of fixture.stats.commands) {

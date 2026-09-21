@@ -86,7 +86,7 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     // Old visit commands may still be queued after a deployed app moved.
     // Adapt their context only after checking the original request receipt.
     const visitedWork = command.kind === "visit" && command.workId ? RETURNING_WORK.find(work => work.id === command.workId
-      && work.projectId === command.context.target.projectId && work.worktreeId === command.context.target.worktreeId) : undefined;
+      && (command.context.target.projectId === null || work.projectId === command.context.target.projectId && work.worktreeId === command.context.target.worktreeId)) : undefined;
     const requestedContext = visitedWork && command.context.surface !== "home"
       ? { ...command.context, surface: canonicalCanvasSurface(command.context.surface, workCanvasInput(visitedWork)) } : command.context;
     const captured = await captureAgentContext(client, session, requestedContext), { context, workspace, project, projects } = captured;
@@ -107,7 +107,7 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     if (command.kind === "visit") {
       let next: Conversation;
       if (command.workId) {
-        const work = RETURNING_WORK.find(work => work.id === command.workId && work.projectId === context.target.projectId && work.worktreeId === context.target.worktreeId && work.surfaceId === context.surface);
+        const work = context.profile.workspaceExperience === "established" && visitedWork?.surfaceId === context.surface ? visitedWork : undefined;
         if (!work) invalid("This work destination is unavailable in the captured context.");
         next = saved.conversation.visitKey === `work:${work.id}` ? saved.conversation : {
           ...updateConversation(saved.conversation, { type: "surface", scopeKey: work.surfaceId, label: SURFACES[work.surfaceId].label, reply: policy.workReply(work), force: true }),

@@ -2,12 +2,13 @@ import type { WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { isResourceType, type ResourceIdentity } from "../org-resources/model";
 export const OVERVIEW_CANVAS_ID = "overview";
-export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview"] as const;
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 export type CanvasKind = "overview" | LaunchableCanvasKind;
 export type CapabilityScope = { scope: "unbound"; orgId?: string } | { scope: "project"; projectId: string; worktreeId?: string; orgId?: string };
 type Inputs = {
   app: { projectId: string; appId: string };
+  preview: { projectId: string; worktreeId: string; orgId?: string };
   capability: { surface: SurfaceId; capability: string; section?: string } & CapabilityScope;
   work: { workId: string; projectId: string; worktreeId: string };
   "improvement-project": { projectId: string };
@@ -30,6 +31,8 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
       ? { kind: "org-resource", title: value.title, params: { orgId: p.orgId as string, resourceType: p.resourceType, apiName: p.apiName as string,
         ...(p.projectId === undefined ? {} : { projectId: p.projectId as string }), ...(p.worktreeId === undefined ? {} : { worktreeId: p.worktreeId as string }) } } : null;
     case "app": return nonempty("projectId") && nonempty("appId") ? { kind: "app", title: value.title, params: { projectId: p.projectId as string, appId: p.appId as string } } : null;
+    case "preview": return nonempty("projectId") && nonempty("worktreeId") && (p.orgId === undefined || nonempty("orgId"))
+      ? { kind: "preview", title: value.title, params: { projectId: p.projectId as string, worktreeId: p.worktreeId as string, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } } : null;
     case "work": return ["workId", "projectId", "worktreeId"].every(nonempty) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string } } : null;
     case "improvement-project": return nonempty("projectId") ? { kind: "improvement-project", title: value.title, params: { projectId: p.projectId as string } } : null;
     case "org-assessment":
@@ -71,19 +74,21 @@ export function inputFromCanonicalId(id: string): CanvasSpecInput | null {
 }
 
 export function canvasTarget(input: CanvasSpecInput, fallback: WorkspaceTarget): WorkspaceTarget {
+  if (input.kind === "preview") return { projectId: input.params.projectId, worktreeId: input.params.worktreeId, orgId: input.params.orgId ?? null };
   if (input.kind === "org-resource") return { projectId: input.params.projectId ?? null, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId };
   if (input.kind === "capability" || input.kind === "org-assessment") return input.params.scope === "unbound" ? { projectId: null, worktreeId: null, orgId: input.params.orgId ?? null }
     : { projectId: input.params.projectId, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId ?? null };
   return { projectId: input.params.projectId, worktreeId: input.kind === "work" ? input.params.worktreeId : null, orgId: fallback.orgId };
 }
-/** Global browsing includes every project; a project only exposes its own tabs. */
-export function canvasVisibleInProject(canvas: CanvasSpec, projectId: string | null, captured?: WorkspaceTarget): boolean {
-  if (!projectId || canvas.kind === "overview") return true;
+/** Global browsing includes all work; project views include the selected
+ * worktree and project-wide resources, without discarding other saved tabs. */
+export function canvasVisibleInWorkspace(canvas: CanvasSpec | CanvasSpecInput, workspace: WorkspaceTarget, captured?: WorkspaceTarget): boolean {
+  if (!workspace.projectId || canvas.kind === "overview") return true;
   const target = captured ?? canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null });
-  return target.projectId === projectId;
+  return target.projectId === workspace.projectId && (target.worktreeId === null || target.worktreeId === workspace.worktreeId);
 }
 /** Current editors accept bounded fields; older persisted content is not truncated. */
 export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
 
 /** Evidence canvases persist tab identity, never a second editable copy of the evidence. */
-export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean { return canvas.kind === "org-resource" || canvas.kind === "org-assessment"; }
+export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean { return canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"; }

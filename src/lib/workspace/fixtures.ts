@@ -35,8 +35,7 @@ export const PROJECTS: readonly Project[] = [
     worktrees: [{ id: "main", label: "main", branch: "main", isPrimary: true }],
     defaultOrgId: "sit",
     facets: { objects: 12, flows: 4, apexClasses: 8, lwc: 15, permissionSets: 3 },
-    // Single worktree → the rail stays hidden (progressive disclosure), but the
-    // session still exists so the seam is exercised even where the UI hides it.
+    // Sessions appear in global workspace navigation, including single-worktree projects.
     agentSessions: [
       { worktreeId: "main", status: "waiting", summary: "Storefront release passed SIT checks; review the UAT rollout and search performance findings. Snapshot: 2026-09-14 13:00 UTC." },
     ],

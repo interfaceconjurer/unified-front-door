@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
-import { ChevronRightIcon, HomeIcon, LayersIcon, PanelIcon, SearchIcon } from "@/components/icons";
+import { ChevronRightIcon, EyeIcon, HomeIcon, LayersIcon, PanelIcon, SearchIcon } from "@/components/icons";
 import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { previewCanvas } from "@/lib/preview/model";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -18,8 +20,12 @@ type TopBarProps = {
 
 /** Global search and current project scope stay visible on every surface. */
 export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
-  const { hrefForSurface, navigateSurface, navigateGlobalHome, globalHomeHref } = useNavigation();
-  const { activeProject, activeWorktree } = useWorkspace();
+  const { navigateGlobalHome, globalHomeHref, openCanvas } = useNavigation();
+  const { activeProject, activeWorktree, target, destination } = useWorkspace();
+  const { profile } = useDemoProfile();
+  const preview = activeProject && activeWorktree && profile?.surfaceAccess.includes("build")
+    ? previewCanvas(activeProject.id, activeWorktree.id, target.orgId) : null;
+  const previewOpen = destination.kind === "available" && destination.destination.canvas?.kind === "preview";
   return (
     <header className={styles.bar} data-project-scoped={!!activeProject}>
       <div className={styles.left}>
@@ -38,21 +44,17 @@ export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel
           <PanelIcon width={16} height={16} />
         </button>
 
-        <Link href={hrefForSurface(null)} scroll={false} onNavigate={(event) => { event.preventDefault(); navigateSurface(null); }} className={styles.homeLink} aria-label="Unified Platform home">
-          <span className={styles.logo} aria-hidden="true">
-            U
-          </span>
-          <span className={styles.brandName}>Unified Platform</span>
-        </Link>
-
-        <span className={styles.divider} aria-hidden="true" />
         <Link href={globalHomeHref} scroll={false} className={`${styles.panelToggle} ${styles.globalHome} ${!activeProject ? styles.globalHomeActive : ""}`}
           aria-current={!activeProject ? "location" : undefined}
           aria-label="Global home" title={activeProject ? "Leave project and go to global home" : "Global home"}
           onNavigate={event => { event.preventDefault(); navigateGlobalHome(); }}>
-          <HomeIcon width={17} height={17} aria-hidden="true" />
+          <HomeIcon width={16} height={16} aria-hidden="true" />
+        </Link>
+        <Link href={globalHomeHref} scroll={false} onNavigate={(event) => { event.preventDefault(); navigateGlobalHome(); }} className={styles.homeLink} aria-label="Platform Studio home">
+          <span className={styles.brandName}>Platform Studio</span>
         </Link>
         {activeProject && <>
+          <span className={styles.divider} aria-hidden="true" />
           <button type="button" className={styles.projectScope} onClick={onOpenProjects} aria-haspopup="dialog"
             aria-label={`Switch project, current project: ${activeProject.name}${activeWorktree ? `, branch: ${activeWorktree.branch}` : ""}`}
             title={`${activeProject.name}${activeWorktree ? ` · ${activeWorktree.branch}` : ""}`}>
@@ -76,6 +78,10 @@ export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel
           <kbd className={styles.commandKbd}>⌘⇧P</kbd>
         </button>
       <div className={styles.actions}>
+        {preview && <button type="button" className={styles.previewButton} aria-label="Preview project" aria-pressed={previewOpen}
+          title={`Preview ${activeProject?.name} · ${activeWorktree?.branch}`} onClick={() => openCanvas("build", preview)}>
+          <EyeIcon width={16} height={16} /><span>Preview</span>
+        </button>}
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>

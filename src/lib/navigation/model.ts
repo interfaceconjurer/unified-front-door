@@ -8,10 +8,23 @@ import { findResource } from "../org-resources/catalog";
 import { ORGS } from "../workspace/fixtures";
 import { ASSESSMENT_ORGS } from "../onboarding/assessment";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
+import { previewCanvas } from "../preview/model";
 
 export { canvasTarget } from "../surface-canvas/model";
 
-export type Destination = { version: 1; owner: DemoProfileId; surface: SurfaceId | null; target: WorkspaceTarget; canvas?: CanvasSpecInput };
+export type Destination = { version: 1; owner: DemoProfileId; surface: SurfaceId | null; target: WorkspaceTarget; canvas?: CanvasSpecInput; canvasTarget?: WorkspaceTarget };
+/** Workspace selection and a canvas's saved ownership can differ when browsing
+ * globally, or opening a project-wide resource from a selected worktree. */
+export function destinationCanvasTarget(destination: Destination): WorkspaceTarget {
+  return destination.canvasTarget ?? destination.target;
+}
+export function canvasDestination(owner: DemoProfileId, surface: SurfaceId, canvas: CanvasSpecInput, captured: WorkspaceTarget, workspace: WorkspaceTarget): Destination {
+  const retainWorkspace = captured.projectId !== null && (workspace.projectId === null
+    || captured.projectId === workspace.projectId && captured.worktreeId === null && workspace.worktreeId !== null);
+  return canonicalDestination({ version: 1, owner, surface, canvas,
+    target: retainWorkspace ? workspace : captured,
+    ...(retainWorkspace ? { canvasTarget: captured } : {}) });
+}
 export type DestinationRead = { kind: "absent" } | { kind: "invalid"; reason: string } | { kind: "destination"; value: Destination };
 function record(value: unknown): value is Record<string, unknown> { return !!value && typeof value === "object" && !Array.isArray(value); }
 export function canonicalDestination(destination: Destination): Destination {
@@ -20,8 +33,9 @@ export function canonicalDestination(destination: Destination): Destination {
 }
 export function destinationHref(destination: Destination): string {
   const target = parseTarget(destination.target), canvas = destination.canvas ? parseCanvasInput(destination.canvas) : undefined;
-  if (!target || canvas === null) throw new TypeError("Invalid workspace destination");
-  const value = canonicalDestination({ version: 1, owner: destination.owner, surface: destination.surface, target, ...(canvas ? { canvas } : {}) });
+  const captured = destination.canvasTarget === undefined ? undefined : parseTarget(destination.canvasTarget);
+  if (!target || canvas === null || captured === null) throw new TypeError("Invalid workspace destination");
+  const value = canonicalDestination({ version: 1, owner: destination.owner, surface: destination.surface, target, ...(canvas ? { canvas } : {}), ...(captured ? { canvasTarget: captured } : {}) });
   return `${value.surface ? `/${value.surface}` : "/"}?destination=${encodeURIComponent(JSON.stringify(value))}`;
 }
 export function readDestination(href: string): DestinationRead {
@@ -31,16 +45,23 @@ export function readDestination(href: string): DestinationRead {
     const value: unknown = JSON.parse(raw);
     if (!record(value) || value.version !== 1 || typeof value.owner !== "string" || !isDemoProfileId(value.owner) || !(value.surface === null || isSurfaceId(value.surface))) throw new Error();
     const target = parseTarget(value.target), canvas = value.canvas === undefined ? undefined : parseCanvasInput(value.canvas);
+    const captured = value.canvasTarget === undefined ? undefined : parseTarget(value.canvasTarget);
     if (!target || canvas === null || url.pathname !== (value.surface ? `/${value.surface}` : "/")) throw new Error();
-    if (canvas && (!value.surface || canvas.kind === "capability" && canvas.params.surface !== value.surface || !sameTarget(canvasTarget(canvas, target), target))) throw new Error();
+    // A separate owner allows global browsing or a project-wide resource in
+    // the same project. It must never smuggle another worktree into a project.
+    if (captured === null || captured && (!canvas || captured.projectId === null
+      || target.projectId !== null && (captured.projectId !== target.projectId || captured.worktreeId !== null))) throw new Error();
+    const ownedTarget = captured ?? target;
+    if (canvas && (!value.surface || canvas.kind === "capability" && canvas.params.surface !== value.surface || !sameTarget(canvasTarget(canvas, ownedTarget), ownedTarget))) throw new Error();
     if (canvas?.kind === "org-assessment" && value.surface !== "govern") throw new Error();
     if (canvas?.kind === "org-resource" && RESOURCE_TYPES[canvas.params.resourceType].surface !== value.surface) throw new Error();
-    return { kind: "destination", value: canonicalDestination({ version: 1, owner: value.owner, surface: value.surface, target, ...(canvas ? { canvas } : {}) }) };
+    return { kind: "destination", value: canonicalDestination({ version: 1, owner: value.owner, surface: value.surface, target, ...(canvas ? { canvas } : {}), ...(captured ? { canvasTarget: captured } : {}) }) };
   } catch { return { kind: "invalid", reason: "This workspace link is invalid or uses an unsupported version." }; }
 }
 export function destinationIdentity(destination: Destination): string {
   destination = canonicalDestination(destination);
-  return JSON.stringify([destination.owner, destination.surface, [destination.target.projectId, destination.target.worktreeId, destination.target.orgId], destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null]);
+  return JSON.stringify([destination.owner, destination.surface, [destination.target.projectId, destination.target.worktreeId, destination.target.orgId], destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null,
+    ...(destination.canvasTarget ? [[destination.canvasTarget.projectId, destination.canvasTarget.worktreeId, destination.canvasTarget.orgId]] : [])]);
 }
 
 /** Router completion is presentation. Only the latest requested destination may commit. */
@@ -101,14 +122,20 @@ export function resolveDestination(href: string, owner: DemoProfileId, access: r
   const destination = decoded.value;
   if (destination.owner !== owner) return { kind: "unavailable", reason: "This link belongs to another demo profile. Choose a destination in your current workspace." };
   if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
+  if (destination.canvas?.kind === "preview") {
+    const { projectId, worktreeId, orgId } = destination.canvas.params;
+    if (demoProfileById(owner).workspaceExperience !== "established" || !previewCanvas(projectId, worktreeId, orgId ?? null)
+      || orgId && !ORGS.some(org => org.id === orgId && org.connection === "connected"))
+      return { kind: "unavailable", reason: "This preview is unavailable for the selected project, worktree, or org." };
+  }
   if (destination.canvas?.kind === "work" && workForCanvas(destination.canvas.params)?.surfaceId !== destination.surface) return { kind: "unavailable", reason: "This work destination is unavailable or does not match its project and surface." };
   if (destination.canvas?.kind === "org-assessment" && !demoProfileById(owner).onboarding) return { kind: "unavailable", reason: "Org assessment is unavailable for this demo profile." };
   if (destination.canvas?.kind === "org-resource") {
     const orgs = demoProfileById(owner).onboarding ? ASSESSMENT_ORGS : ORGS;
-    if (!orgs.some(org => org.id === destination.target.orgId && org.connection === "connected") || !findResource(destination.canvas.params)) return { kind: "unavailable", reason: "This resource is unavailable in the connected org." };
+    if (!orgs.some(org => org.id === destinationCanvasTarget(destination).orgId && org.connection === "connected") || !findResource(destination.canvas.params)) return { kind: "unavailable", reason: "This resource is unavailable in the connected org." };
   }
   const captured = destination.surface && destination.canvas ? targets[destination.surface]?.targets?.[canvasId(destination.canvas.kind, destination.canvas.params)] : undefined;
-  if (captured && !sameTarget(captured, destination.target)) return { kind: "unavailable", reason: "This link requests a different target from the saved draft. Open the saved tab to keep its captured scope." };
+  if (captured && !sameTarget(captured, destinationCanvasTarget(destination))) return { kind: "unavailable", reason: "This link requests a different target from the saved draft. Open the saved tab to keep its captured scope." };
   return { kind: "available", destination };
 }
 

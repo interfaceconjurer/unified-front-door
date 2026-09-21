@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { testModules } from "./test-modules.mjs";
 const modules = testModules(); after(modules.cleanup);
 const { resolveWorkspace, UNBOUND_TARGET } = modules.load("lib/workspace/context");
-const { NavigationController, destinationHref, readDestination, canvasTarget } = modules.load("lib/navigation/model");
-const { canvasId, parseCanvasInput, canvasVisibleInProject } = modules.load("lib/surface-canvas/model");
+const { NavigationController, destinationHref, readDestination, canvasTarget, canvasDestination, destinationCanvasTarget, resolveDestination, destinationIdentity } = modules.load("lib/navigation/model");
+const { canvasId, parseCanvasInput, canvasVisibleInWorkspace } = modules.load("lib/surface-canvas/model");
 const { SurfaceCanvasStore } = modules.load("lib/surface-canvas/persistence");
 const { WorkspaceSelectionStore } = modules.load("lib/workspace/persistence");
 const { PROJECTS, ORGS } = modules.load("lib/workspace/fixtures");
@@ -15,19 +15,117 @@ const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.d
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
 
-test("project tab projection excludes global and other-project canvases without discarding drafts", () => {
+test("preview identity captures project, worktree and org while global inspection retains global scope", () => {
+  browser();
+  const { previewCanvas } = modules.load("lib/preview/model");
+  const input = previewCanvas("trailblazer-crm", "lead-routing", "uat");
+  const captured = { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" };
+  const global = { ...UNBOUND_TARGET, orgId: "prod" };
+  const browsing = canvasDestination("am", "code", input, captured, global);
+  assert.equal(browsing.surface, "build");
+  assert.deepEqual(browsing.target, global);
+  assert.deepEqual(destinationCanvasTarget(browsing), captured);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["build"], {}).kind, "available");
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, orgId: "sit" }));
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, worktreeId: "main" }));
+  assert.equal(canvasVisibleInWorkspace(input, { ...captured, worktreeId: "main" }), false);
+  const store = new SurfaceCanvasStore("preview-tabs");
+  store.openCanvas("build", input); store.captureTarget("build", canvasId(input.kind, input.params), captured);
+  const restored = new SurfaceCanvasStore("preview-tabs").getSnapshot().build;
+  assert.equal(restored.canvases[0].kind, "preview");
+  assert.deepEqual(restored.targets[restored.canvases[0].id], captured);
+});
+
+test("unavailable previews and preview mutations are rejected", () => {
+  const { previewCanvas } = modules.load("lib/preview/model");
+  const { parseCommand } = modules.load("lib/application/contracts");
+  const input = previewCanvas("trailblazer-crm", "main", "uat");
+  for (const params of [{ ...input.params, projectId: "gone" }, { ...input.params, worktreeId: "gone" }, { ...input.params, orgId: "scratch-hotfix" }]) {
+    const invalid = { ...input, params };
+    assert.equal(resolveDestination(destinationHref(destination(invalid, canvasTarget(invalid, UNBOUND_TARGET), "build")), "am", ["build"], {}).kind, "unavailable");
+  }
+  const scoped = destination(input, canvasTarget(input, UNBOUND_TARGET), "build");
+  assert.equal(resolveDestination(destinationHref({ ...scoped, owner: "sp" }), "sp", ["build"], {}).kind, "unavailable");
+  assert.equal(parseCanvasInput({ ...input, params: { projectId: "trailblazer-crm" } }), null);
+  assert.throws(() => parseCommand({ kind: "canvas.save", canvas: input, target: scoped.target, surface: "build", fields: { source: "mutation" }, commandId: "preview-save", expectedRevision: 0 }));
+});
+
+test("global canvas browsing roundtrips separate ownership without changing project resume or draft targets", () => {
+  browser();
+  const selection = new WorkspaceSelectionStore("global-browsing"), store = new SurfaceCanvasStore("global-canvas");
+  const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const id = canvasId(input.kind, input.params), original = destination(input, ready);
+  selection.rememberDestination(original);
+  store.openCanvas("code", input); store.captureTarget("code", id, ready); store.updateDraft("code", id, { source: "Owned project draft" });
+  const global = { ...UNBOUND_TARGET, orgId: "uat" };
+  const browsing = canvasDestination("am", "code", input, ready, global);
+  assert.deepEqual(browsing.target, global);
+  assert.deepEqual(destinationCanvasTarget(browsing), ready);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["code"], store.getSnapshot()).kind, "available");
+  selection.rememberDestination(browsing); selection.setTarget(browsing.target);
+  assert.deepEqual(selection.destinationFor("am", project.id, worktree.id), original);
+  assert.deepEqual(store.getSnapshot().code.targets[id], ready);
+  assert.equal(store.getSnapshot().code.canvases[0].draft.source, "Owned project draft");
+  assert.notEqual(destinationIdentity(browsing), destinationIdentity(original));
+  assert.deepEqual(canvasDestination("am", "code", input, ready, ready), original, "Explicit project selection keeps the legacy destination");
+  // A work canvas has stable identity independent of its captured org.
+  const work = { kind: "work", title: "Lead routing", params: { workId: "lead-routing-agent", projectId: "trailblazer-crm", worktreeId: "lead-routing" } };
+  const workTarget = { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" };
+  const workView = canvasDestination("am", "build", work, workTarget, global);
+  const saved = { build: { targets: { [canvasId(work.kind, work.params)]: workTarget } } };
+  assert.equal(resolveDestination(destinationHref(workView), "am", ["build"], saved).kind, "available");
+  assert.equal(resolveDestination(destinationHref({ ...workView, canvasTarget: { ...workTarget, orgId: "prod" } }), "am", ["build"], saved).kind, "unavailable", "Global browsing cannot retarget a saved canvas");
+});
+
+test("separate canvas ownership cannot weaken project isolation or appear on a bare surface", () => {
+  const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const valid = canvasDestination("am", "code", input, ready, UNBOUND_TARGET);
+  for (const bad of [
+    { ...valid, target: ready },
+    { ...valid, canvas: undefined },
+    { ...valid, canvasTarget: null },
+    { ...valid, canvasTarget: UNBOUND_TARGET },
+    { ...valid, canvasTarget: { ...ready, projectId: "another-project" } },
+  ]) {
+    const href = `/code?destination=${encodeURIComponent(JSON.stringify(bad))}`;
+    assert.equal(readDestination(href).kind, "invalid");
+  }
+});
+
+test("project tab projection excludes global, other-project and other-worktree canvases without discarding drafts", () => {
   browser(); const store = new SurfaceCanvasStore("scoped-tabs");
   const own = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
   const other = { kind: "work", title: "Other work", params: { workId: "other-work", projectId: "another-project", worktreeId: "main" } };
   const global = capability();
-  for (const input of [own, other, global]) { store.openCanvas("code", input); store.updateDraft("code", canvasId(input.kind, input.params), { notes: input.title }); }
+  const branch = capability({ scope: "project", projectId: project.id, worktreeId: "another-branch", orgId: ready.orgId });
+  const projectWide = capability({ scope: "project", projectId: project.id, orgId: ready.orgId });
+  for (const input of [own, other, global, branch, projectWide]) { store.openCanvas("code", input); store.updateDraft("code", canvasId(input.kind, input.params), { notes: input.title }); }
   const snapshot = store.getSnapshot().code;
-  const visible = snapshot.canvases.filter(canvas => canvasVisibleInProject(canvas, project.id, snapshot.targets?.[canvas.id]));
-  assert.deepEqual(visible.map(canvas => canvas.id), [canvasId(own.kind, own.params)]);
-  assert.equal(canvasVisibleInProject({ id: "overview", kind: "overview", title: "Overview" }, project.id), true);
-  assert.equal(snapshot.canvases.filter(canvas => canvasVisibleInProject(canvas, null)).length, 3);
+  const visible = snapshot.canvases.filter(canvas => canvasVisibleInWorkspace(canvas, ready, snapshot.targets?.[canvas.id]));
+  assert.deepEqual(visible.map(canvas => canvas.id), [canvasId(own.kind, own.params), canvasId(projectWide.kind, projectWide.params)]);
+  assert.equal(canvasVisibleInWorkspace({ id: "overview", kind: "overview", title: "Overview" }, ready), true);
+  assert.equal(snapshot.canvases.filter(canvas => canvasVisibleInWorkspace(canvas, UNBOUND_TARGET)).length, 5);
+  assert.equal(canvasVisibleInWorkspace(branch, { ...ready, worktreeId: null }), false, "No selected worktree must not expose branch-specific files");
   assert.equal(store.getSnapshot().code, snapshot);
   assert.equal(new SurfaceCanvasStore("scoped-tabs").getSnapshot().code.canvases.find(canvas => canvas.id === canvasId(other.kind, other.params)).draft.notes, other.title);
+});
+
+test("project-wide resources preserve the selected worktree without changing saved ownership", () => {
+  browser(); const store = new SurfaceCanvasStore("project-wide-app");
+  const input = { kind: "app", title: "Project app", params: { projectId: project.id, appId: project.apps[0].id } };
+  const captured = { ...ready, worktreeId: null }, id = canvasId(input.kind, input.params);
+  store.openCanvas("alm", input); store.captureTarget("alm", id, captured);
+  const browsing = canvasDestination("am", "alm", input, captured, ready);
+  assert.deepEqual(browsing.target, ready);
+  assert.deepEqual(destinationCanvasTarget(browsing), captured);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["alm"], store.getSnapshot()).kind, "available");
+  assert.equal(canvasVisibleInWorkspace(input, ready, captured), true);
+  assert.equal(readDestination(destinationHref({ ...browsing, target: { ...ready, projectId: "other-project" } })).kind, "invalid");
+  assert.equal(resolveDestination(destinationHref({ ...browsing, canvasTarget: { ...captured, orgId: "prod" } }), "am", ["alm"], store.getSnapshot()).kind, "unavailable");
+  assert.deepEqual(store.getSnapshot().alm.targets[id], captured);
 });
 
 test("Home leaves the project but retains its org, and org selection does not split global chat", () => {

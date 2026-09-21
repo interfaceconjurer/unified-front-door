@@ -1,7 +1,7 @@
 import type { AssessmentState } from "../assessment/state";
 import type { DemoProfileId } from "../demo-profiles";
 import type { DraftEdit, ImprovementProject, ProjectDraftFields } from "../projects/model";
-import { parseCanvasInput, canvasId, canvasTarget, type CanvasSpecInput } from "../surface-canvas/model";
+import { parseCanvasInput, canvasId, canvasTarget, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { SURFACE_IDS, type SurfaceId } from "../workspace/surfaces";
 
@@ -67,7 +67,7 @@ export function parseCommand(value: unknown): ApplicationCommand {
     case "canvas.save": case "canvas.copy": {
       exact(value, [...common, "surface", "canvas", "target", ...(value.kind === "canvas.save" ? ["fields"] : ["sourceId", "sourceRevision"])]);
       const canvas = parseCanvasInput(value.canvas), target = parseTarget(value.target);
-      if (!canvas || (canvas.kind === "org-resource" || canvas.kind === "org-assessment") || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
+      if (!canvas || isReadOnlyCanvas(canvas) || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
         || stableJson(canvasTarget(canvas, target)) !== stableJson(target)) invalid();
       if (value.kind === "canvas.save" ? !fields(value.fields) : !text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid();
       // Whitelist runtime canvas data at the server boundary, just as at the URL boundary.

@@ -6,8 +6,8 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { applicationClient, getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
-import { canvasId, canvasVisibleInProject, type CanvasSpecInput, type CapabilityScope } from "@/lib/surface-canvas/model";
-import { NavigationController, canvasTarget, destinationHref, readDestination, resolveDestination, improvementProjectDestination, type Destination } from "@/lib/navigation/model";
+import { canvasId, canvasVisibleInWorkspace, type CanvasSpecInput, type CapabilityScope } from "@/lib/surface-canvas/model";
+import { NavigationController, canvasTarget, canvasDestination, destinationCanvasTarget, destinationHref, readDestination, resolveDestination, improvementProjectDestination, type Destination } from "@/lib/navigation/model";
 import { conversationKey, homeTarget, sameTarget, UNBOUND_TARGET, type WorkspaceTarget } from "@/lib/workspace/context";
 import { RESOURCE_TYPES, type OrgResource } from "@/lib/org-resources/model";
 import { primaryWorktree, sessionKey } from "@/lib/workspace/model";
@@ -29,6 +29,7 @@ type Navigation = {
   openImprovementProject: (project: PlanDestination) => void;
   openProjectCreation: () => void;
   openCanvas: (surface: SurfaceId, input: CanvasSpecInput) => void;
+  openCanvasInProject: (surface: SurfaceId, input: CanvasSpecInput) => void;
   selectCanvas: (surface: SurfaceId, id: string) => void;
   selectProject: (projectId: string, worktreeId?: string, surface?: SurfaceId | null) => void;
   selectOrg: (orgId: string) => void;
@@ -59,7 +60,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     setProblem(null);
     if (source === "restore") return;
     selection.rememberDestination(destination);
-    if (destination.surface && id) canvases.captureTarget(destination.surface, id, destination.target);
+    if (destination.surface && id) canvases.captureTarget(destination.surface, id, destinationCanvasTarget(destination));
     if (source === "capture") return;
     selection.setTarget(destination.target);
     if (destination.surface) {
@@ -95,11 +96,15 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const state = canvases.getSnapshot(), slice = surface ? state[surface] : null;
     const canvas = slice?.canvases.find((item) => item.id === slice.activeCanvasId);
     const target = workspace.target;
-    // Surface switching keeps the current scope. Tabs restore their captured
-    // branch and org, but project browsing cannot select another project's tab.
-    const restoreCanvas = canvas && canvas.kind !== "overview" && sameTarget(targetForCanvas(surface!, canvas), target);
-    return { version: 1, owner, surface, target,
-      ...(restoreCanvas ? { canvas: { kind: canvas.kind, title: canvas.title, params: canvas.params } as CanvasSpecInput } : {}) };
+    // Surface switching keeps the current scope, including when a project-wide
+    // resource is open. Another worktree's last active tab stays hidden.
+    if (surface && canvas && canvas.kind !== "overview") {
+      const captured = targetForCanvas(surface, canvas);
+      if (sameTarget(captured, target) || target.projectId === null && captured.projectId !== null
+        || target.projectId !== null && captured.projectId === target.projectId && captured.worktreeId === null)
+        return canvasDestination(owner, surface, canvas, captured, target);
+    }
+    return { version: 1, owner, surface, target };
   }
   const restore = useRef<(href: string, history?: boolean) => void>(() => {});
   useEffect(() => {
@@ -123,9 +128,21 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const capabilityScope: CapabilityScope = workspace.target.projectId ? { scope: "project", projectId: workspace.target.projectId,
     ...(workspace.target.worktreeId ? { worktreeId: workspace.target.worktreeId } : {}), ...(workspace.target.orgId ? { orgId: workspace.target.orgId } : {}) } : { scope: "unbound", ...(workspace.target.orgId ? { orgId: workspace.target.orgId } : {}) };
   const openCanvas = (surface: SurfaceId, input: CanvasSpecInput) => {
-    controller.navigate({ version: 1, owner, surface, canvas: input, target: targetForCanvas(surface, input) });
+    const captured = targetForCanvas(surface, input);
+    if (!canvasVisibleInWorkspace(input, workspace.target, captured)) {
+      setProblem("Select this canvas’s project or worktree in the navigator or sidebar to open it here."); return;
+    }
+    controller.navigate(canvasDestination(owner, surface, input, captured, workspace.target));
+  };
+  const openCanvasInProject = (surface: SurfaceId, input: CanvasSpecInput) => {
+    const captured = targetForCanvas(surface, input);
+    // Explicit entry from global browsing. Keep this exact canvas and its saved
+    // target, rather than restoring the project's previously visited canvas.
+    if (workspace.target.projectId !== null || captured.projectId === null) return;
+    controller.navigate({ version: 1, owner, surface: canonicalCanvasSurface(surface, input), target: captured, canvas: input });
   };
   const openImprovementProject = (project: PlanDestination) => {
+    // Explicit project entry (including the onboarding “Open project” action).
     const previous = selection.destinationFor(owner, project.id, null);
     if (previous) { controller.navigate(previous); return; }
     const destination = improvementProjectDestination(owner, project);
@@ -180,11 +197,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         ...(workspace.target.projectId ? { projectId: workspace.target.projectId, ...(workspace.target.worktreeId ? { worktreeId: workspace.target.worktreeId } : {}) } : {}) },
     }),
     hrefForSurface: (surface) => destinationHref(surface === null ? globalHome : currentDestination(surface)),
-    openCanvas, openImprovementProject, openProjectCreation: () => openCanvas("alm", projectCreationCanvas(capabilityScope)), selectProject, capabilityScope,
+    openCanvas, openCanvasInProject, openImprovementProject, openProjectCreation: () => openCanvas("alm", projectCreationCanvas(capabilityScope)), selectProject, capabilityScope,
     selectCanvas: (surface, id) => {
       const slice = canvases.getSnapshot()[surface];
       const canvas = slice.canvases.find((item) => item.id === id);
-      if (canvas && !canvasVisibleInProject(canvas, workspace.target.projectId, slice.targets?.[id])) return;
+      if (canvas && !canvasVisibleInWorkspace(canvas, workspace.target, slice.targets?.[id])) return;
       if (canvas && canvas.kind !== "overview") openCanvas(surface, canvas);
       else if (id === "overview") controller.navigate({ version: 1, owner, surface, target: workspace.target });
     },
@@ -216,6 +233,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     openImprovementProject: (...args) => currentActions.current.openImprovementProject(...args),
     openProjectCreation: () => currentActions.current.openProjectCreation(),
     openCanvas: (...args) => currentActions.current.openCanvas(...args),
+    openCanvasInProject: (...args) => currentActions.current.openCanvasInProject(...args),
     selectCanvas: (...args) => currentActions.current.selectCanvas(...args),
     selectProject: (...args) => currentActions.current.selectProject(...args),
     selectOrg: (...args) => currentActions.current.selectOrg(...args),

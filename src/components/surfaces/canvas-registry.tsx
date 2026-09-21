@@ -15,6 +15,7 @@ const loadCreation = () => import("@/components/onboarding/ProjectCreationCanvas
 const loadCapability = () => import("./CapabilityDraftCanvas").then(module => ({ default: module.CapabilityDraftCanvas }));
 const loadAssessment = () => import("@/components/onboarding/OrgAssessmentCanvas").then(module => ({ default: module.OrgAssessmentCanvas }));
 const loadResource = () => import("./OrgResourceCanvas").then(module => ({ default: module.OrgResourceCanvas }));
+const loadPreview = () => import("./PreviewCanvas").then(module => ({ default: module.PreviewCanvas }));
 import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
 
@@ -137,6 +138,7 @@ export function CanvasContent({ spec }: { spec: CanvasSpec }) {
     case "improvement-project": return <LazyFeature load={loadImprovement} properties={{ spec }} />;
     case "org-assessment": return <LazyFeature load={loadAssessment} properties={{ spec }} />;
     case "org-resource": return <LazyFeature load={loadResource} properties={{ spec }} />;
+    case "preview": return <LazyFeature load={loadPreview} properties={{ spec }} />;
     case "overview": return <PlaceholderCanvas title={spec.title} meta="Overview" />;
     default: { const exhaustive: never = spec; return exhaustive; }
   }

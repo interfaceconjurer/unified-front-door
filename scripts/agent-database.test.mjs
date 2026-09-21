@@ -69,6 +69,24 @@ test("legacy deployed-app visits retain their request identity while opening ALM
 });
 async function finish(runId) { for (let i = 0; i < 10; i++) if (!await workerTick({ runId, adapter: fastAdapter })) return; throw Error("Run did not finish"); }
 
+test("global work visits stay in one conversation and never enter their owning projects", async () => {
+  const s = await owner("am"), global = { ...context, target: { ...context.target, orgId: "uat" } };
+  const home = await send(s, { kind: "visit", requestId: randomUUID(), context: global });
+  for (const [workId, surface] of [["lead-routing-agent", "build"], ["storefront-health", "govern"]]) {
+    const command = { kind: "visit", requestId: randomUUID(), workId, context: { ...global, surface } };
+    const opened = await send(s, command);
+    assert.equal(opened.conversationId, home.conversationId);
+    assert.equal(opened.conversation.conversation.targetOrgId, "uat");
+    assert.equal(opened.conversation.conversation.visitKey, `work:${workId}`);
+    assert.deepEqual((await send(s, command)).conversation, opened.conversation);
+  }
+  assert.equal((await snapshot(s)).conversations.length, 1);
+  assert.equal((await snapshot(s)).runs.length, 0);
+  await assert.rejects(send(s, { kind: "visit", requestId: randomUUID(), workId: "storefront-health", context: { surface: "govern", target: { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" } } }), /unavailable/);
+  const empty = await owner("jw");
+  await assert.rejects(send(empty, { kind: "visit", requestId: randomUUID(), workId: "lead-routing-agent", context: { ...context, surface: "build" } }), /unavailable/);
+});
+
 test("explicit Home return appends a fresh Today once; retries and route restoration do not duplicate it", async () => {
   const s = await owner("am");
   const first = await send(s, { kind: "visit", requestId: randomUUID(), context });

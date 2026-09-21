@@ -37,6 +37,19 @@ export const HomeIcon: IconComponent = (p) => (
   </Svg>
 );
 
+export const EyeIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+export const ExternalLinkIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <path d="M14 4h6v6M20 4l-9 9M10 4H4v16h16v-6" />
+  </Svg>
+);
+
 export const ChartIcon: IconComponent = (p) => (
   <Svg {...p}>
     <path d="M5 4v16h15" />

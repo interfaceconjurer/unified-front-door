@@ -15,7 +15,7 @@ import { SurfaceLauncher } from "./SurfaceLauncher";
 import styles from "./ReturningSurface.module.css";
 
 const COPY: Record<SurfaceId, { heading: string; description: string; workHeading: string }> = {
-  code: { heading: "Back to your code.", description: "Check on your agents, resume your changes, or open another tool.", workHeading: "Continue working" },
+  code: { heading: "Back to your code.", description: "Resume your changes or open another tool.", workHeading: "Continue working" },
   build: { heading: "Keep your ideas moving.", description: "Pick up your agents, automations, and experiences.", workHeading: "Your builds" },
   govern: { heading: "Keep your workspace in view.", description: "Follow up on access reviews and revisit the signals you’re watching.", workHeading: "Reviews & monitors" },
   alm: { heading: "Move your next change forward.", description: "Review your releases, manage deployed apps, and plan what’s next.", workHeading: "Apps & releases" },
@@ -26,12 +26,13 @@ export function ReturningSurface({ surfaceId, children }: {
   children?: React.ReactNode;
 }) {
   const surface = surfaceAppById(surfaceId);
-  const { orgs, activeProject, activeOrg, openProjectPanel } = useWorkspace();
+  const { orgs, activeProject, activeOrg, activeWorktree, openProjectPanel } = useWorkspace();
   const { panelOpen } = useWorkspacePanel(false);
   const { selectOrg } = useNavigation();
   const { openCanvas } = useSurfaceCanvasActions();
   const openWork = useOpenWork();
-  const work = RETURNING_WORK.filter((item) => item.projectId === activeProject?.id && item.surfaceId === surfaceId);
+  const work = RETURNING_WORK.filter((item) => item.projectId === activeProject?.id
+    && item.worktreeId === activeWorktree?.id && item.surfaceId === surfaceId);
   const attention = work.filter((item) => item.attention).length;
   const copy = COPY[surfaceId];
   const release = work.find((item) => item.kind === "Release plan");
