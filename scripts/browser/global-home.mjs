@@ -79,7 +79,9 @@ try {
       let saved = state.agent.conversations.find(saved => saved.threadKey === threadKey);
       if (!saved) { saved = { id: `thread-${state.agent.conversations.length}`, threadKey, revision: 0, conversation: { scopeKey: 'home', messages: [] } }; state.agent.conversations.push(saved); }
       const orgId = command.context.target.orgId;
-      const withOrg = updateConversation(saved.conversation, { type: 'org', orgId, label: ORGS.find(org => org.id === orgId)?.label ?? null });
+      const withOrg = command.refreshToday && saved.conversation.messages.at(-1)?.role === 'today'
+        ? { ...saved.conversation, targetOrgId: orgId }
+        : updateConversation(saved.conversation, { type: 'org', orgId, label: ORGS.find(org => org.id === orgId)?.label ?? null });
       const next = updateConversation(withOrg, command.context.surface === 'home'
         ? command.context.target.projectId ? { type: 'project', label: 'Project', reply: 'Ready for the next step.' } : { type: 'today', snapshot: today, force: command.refreshToday }
         : { type: 'surface', scopeKey: command.context.surface, label: command.context.surface, reply: `Continue your work in ${command.context.surface}.` });
@@ -87,7 +89,8 @@ try {
       return route.fulfill({ json: { result: { conversationId: saved.id, conversation: saved } } });
     });
     const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
-    await page.goto(origin + '/');
+    const emptyHome = { version: 1, owner: 'am', surface: null, target: { projectId: null, worktreeId: null, orgId: null } };
+    await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify(emptyHome)));
     await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     assert.equal(destination(page).target.projectId, null);
     assert.equal(await page.getByRole('button', { name: /Switch project, current/ }).count(), 0);
@@ -102,6 +105,15 @@ try {
     assert.equal(commands.length, initialCommands, 'Already on Today must not send a visit');
     assert.equal(await page.evaluate(() => history.length), initialHistory, 'Already on Today must not push history');
     assert.equal(await page.evaluate(() => window.__contextMotion.length), initialMotion, 'Already on Today must not animate');
+    const initialToday = structuredClone(state.agent.conversations.find(saved => saved.threadKey === key({})).conversation.messages.at(-1));
+    await selectProject(page, 'Trailblazer CRM');
+    await page.waitForURL(url => url.pathname === '/code');
+    await homeButton.click();
+    await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    assert.equal(destination(page).target.orgId, 'uat', 'Home retains the org selected in the project');
+    assert.deepEqual(state.agent.conversations.find(saved => saved.threadKey === key({})).conversation.messages.at(-1), initialToday, 'The first project return must reuse Today even when it brings back a newly selected org');
+    assert.equal(await page.getByRole('article', { name: 'Today briefing' }).count(), 1);
+    out.checks.push(`${motion}: first return from a project carries its org without duplicating the existing Today`);
     const earlierChat = page.getByRole('complementary', { name: 'Earlier org conversations' });
     await earlierChat.getByText('Earlier conversation · Production', { exact: true }).click();
     await earlierChat.getByText('Earlier Production discussion is preserved.', { exact: true }).waitFor();
@@ -119,6 +131,8 @@ try {
     const firstBriefing = page.locator(`[data-message-id="${firstToday.id}"]`);
     const firstText = await firstBriefing.innerText();
     await firstBriefing.getByRole('group', { name: 'Today', exact: true }).evaluate(node => { window.__originalToday = node; });
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
+    const beforeResource = await page.evaluate(() => window.__contextMotion.length);
     await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
     let orgDialog = page.getByRole('dialog');
     await orgDialog.getByRole('tab', { name: 'Resources', exact: true }).click();
@@ -130,7 +144,8 @@ try {
     assert.equal(await homeButton.getAttribute('aria-current'), 'location', 'Home stays selected during global surface browsing');
     await page.getByText('Target org · Production', { exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
-    await checkContextMotion(page, motion, 0);
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
+    assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeResource, 'Opening a surface from Today must keep the continuous conversation sharp');
     const historicalToday = page.locator(`[data-message-id="${firstToday.id}"]`);
     const readOnlyToday = historicalToday.getByRole('group', { name: 'Earlier Today (read only)', exact: true });
     await readOnlyToday.waitFor();
@@ -291,9 +306,14 @@ try {
     await notes.fill('Keep this lead-routing draft');
     await homeButton.click();
     await page.locator('fieldset:not(:disabled)').getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
+    const beforeAlm = await page.evaluate(() => window.__contextMotion.length);
     await page.locator('fieldset:not(:disabled)').getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'ALM', exact: true }).click();
     await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).waitFor();
     await page.getByRole('tab', { name: 'Lead routing → UAT', exact: true }).waitFor();
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
+    assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeAlm, 'Opening ALM from Today must scroll and append content without a workspace blur');
+    out.checks.push(`${motion}: Today-to-surface navigation keeps the continuous chat sharp while the surface opens`);
     assert.equal(destination(page).target.projectId, null, 'Global surface may display tabs across projects');
     await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).click();
     await page.getByRole('heading', { name: 'Acme Storefront', exact: true }).waitFor();

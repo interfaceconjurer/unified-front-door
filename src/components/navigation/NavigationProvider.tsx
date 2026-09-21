@@ -69,11 +69,11 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
   }, (href, replace) => {
     const from = readDestination(window.location.href), to = readDestination(href);
-    // Dissolve between conversations and across Home's full-width boundary.
-    // Org changes and ordinary browsing within a conversation stay continuous.
+    // Dissolve between conversations or on return to global Home. Opening a
+    // surface from Today only extends the current chat, so keep it sharp.
     const changedContext = from.kind === "destination" && to.kind === "destination" && (
       conversationKey(from.value.target) !== conversationKey(to.value.target)
-      || (from.value.surface === null) !== (to.value.surface === null)
+      || (from.value.surface !== null && to.value.surface === null && to.value.target.projectId === null)
     );
     const changedCanvas = from.kind === "destination" && to.kind === "destination"
       && from.value.surface !== null && from.value.surface === to.value.surface
@@ -172,10 +172,10 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const thread = agent?.getSnapshot().data.conversations.find(saved => saved.threadKey === conversationKey(globalHome.target))?.conversation;
     // Already at the live Today: no route, history entry, animation or write.
     if (pathname === "/" && !workspace.target.projectId && thread?.scopeKey === "home" && thread.messages.at(-1)?.role === "today") return;
+    // Queue Home intent before route arrival can enqueue a normal visit. Carrying
+    // the project's org back is navigation, not new global chat content.
+    void agent?.command({ kind: "visit", requestId: crypto.randomUUID(), context: { target: globalHome.target, surface: "home" }, refreshToday: true });
     controller.navigate(globalHome);
-    // The conversation reuses a trailing Today and appends one only after
-    // other global chat content. The agent queue owns retries of this visit.
-    void agent?.command({ kind: "visit", requestId: crypto.randomUUID(), context: { target: globalHome.target, surface: "home" } });
   };
   const value: Navigation = {
     problem: visibleProblem,

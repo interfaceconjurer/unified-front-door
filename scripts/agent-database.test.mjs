@@ -107,6 +107,23 @@ test("Home reuses trailing Today after project visits and appends once after new
   assert.deepEqual((await send(s, { kind: "visit", requestId: randomUUID(), context: home })).conversation.conversation.messages, JSON.parse(JSON.stringify(after)));
 });
 
+test("first Home return carries a project's org without printing content that duplicates Today", async () => {
+  const s = await owner("am");
+  const first = await send(s, { kind: "visit", requestId: randomUUID(), context });
+  const project = { surface: "alm", target: { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" } };
+  await send(s, { kind: "visit", requestId: randomUUID(), context: project });
+  const home = { ...context, target: { ...context.target, orgId: "uat" } };
+  const returned = await send(s, { kind: "visit", requestId: randomUUID(), context: home, refreshToday: true });
+  assert.equal(returned.conversation.conversation.targetOrgId, "uat");
+  assert.deepEqual(returned.conversation.conversation.messages, JSON.parse(JSON.stringify(first.conversation.conversation.messages)));
+  const arrival = await send(s, { kind: "visit", requestId: randomUUID(), context: home });
+  assert.deepEqual(arrival.conversation.conversation.messages, returned.conversation.conversation.messages);
+  // Choosing another org explicitly on Home still records that change.
+  const changed = await send(s, { kind: "visit", requestId: randomUUID(), context: { ...home, target: { ...home.target, orgId: "prod" } } });
+  assert.equal(changed.conversation.conversation.messages.at(-2).text, "Target org · Production");
+  assert.equal(changed.conversation.conversation.messages.at(-1).role, "today");
+});
+
 test("org changes share global history, log once, and preserve in-flight execution scope", async () => {
   const s = await owner("am");
   const visit = context => send(s, { kind: "visit", requestId: randomUUID(), context });

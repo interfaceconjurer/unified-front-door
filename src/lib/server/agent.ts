@@ -103,7 +103,12 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     // history. Earlier Today entries retain their original bounded snapshots.
     if (trailing?.role === "today") saved.conversation = { ...original, messages: [...original.messages.slice(0, -1),
       { ...trailing, snapshot: { ...trailing.snapshot, assessment: assessmentBriefing(workspace.assessment) } }] };
-    saved.conversation = updateConversation(saved.conversation, { type: "org", orgId: context.target.orgId, label: context.orgLabel });
+    // Home may carry back an org selected in a different project conversation.
+    // Preserve a trailing Today instead of manufacturing an org marker after it.
+    // Explicit org selections still use normal visits and remain logged.
+    saved.conversation = command.kind === "visit" && command.refreshToday && trailing?.role === "today"
+      ? { ...saved.conversation, targetOrgId: context.target.orgId }
+      : updateConversation(saved.conversation, { type: "org", orgId: context.target.orgId, label: context.orgLabel });
     if (command.kind === "visit") {
       let next: Conversation;
       if (command.workId) {

@@ -15,6 +15,9 @@ project closes the surface and reuses Today if it is still the last entry in the
 global chat, retaining its timestamp. A new Today is appended only after other
 global chat content, such as a message, surface introduction, or org change.
 Activity in a project's separate chat does not create a new global Today.
+Carrying that project's org back through Home updates the selected org without
+inserting a global chat marker after a trailing Today. Explicit org selections
+continue to be logged.
 Existing history and the selected org remain; retries never duplicate the card.
 
 Global resource browsing shares one conversation and composer draft across orgs.
@@ -132,12 +135,13 @@ assessment of the connected orgs in Sam's demo workspace.
 Sam's workspace offers **Build & Setup** and **ALM**, matching Karen's simpler navigation.
 
 The front door and surfaces share one persistent agent panel and composer.
-Switching projects/worktrees, or navigating between Home and a surface, dissolves
+Switching projects/worktrees, or returning to global Home, dissolves
 the outgoing conversation and canvas with a strong 24px blur, then brings the new
 content into focus over a combined 500ms. The composer's 440ms layout movement
 runs alongside it; its text stays sharp and the input remains mounted. Draft text,
 text selection, and session conversations survive client-side navigation home and
-back. Org-only changes keep the continuous transcript without a dissolve.
+back. Opening a surface from Today, browsing within that conversation, and org-only
+changes keep the continuous transcript sharp as it scrolls and adds content.
 Reduced-motion preferences skip the transitions.
 
 The transcript and composer share a 1200px maximum width. They center when both
