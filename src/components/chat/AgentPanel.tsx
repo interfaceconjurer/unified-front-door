@@ -1,27 +1,30 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, useLayoutEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useEffect, useLayoutEffect, useEffectEvent, useRef, useState, useSyncExternalStore, ViewTransition } from "react";
 import { usePathname } from "next/navigation";
 import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
 import { SendIcon, SparklesIcon } from "@/components/icons";
-import { isStarterPrompt } from "@/components/front-door/FrontDoor";
+import { isStarterPrompt, starterLaunch, type StarterId } from "@/lib/agent/starters";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import {
   surfaceAppForPath,
   type SurfaceApp,
 } from "@/components/front-door/app-catalog";
-import { useNavigationActions } from "@/components/navigation/NavigationProvider";
+import { useNavigation, useNavigationActions } from "@/components/navigation/NavigationProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useAssessment } from "@/components/onboarding/use-assessment";
 import { type ReturningWork } from "@/lib/workspace/returning-work";
 import { useOpenWork } from "@/components/workspace/RecentWorkList";
 import { editComposerDraft, type ComposerDraftState } from "@/lib/chat/composer-drafts";
 import { ConversationStore, type Message } from "@/lib/chat/conversation";
+import { conversationKey, sameTarget } from "@/lib/workspace/context";
 import { applicationClient } from "@/lib/application/client";
 import { inactiveAgent } from "@/lib/agent/client";
 import { activeRun, type AgentContext } from "@/lib/agent/contracts";
 import { nextFrame, scrollToEntry, waitForMotion } from "@/lib/motion";
 import { Transcript } from "./Transcript";
+import { ConversationActivity } from "./ConversationActivity";
+import { EarlierOrgChats } from "./EarlierOrgChats";
 import { useTranscriptPosition } from "./use-transcript-position";
 import styles from "./AgentPanel.module.css";
 
@@ -64,27 +67,30 @@ function scopeForPath(pathname: string): Scope {
   return surface ? scopeForSurface(surface) : HOME_SCOPE;
 }
 
-/** One transcript per project/worktree, shared by Today and every surface. */
-export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
-  homeRequest: number;
+/** Global Home owns Today; each project/worktree retains its own conversation. */
+export function AgentPanel({ waitForLayout, layoutKey }: {
   waitForLayout: (signal: AbortSignal) => Promise<void>;
   layoutKey: string;
 }) {
   const pathname = usePathname();
-  const { navigateSurface, captureIntent } = useNavigationActions();
+  const { navigateSurface, captureIntent, openAgentDestination, openCanvas } = useNavigationActions();
+  const { capabilityScope } = useNavigation();
   const { profile } = useDemoProfile();
   const baseScope = scopeForPath(pathname);
   const isHome = baseScope.key === HOME_SCOPE.key;
   const returning = profile?.workspaceExperience === "established";
   const dayZero = profile?.onboarding === "org-assessment";
 
-  const { activeProject, activeWorktree, sessionKey, target, projects } = useWorkspace();
+  const { activeProject, activeWorktree, sessionKey, target, projects, orgs } = useWorkspace();
   const { state: assessment } = useAssessment();
-  const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject?.id) : undefined;
+  const improvement = assessment.projects.find((project) => project.id === activeProject?.id);
   const returningSession = profile?.workspaceExperience === "established"
     ? activeProject?.agentSessions.find((session) => session.worktreeId === activeWorktree?.id)
     : undefined;
-  const scope: Scope = improvement ? {
+  const scope: Scope = improvement?.source === "brief" ? {
+    ...baseScope,
+    suggestions: ["Plan the first milestone", "What should we clarify first?", "Define success for the first version"],
+  } : improvement ? {
     ...baseScope,
     suggestions: SUGGESTIONS_0,
   } : profile?.onboarding ? {
@@ -113,8 +119,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
       previous = acknowledged;
       const command = acknowledged?.command;
       if (command?.kind !== "submit") return;
-      const { projectId, worktreeId, orgId } = command.context.target;
-      const key = projectId ? JSON.stringify(["project-session", projectId, worktreeId]) : JSON.stringify(["unbound-session", orgId]);
+      const key = conversationKey(command.context.target);
       setDraftState(current => current.drafts[key]?.trim() === command.text ? editComposerDraft(current, key, "") : current);
     });
   }, [agent]);
@@ -138,7 +143,9 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   const sequence = useRef<AbortController | null>(null);
   const followingReply = useRef<{ key: string; following: boolean; pausedAt: number | null }>({ key: "", following: true, pausedAt: null });
   const openWork = useOpenWork();
-  const thread = sessions[sessionKey]?.messages ?? EMPTY_THREAD;
+  const storedThread = sessions[sessionKey]?.messages ?? EMPTY_THREAD;
+  // Keep old briefings in storage; project chats now show only their work history.
+  const thread = useMemo(() => target.projectId ? storedThread.filter(message => message.role !== "today") : storedThread, [storedThread, target.projectId]);
   const { end: selectedEnd, showPage: selectHistoryPage } = useTranscriptPosition({
     identity: `${application.session?.namespaceId}.${profile?.id}.${application.session?.workspaceEpoch}`,
     threadKey: sessionKey, messages: thread, containerRef: transcriptRef, transitioning: !!presentation,
@@ -164,14 +171,14 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
     if (!profile || !remote.ready) return;
     void agent.command({ kind: "visit", requestId: crypto.randomUUID(), context: capturedContext });
   });
-  useEffect(() => { visit(); }, [agent, remote.ready, sessionKey, scope.key, homeRequest]);
+  useEffect(() => { visit(); }, [agent, remote.ready, sessionKey, scope.key, target.orgId]);
 
   useEffect(() => {
     if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) composerRef.current?.focus();
   }, [isHome]);
 
   // The shell owns the layout animations. The transcript waits on their real
-  // completion, scrolls on its own timeline, then reveals the pending entries.
+  // completion, then scrolls and reveals the pending entries together.
   // A new navigation cancels this sequence, so an old completion cannot pull
   // the chat back to a destination the user has already left.
   useEffect(() => {
@@ -231,9 +238,9 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
     if (!run || !activeRun(run.status) && followingReply.current.key !== key) return;
     if (followingReply.current.key !== key) followingReply.current = { key, following: true, pausedAt: null };
     if (!followingReply.current.following || presentation && presentation.phase !== "revealing") return;
-    const bubble = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.bubble}`);
-    if (!bubble) return;
-    const overflow = bubble.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom + 12;
+    const reply = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.agentReply}`);
+    if (!reply) return;
+    const overflow = reply.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom + 12;
     if (overflow > 0) container.scrollTop += overflow;
   });
   useLayoutEffect(() => { followReply(); }, [visibleThread, selectedEnd, sessionKey, presentation, remote.data.runs]);
@@ -248,13 +255,13 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   function trackReplyScroll() {
     const container = transcriptRef.current, last = visibleThread.at(-1);
     if (!container || last?.role !== "agent") return;
-    const bubble = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.bubble}`);
+    const reply = container.querySelector<HTMLElement>(`[data-message-id="${last.id}"] .${styles.agentReply}`);
     // A queued event from our last automatic scroll can arrive after a wheel
     // or pointer interruption. Only a subsequent position change can resume.
     const pausedAt = followingReply.current.pausedAt;
     if (pausedAt !== null && Math.abs(container.scrollTop - pausedAt) < 1) return;
-    if (bubble) {
-      const atReply = Math.abs(bubble.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom) < 48;
+    if (reply) {
+      const atReply = Math.abs(reply.getBoundingClientRect().bottom - container.getBoundingClientRect().bottom) < 48;
       const returningToEnd = pausedAt === null || container.scrollTop > pausedAt;
       followingReply.current.following = atReply && returningToEnd;
       followingReply.current.pausedAt = followingReply.current.following ? null : container.scrollTop;
@@ -273,24 +280,53 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
   const resumeWork = useCallback((work: ReturningWork) => {
     const project = projects.find(project => project.id === work.projectId);
     void agent.command({ kind: "visit", requestId: crypto.randomUUID(), workId: work.id,
-      context: { surface: work.surfaceId, target: { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
+      context: { surface: work.surfaceId, target: target.projectId === null ? target : { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
     openWork(work);
-  }, [projects, agent, openWork]);
+  }, [projects, agent, openWork, target]);
 
-  const seedPrompt = useCallback((prompt: string) => {
+  const startStarter = useCallback((id: StarterId) => {
+    if (!profile) return;
+    const launch = starterLaunch(id, profile, capabilityScope);
+    if (!launch) return;
+    openCanvas(launch.starter.surfaceId, launch.canvas);
+    const prompt = launch.starter.prompt;
     setDraft((current) => current.trim() && !isStarterPrompt(current) ? `${current.trim()}\n\n${prompt}` : prompt);
     requestAnimationFrame(() => composerRef.current?.focus());
-  }, [setDraft]);
+  }, [profile, capabilityScope, openCanvas, setDraft]);
+
+  // Only requests issued from this mounted view may navigate automatically.
+  // Persisted actions remain usable manually, but never replay on reload.
+  const navigationIntents = useRef(new Map<string, () => boolean>());
+  useEffect(() => {
+    for (const run of remote.data.runs) {
+      const intent = navigationIntents.current.get(run.requestId);
+      if (!intent || activeRun(run.status)) continue;
+      if (run.status !== "completed" || !intent()) { navigationIntents.current.delete(run.requestId); continue; }
+      const message = remote.data.conversations.flatMap(saved => saved.conversation.messages)
+        .find(message => message.role === "agent" && message.runId === run.id && message.navigation);
+      if (!message || message.role !== "agent" || !message.navigation) continue;
+      navigationIntents.current.delete(run.requestId);
+      if (sameTarget(run.context.target, target) && run.context.surface === baseScope.key) openAgentDestination(message.navigation.destination);
+    }
+  }, [remote.data, target, baseScope.key, openAgentDestination]);
 
   const sendText = useCallback(async (text: string) => {
     const value = text.trim();
     if (!value || !profile || remote.pending || !remote.ready) return;
-    const navigationIsCurrent = captureIntent();
-    const receipt = await agent.command({ kind: "submit", requestId: crypto.randomUUID(), context: capturedContext, text: value });
+    const navigationIsCurrent = captureIntent(), requestId = crypto.randomUUID();
+    navigationIntents.current.clear();
+    navigationIntents.current.set(requestId, navigationIsCurrent);
+    const receipt = await agent.command({ kind: "submit", requestId, context: capturedContext, text: value });
     if (!receipt) return;
     if (receipt.destination && navigationIsCurrent()) navigateSurface(receipt.destination, "overview");
   }, [profile, remote.pending, remote.ready, captureIntent, agent, capturedContext, navigateSurface]);
-  const issueCommand = useCallback((command: Parameters<typeof agent.command>[0]) => { void agent.command(command); }, [agent]);
+  const issueCommand = useCallback((command: Parameters<typeof agent.command>[0]) => {
+    if (command.kind === "retry") {
+      navigationIntents.current.clear();
+      navigationIntents.current.set(command.requestId, captureIntent());
+    }
+    void agent.command(command);
+  }, [agent, captureIntent]);
   function send() { void sendText(draft); }
 
   return (
@@ -298,8 +334,10 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
       <header className={styles.heading}>
         <span className={styles.avatar} aria-hidden="true"><SparklesIcon width={18} height={18} /></span>
         <h1>Agent</h1>
-        <span className={styles.scopeChip}>{isHome ? "Today" : scope.label}</span>
+        <ConversationActivity active={!remote.requestIssue && (!remote.ready || remote.pending || !!presentation)} loading={!remote.ready} interrupted={!!remote.error} />
+        <span className={styles.scopeChip}>{isHome ? activeProject?.name ?? "Today" : scope.label}</span>
       </header>
+      <ViewTransition name="agent-conversation" default="none" update={{ "workspace-context": "workspace-dissolve", default: "none" }}>
       <div className={styles.transcript} ref={transcriptRef} role="log" aria-label="Conversation" aria-live="polite"
         onScroll={trackReplyScroll}
         onWheel={interruptScroll}
@@ -307,23 +345,24 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
         onPointerDown={interruptScroll}
         onKeyDown={(event) => { if (["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)) interruptScroll(); }}>
         <FeatureBoundary label="Conversation" resetKey={sessionKey}>
-        {!remote.ready && !remote.error && <p role="status">Loading conversation…</p>}
+        {!target.projectId && <EarlierOrgChats conversations={remote.data.conversations} orgs={orgs} />}
         {thread.length > 40 && <nav aria-label="Conversation history">
           <button type="button" disabled={startIndex === 0} onClick={() => showPage(thread[startIndex - 1]!.id)}>Older messages</button>
           <span role="status">Messages {startIndex + 1}–{endIndex} of {thread.length}</span>
           <button type="button" disabled={endIndex === thread.length} onClick={() => showPage(endIndex + 40 >= thread.length ? null : thread[endIndex + 39]!.id)}>Newer messages</button>
           {endIndex < thread.length && <button type="button" onClick={() => showPage(null)}>Latest messages</button>}
         </nav>}
-        <div className={styles.thread} ref={threadRef}>
-          <Transcript messages={visibleThread} startIndex={startIndex} total={thread.length} sessionKey={sessionKey} isHome={isHome}
-            presentation={presentation} runs={remote.data.runs} suggestions={scope.suggestions} seedPrompt={seedPrompt}
-            resumeWork={resumeWork} send={sendText} command={issueCommand} />
+        <div className={styles.thread} ref={threadRef} data-workspace-motion>
+          <Transcript messages={visibleThread} startIndex={startIndex} total={thread.length} sessionKey={sessionKey} isHome={isHome && !target.projectId}
+            presentation={presentation} runs={remote.data.runs} suggestions={scope.suggestions} startStarter={startStarter}
+            resumeWork={resumeWork} send={sendText} command={issueCommand} openDestination={openAgentDestination} />
         </div></FeatureBoundary>
       </div>
+      </ViewTransition>
 
       {/* This form is never keyed, swapped, or faded. Its bounds follow the
           panel's width, retaining the textarea node, selection, and draft. */}
-      <div className={styles.composerDock}>
+      <div className={styles.composerDock} data-workspace-motion>
         {composerProblem && <p role="status">{composerProblem}</p>}
         <form className={styles.composer} onSubmit={(event) => { event.preventDefault(); send(); }}>
           {remote.recovery !== null && <details className={styles.requestRecovery}>
@@ -339,7 +378,7 @@ export function AgentPanel({ homeRequest, waitForLayout, layoutKey }: {
             rows={2}
             maxLength={8000}
             value={draft}
-            placeholder={isHome
+            placeholder={isHome && activeProject ? `Ask about ${activeProject.name}…` : isHome
               ? dayZero ? "Ask about an opportunity, explore a plan, or start something new…"
                 : returning ? "Ask about your work, plan a change, or start something new…"
                 : "Describe an idea, ask a question, or tell me what you want to build…"

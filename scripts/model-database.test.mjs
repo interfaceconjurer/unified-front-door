@@ -326,3 +326,107 @@ test("one project conversation does not share model history across different sel
   assert.equal(again.conversationId, first.conversationId); assert.equal(execution.provenance.history.length, 2);
   assert.ok(JSON.stringify(execution.prompt).includes("Only sandbox history")); assert.ok(!JSON.stringify(execution.prompt).includes("Production question"));
 });
+
+test("navigation is committed with the completed reply and retains captured scope", async () => {
+  const s = await owner("am"), selected = { surface: "code", target: { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" } };
+  const accepted = await chat(s, "Open the Account object", selected);
+  let action;
+  await tick(accepted.runId, runtime(scope(), async prompt => {
+    const option = prompt.navigation.find(option => option.id === "resource:standard-object:Account");
+    assert(option);
+    action = { ...option, toolCallId: "toolu_database" };
+    return { ...fakeResult, navigation: action };
+  }));
+  const state = await snapshot(s), saved = state.conversations.find(item => item.id === accepted.conversationId);
+  const reply = saved.conversation.messages.find(message => message.role === "agent" && message.runId === accepted.runId);
+  assert.deepEqual(reply.navigation, action);
+  assert.deepEqual(reply.navigation.destination.target, selected.target);
+  assert.equal((await row(accepted.runId)).status, "completed");
+  assert.equal((await attempt(accepted.runId)).status, "succeeded");
+});
+
+test("provider cannot publish a destination outside its captured project even through an injected adapter", async () => {
+  const s = await owner("am"), accepted = await chat(s, "Open a surface");
+  await tick(accepted.runId, runtime(scope(), async prompt => {
+    const action = structuredClone(prompt.navigation.find(option => option.id === "surface:build"));
+    action.destination.target = { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" };
+    return { ...fakeResult, navigation: { ...action, toolCallId: "toolu_invalid_scope" } };
+  }));
+  const state = await snapshot(s);
+  assert.equal((await row(accepted.runId)).status, "failed");
+  assert(state.conversations.every(saved => saved.conversation.messages.every(message => !message.navigation)));
+});
+
+test("Home planning keeps acknowledged conversation history without granting navigation tools", async () => {
+  const s = await owner(), budget = scope();
+  const firstText = "Help me plan a React app for account managers";
+  const first = await chat(s, firstText);
+  await tick(first.runId, runtime(budget, async (prompt, policy) => {
+    assert.equal(policy.promptVersion, "workspace-planner-v3");
+    assert.equal(prompt.navigation, undefined);
+    assert.equal(JSON.parse(serializeModelRequest(prompt, policy)).tools, undefined);
+    return { ...fakeResult, text: "What should account managers be able to accomplish first?" };
+  }));
+  const second = await chat(s, "Find a customer by name and review their recent activity");
+  assert.equal(second.conversationId, first.conversationId);
+  await tick(second.runId, runtime(budget, async (prompt, policy) => {
+    assert.equal(prompt.navigation, undefined);
+    assert.equal(JSON.parse(serializeModelRequest(prompt, policy)).tools, undefined);
+    assert(prompt.messages.some(message => message.role === "user" && message.content === firstText));
+    assert(prompt.messages.some(message => message.role === "assistant" && message.content.includes("accomplish first")));
+    return { ...fakeResult, text: "Start with account search and a customer activity view, then validate the workflow with an account manager." };
+  }));
+  const state = await snapshot(s), saved = state.conversations.find(item => item.id === first.conversationId);
+  assert.equal(saved.conversation.scopeKey, "home");
+  assert(saved.conversation.messages.every(message => !message.navigation));
+  assert.equal((await row(second.runId)).status, "completed");
+});
+
+test("a planning turn rejects even an otherwise scoped navigation from a custom provider", async () => {
+  const s = await owner(), accepted = await chat(s, "Help me design an automation; stay in this chat");
+  const captured = (await row(accepted.runId)).input.context;
+  const option = modules.load("lib/agent/navigation").navigationOptions(captured).find(option => option.id === "surface:build");
+  assert(option);
+  await tick(accepted.runId, runtime(scope(), async prompt => {
+    assert.equal(prompt.navigation, undefined);
+    return { ...fakeResult, navigation: { ...option, toolCallId: "toolu_unrequested" } };
+  }));
+  assert.equal((await row(accepted.runId)).status, "failed");
+  assert((await snapshot(s)).conversations.every(saved => saved.conversation.messages.every(message => !message.navigation)));
+});
+
+test("a queued v2 navigation run retains its captured execution under a v3 worker", async () => {
+  const s = await owner(), previousSettings = { ...settings, policy: { ...MODEL_POLICY, promptVersion: "workspace-navigator-v2" } };
+  const accepted = await send(s, { kind: "submit", requestId: randomUUID(), context, text: "Help with an automation" }, previousSettings);
+  const execution = (await row(accepted.runId)).execution;
+  assert(execution.prompt.navigation.length);
+  const body = serializeModelRequest(execution.prompt, execution.settings.policy);
+  await tick(accepted.runId, runtime(scope(), async (prompt, policy) => {
+    assert.equal(policy.promptVersion, "workspace-navigator-v2");
+    assert.equal(serializeModelRequest(prompt, policy), body);
+    return { ...fakeResult, navigation: { ...prompt.navigation.find(option => option.id === "surface:build"), toolCallId: "toolu_queued_v2" } };
+  }));
+  assert.equal((await row(accepted.runId)).status, "completed");
+});
+
+test("queued app navigation keeps its original model snapshot while accepting the ALM destination migration", async () => {
+  for (const promptVersion of ["workspace-navigator-v2", "workspace-planner-v3"]) {
+    const s = await owner("am"), selected = { surface: "code", target: { projectId: "acme-storefront", worktreeId: "main", orgId: "prod" } };
+    const accepted = await send(s, { kind: "submit", requestId: randomUUID(), context: selected, text: "Open Acme Storefront" }, { ...settings, policy: { ...MODEL_POLICY, promptVersion } });
+    const execution = (await row(accepted.runId)).execution;
+    const option = execution.prompt.navigation.find(option => option.id === "work:storefront-app");
+    assert(option);
+    option.destination.surface = "build"; // A run captured before deployed apps moved.
+    await transaction(client => client.query("UPDATE agent_runs SET execution=$2 WHERE id=$1", [accepted.runId, execution]));
+    const originalBody = serializeModelRequest(execution.prompt, execution.settings.policy);
+    await tick(accepted.runId, runtime(scope(), async (prompt, policy) => {
+      assert.equal(serializeModelRequest(prompt, policy), originalBody);
+      return { ...fakeResult, navigation: { ...prompt.navigation.find(option => option.id === "work:storefront-app"), toolCallId: "toolu_old_app" } };
+    }));
+    assert.equal((await row(accepted.runId)).status, "completed");
+    assert.deepEqual((await row(accepted.runId)).execution, execution, "Routing migration must not rewrite captured model inputs");
+    const state = await snapshot(s), reply = state.conversations.find(saved => saved.id === accepted.conversationId).conversation.messages.at(-1);
+    const { destinationHref, readDestination } = modules.load("lib/navigation/model");
+    assert.equal(readDestination(destinationHref(reply.navigation.destination)).value.surface, "alm");
+  }
+});

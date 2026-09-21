@@ -42,7 +42,7 @@ test("direct/runtime targets match host, port and database while allowing separa
   for (const query of ["host=other", "port=7777", "database=other", "dbname=other", "service=other", "user=other", "options=-c%20search_path=other", "search_path=other", "schema=other"]) assert.throws(() => targets.databaseTarget(valid.DATABASE_URL + "?" + query));
 });
 test("readiness rejects unknown, missing and altered migration history and probes required columns read-only", async () => {
-  const manifest = await migrationManifest(); assert.equal(manifest.length, 7);
+  const manifest = await migrationManifest(); assert.equal(manifest.length, 9);
   const calls = [], client = { query: async text => { calls.push(text); return { rows: text.includes("schema_migrations") ? manifest : [] }; } };
   await checkDatabaseSchema(client, manifest); assert.equal(calls[0], "SET TRANSACTION READ ONLY"); assert(calls.some(sql => sql.includes("effect_state") && sql.includes("LIMIT 0")));
   for (const rows of [manifest.slice(1), [...manifest, { name: "999_extra.sql", checksum: "x" }], manifest.map((row, i) => i ? row : { ...row, checksum: "changed" })]) await assert.rejects(checkDatabaseSchema({ query: async () => ({ rows }) }, manifest), /schema version/);
@@ -64,7 +64,7 @@ function ownedConnection(hangAt) {
   client.query = async sql => {
     if (released) throw Error("Connection was destroyed");
     queries.push(sql);
-    if (sql === hangAt) await new Promise(resolve => { resolveHang = resolve; });
+    if (hangAt && sql.split(";")[0] === hangAt) await new Promise(resolve => { resolveHang = resolve; });
     return { rows: [] };
   };
   client.release = destroy => { assert.equal(released, false, "Release occurs exactly once"); released = true; releases.push(destroy); };
@@ -113,9 +113,9 @@ test("actual pg pool contains handshake-handoff and between-query FATAL packets 
         if (startup) { startup = false; socket.write(Buffer.concat(index === 1 ? [auth, ready, fatal] : [auth, ready])); continue; }
         if (message[0] === 88) { socket.end(); continue; }
         if (message[0] !== 81) continue;
-        const sql = message.subarray(5, -1).toString(); if (sql === "BEGIN") begins++;
+        const sql = message.subarray(5, -1).toString(), beginning = sql.split(";")[0] === "BEGIN"; if (beginning) begins++;
         const response = [packet("C", sql.split(" ")[0] + "\0"), ready];
-        if (index === 2 && begins === 2 && sql === "BEGIN") response.push(fatal);
+        if (index === 2 && begins === 2 && beginning) response.push(fatal);
         socket.write(Buffer.concat(response));
       }
     });

@@ -13,7 +13,7 @@ try {
         page.on('pageerror', e => out.errors.push(e.message));
         await page.goto(origin + href);
         await page.getByRole('textbox', { name: 'Name', exact: true }).waitFor();
-        const trigger = page.getByRole('button', { name: 'Go to a surface', exact: true }), dialog = page.getByRole('dialog'), composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
+        const trigger = page.getByRole('button', { name: 'Search workspace', exact: true }), dialog = page.getByRole('dialog'), composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
         await composer.fill('Draft survives keyboard navigation');
         await composer.evaluate(n => { n.setSelectionRange(6, 14); });
         await trigger.click();
@@ -25,7 +25,7 @@ try {
         await search.evaluate(n => n.setSelectionRange(2, 2));
         await page.keyboard.press('ArrowLeft');
         assert.equal(await search.evaluate(n => n.selectionStart), 1);
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Surfaces');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
         await page.keyboard.press('ArrowRight');
         assert.equal(await search.evaluate(n => n.selectionStart), 2);
         await search.fill('');
@@ -42,9 +42,9 @@ try {
         assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Projects');
         assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Projects');
         await page.keyboard.press('End');
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Orgs');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Resources');
         await page.keyboard.press('Home');
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Surfaces');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
         await page.keyboard.press('Escape');
         await dialog.waitFor({ state: 'detached' });
         assert(await trigger.evaluate(n => n === document.activeElement));
@@ -57,7 +57,7 @@ try {
                 await dialog.getByRole('button', { name: 'Start your first project' }).focus();
             }
             else if (kind === 'result') {
-                await dialog.getByRole('option').first().getByRole('button').focus();
+                await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
             }
             else
                 await dialog.locator('input').focus();
@@ -99,7 +99,7 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
+        await dialog.getByRole('listbox').getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');

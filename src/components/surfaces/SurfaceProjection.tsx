@@ -3,8 +3,11 @@
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useAssessment } from "@/components/onboarding/use-assessment";
 import { SurfaceLauncher } from "./SurfaceLauncher";
 import { ReturningSurface } from "./ReturningSurface";
+import { BuildSetupAreas } from "./BuildSetupAreas";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
 const loadProjects = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectsOverview }));
 import styles from "./SurfaceProjection.module.css";
@@ -16,7 +19,9 @@ export function SurfaceProjection({ surfaceId, children }: {
 }) {
   const surface = surfaceAppById(surfaceId);
   const { profile } = useDemoProfile();
-  if (profile?.onboarding === "org-assessment" && surfaceId === "alm") {
+  const { target } = useWorkspace();
+  const { state } = useAssessment();
+  if (surfaceId === "alm" && (profile?.onboarding === "org-assessment" || state.projects.some(project => project.id === target.projectId))) {
     return <LazyFeature load={loadProjects} properties={{}} />;
   }
   if (profile?.workspaceExperience === "established") {
@@ -30,6 +35,7 @@ export function SurfaceProjection({ surfaceId, children }: {
           <p className={styles.lead}>{surface.workspaceDescription}</p>
         </div>
       </header>
+      {surfaceId === "build" && <BuildSetupAreas />}
       <SurfaceLauncher surfaceId={surfaceId} />
     </section>
   );

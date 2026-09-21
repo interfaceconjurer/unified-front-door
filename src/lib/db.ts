@@ -56,11 +56,9 @@ export async function transaction<T>(work: (client: PoolClient) => Promise<T>, b
 export async function runTransaction<T>(client: PoolClient, work: (client: PoolClient) => Promise<T>, timeoutMs = TRANSACTION_TIMEOUT_MS): Promise<T> {
   return withOwnedDatabaseClient(client, async owned => {
     try {
-      await owned.query("BEGIN");
-      await owned.query("SET LOCAL search_path=public");
-      await owned.query("SET LOCAL statement_timeout='10s'");
-      await owned.query("SET LOCAL lock_timeout='5s'");
-      await owned.query("SET LOCAL idle_in_transaction_session_timeout='15s'");
+      // Fixed SQL only: configure the transaction in one round trip while
+      // retaining the same transaction-local limits and rollback boundary.
+      await owned.query("BEGIN; SET LOCAL search_path=public; SET LOCAL statement_timeout='10s'; SET LOCAL lock_timeout='5s'; SET LOCAL idle_in_transaction_session_timeout='15s'");
       const result = await work(owned);
       await owned.query("COMMIT");
       return result;

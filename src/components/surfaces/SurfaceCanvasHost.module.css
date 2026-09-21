@@ -2,12 +2,14 @@
    single scrolling panel. min-height:100% lets a short overview still paint the
    full pane; min-width:0 keeps it from forcing the flex parent wider. */
 .host {
+  color-scheme: light dark;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 100%;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  height: max-content;
+  background: var(--workspace-background-chat);
 }
 
 /* Editor-style tab strip. Sticky so it stays put while the panel scrolls inside
@@ -18,16 +20,15 @@
   top: 0;
   z-index: 2;
   display: flex;
-  /* Never shrink: as a flex child of the column `.host`, the strip defaults to
-     flex-shrink:1, so a tall overview panel (the full projection) would
-     squeeze it a few px shorter than a short canvas panel does — the row visibly
-     jumps height as you switch tabs. Pinning the basis keeps it constant. */
-  flex: 0 0 auto;
+  /* Share the agent header's exact height, including the bottom divider,
+     even when tabs overflow or the active canvas has tall content. */
+  flex: 0 0 var(--workspace-heading-height);
+  block-size: var(--workspace-heading-height);
   align-items: stretch;
   gap: var(--slds-g-spacing-1, 0.25rem);
   padding: var(--slds-g-spacing-1, 0.25rem) var(--slds-g-spacing-2, 0.5rem) 0;
-  border-block-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  border-block-end: 1px solid var(--workspace-heading-border);
+  background: var(--workspace-background-chat);
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -48,19 +49,18 @@
   border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
 }
 
-/* The pinned first tab IS the surface (its icon + name), so it's set apart from
-   the launched canvases after it by a hairline divider and a little trailing
-   room — a quiet "surface | canvases" seam that keeps the surface identity
-   reading as the container the other tabs live in, not just another tab. */
+/* Matching hairline dividers frame the pinned surface icon and name, keeping
+   the surface identity distinct from the launched canvases that follow it. */
 .tabWrapSurface {
+  anchor-name: --surface-switcher;
   position: sticky;
   inset-inline-start: 0;
   z-index: 1;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
-  box-shadow: -0.5rem 0 var(--slds-g-color-surface-2, #f3f3f3);
+  background: var(--workspace-background-chat);
+  box-shadow: -0.5rem 0 var(--workspace-background-chat);
   margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
   padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
-  border-inline-end: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-inline: 1px solid var(--slds-g-color-border-1, #c9c9c9);
 }
 
 /* No background plate — a tab is just its label (or the overview home glyph),
@@ -87,6 +87,28 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
+.surfaceTrigger {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+  cursor: pointer;
+}
+.surfaceTrigger:hover,
+.surfaceTrigger[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 12%, transparent);
+}
+.surfaceChevron { flex-shrink: 0; transform: rotate(90deg); }
+
 /* The surface glyph on the pinned tab — fixed size so it never shrinks as the
    label truncates, and slightly muted so the surface name carries the weight. */
 .surfaceTabIcon {
@@ -105,7 +127,8 @@
   color: var(--slds-g-color-on-surface-3, #03234d);
 }
 
-.tab:focus-visible {
+.tab:focus-visible,
+.surfaceTrigger:focus-visible {
   outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
   outline-offset: -2px;
 }
@@ -136,15 +159,21 @@
   outline-offset: 1px;
 }
 
-/* The single panel every tab shares (aria-labelledby points at the active tab).
-   CanvasLayout owns its content gutters; the shell owns scrolling. */
+/* A gently raised container shared by every canvas. CanvasLayout owns the
+   content gutters inside it; the shell owns scrolling and the fixed tab strip. */
 .panel {
-  flex: 1 1 auto;
+  /* Grow with tall content so the outer scroller keeps it inside the frame. */
+  flex: 1 0 auto;
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  margin: 0.75rem;
+  border: 1px solid var(--workspace-heading-border);
+  border-radius: var(--slds-g-radius-border-3, 0.75rem);
+  background: var(--workspace-background-canvas);
+  box-shadow: 0 2px 4px light-dark(rgb(3 35 77 / 5%), rgb(0 0 0 / 16%)),
+    0 8px 24px light-dark(rgb(3 35 77 / 7%), rgb(0 0 0 / 22%));
 }
 
 /* Keep the canvas background filling the pane even when content is short. */

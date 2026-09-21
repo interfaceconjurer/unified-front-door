@@ -40,7 +40,8 @@ export function useTranscriptPosition({ identity, threadKey, messages, container
     const saved = position && container.querySelector<HTMLElement>(`[data-message-id="${position.anchor}"]`);
     const entry = saved || container.querySelector<HTMLElement>(`[data-message-id="${latest?.id}"]`);
     if (!entry) return;
-    container.scrollTop += entry.getBoundingClientRect().top - container.getBoundingClientRect().top - (saved ? position.offset : 20);
+    const inset = parseFloat(getComputedStyle(container).scrollPaddingBlockStart) || 0;
+    container.scrollTop += entry.getBoundingClientRect().top - container.getBoundingClientRect().top - (saved ? position.offset : inset);
     restored.current = threadKey;
     if (saved) onRestore(container.scrollTop);
   }, [containerRef, messages, threadKey, onRestore]);

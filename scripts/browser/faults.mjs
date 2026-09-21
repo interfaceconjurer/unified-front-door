@@ -122,7 +122,13 @@ try {
             await verify(composer);
             await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Canvas remains usable');
             message.snapshot = snapshot;
-            await page.waitForTimeout(1300);
+            // Retry after the restored snapshot reaches the client; polling is
+            // deliberately slower than the old fixed 1.3-second delay.
+            await page.waitForResponse(async response => {
+                if (!response.url().includes('/api/agent') || response.request().method() !== 'GET' || !response.ok()) return false;
+                const body = await response.json();
+                return !!body.conversations?.[0]?.conversation.messages[0]?.snapshot;
+            });
             await page.getByRole('button', { name: 'Retry conversation', exact: true }).click();
             await page.getByRole('article', { name: 'Today briefing' }).first().waitFor();
             await verify(composer);

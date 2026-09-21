@@ -16,7 +16,7 @@ try {
     const page = await context.newPage();
     page.on('pageerror', error => out.errors.push(error.message));
     await page.goto(origin + '/build');
-    const trigger = page.getByRole('button', { name: 'Go to a surface', exact: true });
+    const trigger = page.getByRole('button', { name: 'Search workspace', exact: true });
     const dialog = page.getByRole('dialog');
     for (const tab of ['Sessions']) {
         await trigger.click();

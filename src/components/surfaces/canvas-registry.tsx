@@ -9,9 +9,15 @@ import type { SurfaceId } from "@/lib/workspace/model";
 import type { CanvasSpec, CanvasOf } from "@/lib/surface-canvas/model";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
+import { setupAreaForId } from "@/lib/org-resources/setup";
+const loadSetup = () => import("./OrgSetupCanvas").then(module => ({ default: module.OrgSetupCanvas }));
 const loadWork = () => import("./WorkCanvas").then(module => ({ default: module.WorkCanvas }));
 const loadImprovement = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectCanvas }));
+const loadCreation = () => import("@/components/onboarding/ProjectCreationCanvas").then(module => ({ default: module.ProjectCreationCanvas }));
 const loadCapability = () => import("./CapabilityDraftCanvas").then(module => ({ default: module.CapabilityDraftCanvas }));
+const loadAssessment = () => import("@/components/onboarding/OrgAssessmentCanvas").then(module => ({ default: module.OrgAssessmentCanvas }));
+const loadResource = () => import("./OrgResourceCanvas").then(module => ({ default: module.OrgResourceCanvas }));
+const loadPreview = () => import("./PreviewCanvas").then(module => ({ default: module.PreviewCanvas }));
 import { capabilityForCanvas } from "./surface-capabilities";
 import styles from "./canvas-registry.module.css";
 
@@ -86,6 +92,8 @@ function AppCanvas({ spec }: { spec: CanvasOf<"app"> }) {
 /** Resolve the launcher's stable capability id to its editable starting screen.
  *  Older tabs with a name param keep a readable fallback. */
 function CapabilityCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
+  if (spec.params.surface === "build" && setupAreaForId(spec.params.capability)) return <LazyFeature load={loadSetup} properties={{ spec }} />;
+  if (spec.params.surface === "alm" && spec.params.capability === "project") return <LazyFeature load={loadCreation} properties={{ spec }} />;
   const surface = surfaceApps.find((candidate) => candidate.id === (spec.params?.surface as SurfaceId));
   const capability = surface && capabilityForCanvas(surface.id, spec.params.capability);
   if (surface && capability) {
@@ -131,6 +139,9 @@ export function CanvasContent({ spec }: { spec: CanvasSpec }) {
     case "capability": return <CapabilityCanvas spec={spec} />;
     case "work": return <LazyFeature load={loadWork} properties={{ spec }} />;
     case "improvement-project": return <LazyFeature load={loadImprovement} properties={{ spec }} />;
+    case "org-assessment": return <LazyFeature load={loadAssessment} properties={{ spec }} />;
+    case "org-resource": return <LazyFeature load={loadResource} properties={{ spec }} />;
+    case "preview": return <LazyFeature load={loadPreview} properties={{ spec }} />;
     case "overview": return <PlaceholderCanvas title={spec.title} meta="Overview" />;
     default: { const exhaustive: never = spec; return exhaustive; }
   }

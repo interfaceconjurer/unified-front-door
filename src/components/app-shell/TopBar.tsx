@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
-import { PanelIcon, SearchIcon } from "@/components/icons";
+import { ChevronRightIcon, EyeIcon, HomeIcon, LayersIcon, PanelIcon, SearchIcon } from "@/components/icons";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { previewCanvas } from "@/lib/preview/model";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
   onOpenPalette: () => void;
-  onOpenHome: () => void;
+  onOpenProjects: () => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
   surfaceOpen: boolean;
@@ -15,18 +18,16 @@ type TopBarProps = {
   profileMenu: React.ReactNode;
 };
 
-/**
- * The common wayfinder shared by the front door and every purpose-built app.
- * It's deliberately spare: a path home, the workspace-panel toggle, and the
- * command palette that switches surfaces (⌘⇧P). Workspace context
- * (project · worktree · target org) now lives in the persistent bottom status
- * bar, and the agent stands as its own panel, so the top bar is left to
- * answer just one question — "where do you want to go?"
- */
-export function TopBar({ onOpenPalette, onOpenHome, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
-  const { hrefForSurface, navigateSurface } = useNavigation();
+/** Global search and current project scope stay visible on every surface. */
+export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel, surfaceOpen, onToggleSurface, profileMenu }: TopBarProps) {
+  const { navigateGlobalHome, globalHomeHref, openCanvas } = useNavigation();
+  const { activeProject, activeWorktree, target, destination } = useWorkspace();
+  const { profile } = useDemoProfile();
+  const preview = activeProject && activeWorktree && profile?.surfaceAccess.includes("build")
+    ? previewCanvas(activeProject.id, activeWorktree.id, target.orgId) : null;
+  const previewOpen = destination.kind === "available" && destination.destination.canvas?.kind === "preview";
   return (
-    <header className={styles.bar}>
+    <header className={styles.bar} data-project-scoped={!!activeProject}>
       <div className={styles.left}>
         <button
           type="button"
@@ -43,29 +44,44 @@ export function TopBar({ onOpenPalette, onOpenHome, panelOpen, onTogglePanel, su
           <PanelIcon width={16} height={16} />
         </button>
 
-        <Link href={hrefForSurface(null)} scroll={false} onNavigate={(event) => { event.preventDefault(); onOpenHome(); navigateSurface(null); }} className={styles.homeLink} aria-label="Unified Platform home">
-          <span className={styles.logo} aria-hidden="true">
-            U
-          </span>
-          <span className={styles.brandName}>Unified Platform</span>
+        <Link href={globalHomeHref} scroll={false} className={`${styles.panelToggle} ${styles.globalHome} ${!activeProject ? styles.globalHomeActive : ""}`}
+          aria-current={!activeProject ? "location" : undefined}
+          aria-label="Global home" title={activeProject ? "Leave project and go to global home" : "Global home"}
+          onNavigate={event => { event.preventDefault(); navigateGlobalHome(); }}>
+          <HomeIcon width={16} height={16} aria-hidden="true" />
         </Link>
-
-        <span className={styles.divider} aria-hidden="true" />
-
+        <Link href={globalHomeHref} scroll={false} onNavigate={(event) => { event.preventDefault(); navigateGlobalHome(); }} className={styles.homeLink} aria-label="Platform Studio home">
+          <span className={styles.brandName}>Platform Studio</span>
+        </Link>
+        {activeProject && <>
+          <span className={styles.divider} aria-hidden="true" />
+          <button type="button" className={styles.projectScope} onClick={onOpenProjects} aria-haspopup="dialog"
+            aria-label={`Switch project, current project: ${activeProject.name}${activeWorktree ? `, branch: ${activeWorktree.branch}` : ""}`}
+            title={`${activeProject.name}${activeWorktree ? ` · ${activeWorktree.branch}` : ""}`}>
+            <LayersIcon width={17} height={17} aria-hidden="true" />
+            <span className={styles.projectCopy}><span className={styles.projectLabel}>Project{activeWorktree ? ` · ${activeWorktree.branch}` : ""}</span><strong>{activeProject.name}</strong></span>
+            <ChevronRightIcon className={styles.projectChevron} width={13} height={13} aria-hidden="true" />
+          </button>
+        </>}
+      </div>
         <button
           type="button"
           className={styles.commandTrigger}
           onClick={onOpenPalette}
-          aria-label="Go to a surface"
+          aria-label="Search workspace"
+          aria-haspopup="dialog"
           aria-keyshortcuts="Meta+Shift+P Control+Shift+P"
         >
           <SearchIcon className={styles.commandIcon} width={16} height={16} />
-          <span className={styles.commandLabel}>Go to…</span>
+          <span className={styles.commandLabel}>Search resources, projects, and more…</span>
+          <span className={styles.commandLabelCompact}>Search or jump to…</span>
           <kbd className={styles.commandKbd}>⌘⇧P</kbd>
         </button>
-      </div>
-
       <div className={styles.actions}>
+        {preview && <button type="button" className={styles.previewButton} aria-label="Preview project" aria-pressed={previewOpen}
+          title={`Preview ${activeProject?.name} · ${activeWorktree?.branch}`} onClick={() => openCanvas("build", preview)}>
+          <EyeIcon width={16} height={16} /><span>Preview</span>
+        </button>}
         <button type="button" className={styles.helpButton} aria-label="Help">
           ?
         </button>

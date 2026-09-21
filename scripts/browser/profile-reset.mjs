@@ -83,6 +83,8 @@ try {
   await page.screenshot({ path: outputPath(`${label}-profile-reset-mobile.png`) });
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: /Alex Morgan Returning developer/ }).click();
+  await page.getByRole('radio', { name: /UAT Sandbox/ }).check();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.waitForURL(url => url.pathname !== '/login');
   assert.equal(commands.at(-1).action, 'select'); assert.equal(current.profileId, 'am');
   out.checks.push('Confirmation fits a narrow viewport and profile sign-in still works independently');

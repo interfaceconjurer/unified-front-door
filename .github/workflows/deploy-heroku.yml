@@ -4,7 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      base_revision:
+        description: Previously verified revision to compare before this manual release
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -15,7 +20,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  merge-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out incoming history
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Use the locked Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - name: Reject merges that absorb changed history without its content
+        env:
+          BASE_REV: ${{ github.event.pull_request.base.sha || github.event.before || inputs.base_revision }}
+          HEAD_REV: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            checked_base=$(git rev-parse --verify --end-of-options "$BASE_REV^{commit}")
+            checked_head=$(git rev-parse --verify --end-of-options "$HEAD_REV^{commit}")
+            if [ "$checked_base" = "$checked_head" ] || ! git merge-base --is-ancestor "$checked_base" "$checked_head"; then
+              echo "Manual release requires a prior verified ancestor, not the release revision itself." >&2
+              exit 1
+            fi
+          fi
+          node scripts/check-merge-integrity.mjs --base "$BASE_REV" --head "$HEAD_REV"
+
   verify:
+    needs: merge-integrity
     runs-on: ubuntu-latest
     timeout-minutes: 60
     services:
@@ -60,7 +96,7 @@ jobs:
           retention-days: 1
 
   deploy:
-    needs: verify
+    needs: [merge-integrity, verify]
     # Pull requests and manual runs from other branches can only verify.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

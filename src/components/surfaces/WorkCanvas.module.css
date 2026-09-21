@@ -3,6 +3,19 @@
 .header h1 { margin: 0 0 0.75rem; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(1.25rem, 2vw, 1.75rem); font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
 .summary { margin: 0 0 1rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.8125rem; line-height: 1.6; }
 .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem 1.25rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+.context { display: flex; align-items: center; flex-wrap: wrap; gap: 1.25rem; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--slds-g-color-border-1, #c9c9c9); }
+.ownership { display: flex; flex: 1; flex-wrap: wrap; gap: 1rem 1.75rem; min-width: 0; margin: 0; }
+.ownership > div { min-width: 0; }
+.ownership dt { margin-bottom: 0.375rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+.ownership dd { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.8125rem; line-height: 1.5; overflow-wrap: anywhere; }
+.branch { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.contextActions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.preview { display: inline-flex; align-items: center; gap: .5rem; padding: .625rem .875rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: .5rem; background: var(--slds-g-color-surface-1, #fff); color: var(--slds-g-color-on-surface-3, #03234d); font: inherit; font-size: .8125rem; cursor: pointer; }
+.preview:hover { border-color: var(--slds-g-color-accent-1, #0176d3); }
+.preview:focus-visible { outline: 2px solid var(--slds-g-color-accent-1, #0176d3); outline-offset: 3px; }
+.openProject { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 0.5rem; min-height: 2.5rem; padding: 0.625rem 0.875rem; border: 1px solid transparent; border-radius: 0.5rem; background: var(--slds-g-color-accent-2, #0176d3); color: light-dark(var(--slds-g-color-on-accent-1, #fff), var(--slds-g-color-accent-dark-2, #001642)); font: inherit; font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+.openProject:hover { background: var(--slds-g-color-accent-3, #014486); }
+.openProject:focus-visible { outline: 2px solid var(--slds-g-color-accent-2, #0176d3); outline-offset: 3px; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr)); gap: 1.25rem; margin: 0; padding: 1.125rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 0.625rem; background: var(--slds-g-color-surface-1, #fff); }
 .facts dt { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; margin-bottom: 0.5rem; }
 .facts dd { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.8125rem; line-height: 1.6; }

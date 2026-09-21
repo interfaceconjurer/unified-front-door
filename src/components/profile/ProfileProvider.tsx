@@ -5,7 +5,7 @@ import { applicationClient, getActiveAssessmentStore, type ProfileResetResult } 
 
 type ProfileContextValue = {
   profile: DemoProfile | null; resolved: boolean; sessionKey: string;
-  signIn: (id: DemoProfileId) => Promise<boolean>; signOut: () => Promise<boolean>;
+  signIn: (id: DemoProfileId, orgId?: string) => Promise<boolean>; signOut: () => Promise<boolean>;
   clearData: (id: DemoProfileId) => Promise<ProfileResetResult>;
 };
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -19,7 +19,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ProfileContextValue>(() => ({
     profile: session?.profileId ? demoProfileById(session.profileId) : null, resolved: state.resolved && dataReady,
     sessionKey: session ? `${session.namespaceId}.${session.profileId}.${session.generation}` : "anonymous",
-    signIn: (id) => applicationClient.change("select", id), signOut: () => applicationClient.change("signout"),
+    signIn: (id, orgId) => applicationClient.change("select", id, orgId), signOut: () => applicationClient.change("signout"),
     clearData: (id) => applicationClient.clearProfile(id, session?.namespaceId),
   }), [session, state.resolved, dataReady]);
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;

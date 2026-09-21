@@ -1,12 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
-import { AGENT_LIMITS, activeRun, parseAgentCommand, type AgentReceipt, type AgentSnapshot, type SavedConversation, type RunInput, type AgentPolicy } from "../agent/contracts";
-import { demoPolicy } from "../agent/demo";
+import { AGENT_LIMITS, activeRun, parseAgentCommand, type AgentAcknowledgement, type AgentReceipt, type AgentSnapshot, type SavedConversation, type RunInput, type AgentPolicy } from "../agent/contracts";
+import { demoPolicy, projectIntroduction } from "../agent/demo";
 import { ApplicationError, conflict, invalid, stableJson, type ApplicationCommand } from "../application/contracts";
 import { updateConversation, type Conversation } from "../chat/conversation";
 import { assessmentBriefing, captureToday } from "../chat/today-snapshot";
-import { RETURNING_WORK } from "../workspace/returning-work";
+import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
+import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { SURFACES } from "../workspace/surfaces";
 import { UNBOUND_TARGET } from "../workspace/context";
 import { captureAgentContext } from "./agent-context";
@@ -25,7 +26,8 @@ async function lockConversation(client: PoolClient, session: OwnedSession, id: s
 async function saveConversation(client: PoolClient, session: OwnedSession, row: SavedConversation, conversation: Conversation) {
   if (conversation.messages.length > AGENT_LIMITS.messages) invalid("This conversation has reached its history limit. Existing messages are preserved.");
   assertBytes(conversation, AGENT_LIMITS.conversationBytes, "Conversation history");
-  await client.query("UPDATE agent_conversations SET conversation=$4,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [session.namespaceId, session.profileId, row.id, conversation]);
+  const updated = await client.query("UPDATE agent_conversations SET conversation=$4,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3 RETURNING revision", [session.namespaceId, session.profileId, row.id, conversation]);
+  return { ...row, revision: updated.rows[0].revision, conversation };
 }
 export async function observeAgent(client: PoolClient, token: string | undefined, generation: string): Promise<AgentSnapshot> {
   const session = await requireSession(client, token, generation), scope = [session.namespaceId, session.profileId];
@@ -41,13 +43,19 @@ export async function observeRunEvents(client: PoolClient, token: string | undef
   if (!run) invalid("This run is unavailable in the current workspace.");
   return { run: runView(run), events: (await client.query("SELECT event FROM agent_events WHERE namespace_id=$1 AND profile_id=$2 AND run_id::text=$3 AND sequence>$4 ORDER BY sequence LIMIT 128", [...scope, after])).rows.map(row => row.event) };
 }
-export async function executeAgentCommand(client: PoolClient, token: string | undefined, generation: string, value: unknown, policy: AgentPolicy = demoPolicy, settingsSource: () => ModelSettings | null = modelSettings): Promise<AgentReceipt> {
+export async function executeAgentCommand(client: PoolClient, token: string | undefined, generation: string, value: unknown, policy: AgentPolicy = demoPolicy, settingsSource: () => ModelSettings | null = modelSettings): Promise<AgentAcknowledgement> {
   const command = parseAgentCommand(value), session = await requireSession(client, token, generation);
   await lockAgentWorkspace(client, session);
   const scope = [session.namespaceId, session.profileId], digest = hash(stableJson(command));
   const receipt = (await client.query("SELECT payload_hash,result FROM agent_receipts WHERE namespace_id=$1 AND profile_id=$2 AND generation=$3 AND request_id=$4", [...scope, generation, command.requestId])).rows[0];
-  if (receipt) { if (receipt.payload_hash !== digest) conflict("This request ID was already used for different input."); return receipt.result; }
+  if (receipt) {
+    if (receipt.payload_hash !== digest) conflict("This request ID was already used for different input.");
+    // A retry acknowledges the original command without replaying it. Return
+    // current history so a lost response cannot restore an obsolete view.
+    return command.kind === "visit" ? { ...receipt.result, conversation: await lockConversation(client, session, receipt.result.conversationId) } : receipt.result;
+  }
   let result: AgentReceipt;
+  let acknowledgedConversation: SavedConversation | undefined;
   if (command.kind === "cancel" || command.kind === "retry") {
     const candidate = (await client.query("SELECT * FROM agent_runs WHERE namespace_id=$1 AND profile_id=$2 AND id::text=$3", [...scope, command.runId])).rows[0] as RunRow | undefined;
     if (!candidate) invalid("This run is unavailable in the current workspace.");
@@ -65,7 +73,7 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
       if (busy) conflict("An attempt is already active in this conversation or assessment.");
       const retry = await createAgentRun(client, session, command.requestId, run.input, { conversationId: run.conversation_id ?? undefined, turnId: run.turn_id ?? undefined, retryOf: run.id, checkpoint: run.execution.kind === "model" ? 0 : run.checkpoint, execution: run.execution });
       if (conversation) {
-        const updated = { ...conversation.conversation, messages: conversation.conversation.messages.map(message => message.role === "agent" && message.turnId === run.turn_id ? { ...message, runId: retry.id, text: "" } : message) };
+        const updated = { ...conversation.conversation, messages: conversation.conversation.messages.map(message => message.role === "agent" && message.turnId === run.turn_id ? { ...message, runId: retry.id, text: "", navigation: undefined } : message) };
         await saveConversation(client, session, conversation, updated);
       } else {
         const row = (await client.query("SELECT assessment_cursor FROM workspaces WHERE namespace_id=$1 AND profile_id=$2", scope)).rows[0];
@@ -75,7 +83,13 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
       result = { runId: retry.id, ...(retry.conversation_id ? { conversationId: retry.conversation_id, turnId: retry.turn_id! } : {}) };
     }
   } else {
-    const captured = await captureAgentContext(client, session, command.context), { context, workspace, project, worktree } = captured;
+    // Old visit commands may still be queued after a deployed app moved.
+    // Adapt their context only after checking the original request receipt.
+    const visitedWork = command.kind === "visit" && command.workId ? RETURNING_WORK.find(work => work.id === command.workId
+      && (command.context.target.projectId === null || work.projectId === command.context.target.projectId && work.worktreeId === command.context.target.worktreeId)) : undefined;
+    const requestedContext = visitedWork && command.context.surface !== "home"
+      ? { ...command.context, surface: canonicalCanvasSurface(command.context.surface, workCanvasInput(visitedWork)) } : command.context;
+    const captured = await captureAgentContext(client, session, requestedContext), { context, workspace, project, projects } = captured;
     let row = (await client.query("SELECT id FROM agent_conversations WHERE namespace_id=$1 AND profile_id=$2 AND thread_key=$3", [...scope, context.threadKey])).rows[0];
     if (!row) {
       const count = (await client.query("SELECT count(*)::int AS n FROM agent_conversations WHERE namespace_id=$1 AND profile_id=$2", scope)).rows[0].n;
@@ -89,21 +103,35 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     // history. Earlier Today entries retain their original bounded snapshots.
     if (trailing?.role === "today") saved.conversation = { ...original, messages: [...original.messages.slice(0, -1),
       { ...trailing, snapshot: { ...trailing.snapshot, assessment: assessmentBriefing(workspace.assessment) } }] };
+    // Home may carry back an org selected in a different project conversation.
+    // Preserve a trailing Today instead of manufacturing an org marker after it.
+    // Explicit org selections still use normal visits and remain logged.
+    saved.conversation = command.kind === "visit" && command.refreshToday && trailing?.role === "today"
+      ? { ...saved.conversation, targetOrgId: context.target.orgId }
+      : updateConversation(saved.conversation, { type: "org", orgId: context.target.orgId, label: context.orgLabel });
     if (command.kind === "visit") {
       let next: Conversation;
       if (command.workId) {
-        const work = RETURNING_WORK.find(work => work.id === command.workId && work.projectId === context.target.projectId && work.worktreeId === context.target.worktreeId && work.surfaceId === context.surface);
+        const work = context.profile.workspaceExperience === "established" && visitedWork?.surfaceId === context.surface ? visitedWork : undefined;
         if (!work) invalid("This work destination is unavailable in the captured context.");
         next = saved.conversation.visitKey === `work:${work.id}` ? saved.conversation : {
           ...updateConversation(saved.conversation, { type: "surface", scopeKey: work.surfaceId, label: SURFACES[work.surfaceId].label, reply: policy.workReply(work), force: true }),
           visitKey: `work:${work.id}`,
         };
+      } else if (context.surface === "home" && !project) {
+        const recent = RETURNING_WORK.filter(work => projects.some(project => project.id === work.projectId) && context.profile.surfaceAccess.includes(work.surfaceId))
+          .map(work => { const project = projects.find(project => project.id === work.projectId)!;
+            return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch ?? work.worktreeId }; })
+          .sort((a, b) => Number(!!b.attention) - Number(!!a.attention) || b.updated.localeCompare(a.updated));
+        next = updateConversation(saved.conversation, { type: "today", force: command.refreshToday, snapshot: captureToday({ capturedAt: context.capturedAt, profile: context.profile, scope: "global", projectName: "All projects", branch: "", hasProjects: context.hasProjects,
+          recent, working: projects.reduce((count, project) => count + project.agentSessions.filter(session => session.status === "working").length, 0), assessment: workspace.assessment }) });
       } else if (context.surface === "home") {
-        next = updateConversation(saved.conversation, { type: "today", snapshot: captureToday({ capturedAt: context.capturedAt, profile: context.profile, projectName: context.projectName, branch: context.branch, hasProjects: context.hasProjects,
-          recent: RETURNING_WORK.filter(work => work.projectId === project?.id && work.worktreeId === worktree?.id), working: project?.agentSessions.filter(s => s.worktreeId === worktree?.id && s.status === "working").length ?? 0, assessment: workspace.assessment }) });
+        next = updateConversation(saved.conversation, { type: "project", label: context.projectName, reply: projectIntroduction(context) });
       } else next = updateConversation(saved.conversation, { type: "surface", scopeKey: context.surface, label: SURFACES[context.surface].label,
-        reply: policy.surfaceReply(context, !saved.conversation.messages.some(message => message.role === "agent")) });
-      if (next !== original) await saveConversation(client, session, saved, next);
+        reply: project && !saved.conversation.messages.some(message => message.role === "agent")
+          ? `${projectIntroduction(context)}\n\n${policy.surfaceReply(context, false)}`
+          : policy.surfaceReply(context, !saved.conversation.messages.some(message => message.role === "agent")) });
+      acknowledgedConversation = next !== original ? await saveConversation(client, session, saved, next) : saved;
       result = { conversationId: saved.id };
     } else {
       if ((await client.query("SELECT id FROM agent_runs WHERE namespace_id=$1 AND profile_id=$2 AND conversation_id=$3 AND status IN ('pending','running','streaming')", [...scope, saved.id])).rowCount) throw new ApplicationError("conflict", "A reply is already in progress. Your message draft is still here.", 409);
@@ -122,7 +150,9 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     }
   }
   await client.query("INSERT INTO agent_receipts(namespace_id,profile_id,generation,request_id,payload_hash,result) VALUES($1,$2,$3,$4,$5,$6)", [...scope, generation, command.requestId, digest, result]);
-  return result;
+  // Keep durable receipts small: history is returned once, not copied into
+  // every navigation receipt as the conversation grows.
+  return acknowledgedConversation ? { ...result, conversation: acknowledgedConversation } : result;
 }
 
 /** Existing project commands retain their queue/revision protocol; only workers advance. */

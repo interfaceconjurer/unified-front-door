@@ -3,6 +3,7 @@
 import { CANVAS_FIELD_CHARACTER_LIMIT } from "@/lib/surface-canvas/model";
 
 import { PersistenceStatus } from "@/components/persistence/PersistenceStatus";
+import { ProjectIntentFields } from "@/components/onboarding/ProjectIntentFields";
 import { useId, useState, useSyncExternalStore } from "react";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -11,7 +12,7 @@ import { ChevronRightIcon, FolderIcon } from "@/components/icons";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
-  capabilitiesForSurface, TOOLKIT_SECTIONS,
+  TOOLKIT_SECTIONS,
   type CapabilityField, type SurfaceCapability,
 } from "./surface-capabilities";
 import { useSurfaceCanvasActions } from "./surface-canvas-context";
@@ -62,7 +63,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
   capability: SurfaceCapability;
   spec: CanvasOf<"capability">;
 }) {
-  const { copyToSelectedScope } = useNavigation();
+  const { copyToSelectedScope, openProjectCreation } = useNavigation();
   const { projects, orgs } = useWorkspace();
   const [assignmentProject, setAssignmentProject] = useState("");
   const [assignmentMessage, setAssignmentMessage] = useState("");
@@ -80,10 +81,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
   const hasDraft = Object.values(draft).some((value) => value.trim());
   const needsProject = surfaceId === "code" && ["apex", "query", "tests"].includes(capability.id);
 
-  function startProject() {
-    const project = capabilitiesForSurface("code").find((item) => item.id === "sfdx-project")!;
-    openCanvas("code", { kind: "capability", title: project.label, params: { scope: "unbound", surface: "code", capability: project.id } });
-  }
+
 
   return (
     <article>
@@ -96,13 +94,13 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
       </header>
 
       <aside aria-label="Draft scope" className={styles.connectionNote}>
-        {spec.params.scope === "unbound" ? <div><strong>Unbound draft</strong><p>This draft has no project or org target.</p>
+        {spec.params.scope === "unbound" ? <div><strong>Unbound draft</strong><p>{spec.params.orgId ? `No project selected · Org: ${orgs.find((item) => item.id === spec.params.orgId)?.label ?? spec.params.orgId}` : "This draft has no project or org target."}</p>
           {!!projects.length && <><label>Assign a copy to project <select value={assignmentProject} onChange={(event) => setAssignmentProject(event.target.value)}><option value="">Choose a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
           <button type="button" disabled={!assignmentProject || persistenceState !== "saved"} onClick={async () => {
             const project = projects.find((item) => item.id === assignmentProject);
             if (!project) return;
             const worktree = primaryWorktree(project);
-            const input = { kind: "capability" as const, title: spec.title, params: { ...spec.params, scope: "project" as const, projectId: project.id, ...(worktree ? { worktreeId: worktree.id } : {}), orgId: project.defaultOrgId } };
+            const input = { kind: "capability" as const, title: spec.title, params: { ...spec.params, scope: "project" as const, projectId: project.id, ...(worktree ? { worktreeId: worktree.id } : {}), orgId: project.defaultOrgId ?? undefined } };
             setAssignmentMessage(await copyToSelectedScope(surfaceId, spec.id, input) ? "A project copy was created. The unbound draft is preserved." : "The copy was not saved. Review the workspace message and retry. Your original draft is preserved.");
           }}>Copy draft to project</button></>}
           {persistenceState !== "saved" && <p>Save or recover this draft before copying it to a project.</p>}
@@ -142,7 +140,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
                 <strong>{capability.id === "query" ? "Connect a Salesforce org to run queries" : "Connect a project to create files and run tests"}</strong>
                 <p>You can prepare your draft below while you plan your workspace.</p>
               </div>
-              <button type="button" onClick={startProject}>Plan a project <ChevronRightIcon width={14} height={14} aria-hidden="true" /></button>
+              <button type="button" onClick={openProjectCreation}>Plan a project <ChevronRightIcon width={14} height={14} aria-hidden="true" /></button>
             </aside>
           )}
           <section className={styles.draft} aria-label={`${title} draft`}>
@@ -150,13 +148,17 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
               <h2>{toolkitSection ? `${toolkitSection.label} draft` : "Your starting point"}</h2>
               <PersistenceStatus store={persistence} hasContent={hasDraft} />
             </div>
-            <DraftFields
+            {capability.id === "project" ? <>
+              <DraftFields fields={capability.fields.filter(field => field.id === "name")} draft={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+              <ProjectIntentFields value={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+              <DraftFields fields={capability.fields.filter(field => field.id === "repository")} draft={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+            </> : <DraftFields
               fields={toolkitSection?.fields ?? capability.fields}
               draft={draft}
               onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })}
-            />
+            />}
           </section>
-          <p className={styles.note}>This is a configuration draft. No files, commands, or connections are created.</p>
+          <p className={styles.note}>{capability.id === "project" ? "Your brief saves as you type. Create project to add it to your workspace. Repository and runtime setup can follow." : "This is a configuration draft. No files, commands, or connections are created."}</p>
         </>
       )}
     </article>

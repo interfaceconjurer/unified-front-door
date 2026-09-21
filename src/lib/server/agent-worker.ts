@@ -1,4 +1,5 @@
 import "server-only";
+import { navigationMatchesContext } from "../agent/navigation";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { diagnoseRun } from "./diagnostics";
@@ -84,6 +85,9 @@ export async function applyStep(client: PoolClient, lease: RunLease, outcome: St
   const owned = await validLease(client, lease); if (!owned) return false;
   const { run, session } = owned;
   if (outcome.kind === "tool") throw new Error("Tool dispatch must pass the durable effect boundary");
+  if (outcome.kind === "complete" && outcome.navigation && (run.kind !== "chat" || !navigationMatchesContext(outcome.navigation, run.input.context))) {
+    await markFailed(client, run, failedError); return true;
+  }
   if (outcome.kind === "failed") { await markFailed(client, run, run.effect_state === "unknown" ? uncertainError : outcome.error); return true; }
   if (outcome.text !== undefined && (typeof outcome.text !== "string" || outcome.text.length > 32000)) { await markFailed(client, run, failedError); return true; }
   if (outcome.kind === "progress" && (!Number.isSafeInteger(outcome.checkpoint) || outcome.checkpoint !== run.checkpoint + 1 || outcome.checkpoint > 64 || !Number.isFinite(outcome.delayMs) || outcome.delayMs < 0 || outcome.delayMs > 60000)) { await markFailed(client, run, failedError); return true; }
@@ -100,7 +104,7 @@ export async function applyStep(client: PoolClient, lease: RunLease, outcome: St
     // Worker events track progress; only user commands advance the conflict token.
     assertAssessmentLimits(after); await writeAssessment(client, session, before.assessment, after, before.assessmentRevision);
     await refreshLiveBriefings(client, session);
-  } else await updateRunMessage(client, run, outcome.text ?? "");
+  } else await updateRunMessage(client, run, outcome.text ?? "", outcome.kind === "complete" ? outcome.navigation : undefined);
   const status = outcome.kind === "complete" ? "completed" : "streaming";
   const published = await client.query(`UPDATE agent_runs r SET status=$2,checkpoint=$3,result=$4,error=NULL,lease_until=NULL,ready_at=clock_timestamp()+($5*interval '1 millisecond')
     WHERE r.id=$1 AND r.fence=$6 AND r.status IN ('pending','running','streaming') AND r.lease_until>clock_timestamp()

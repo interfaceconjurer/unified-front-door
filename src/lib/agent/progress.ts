@@ -21,14 +21,20 @@ function projectReplies(conversations: SavedConversation[], runs: RunView[]): Sa
 export function mergeAgentSnapshot(current: AgentSnapshot, incoming: AgentSnapshot): AgentSnapshot {
   const previousRuns = new Map(current.runs.map(run => [run.id, run]));
   const previousConversations = new Map(current.conversations.map(saved => [saved.id, saved]));
+  // This store belongs to one session generation/epoch; reset creates a new
+  // store. An older in-flight read must not erase newly acknowledged records.
   const runs = incoming.runs.map(run => {
     const previous = previousRuns.get(run.id);
+    previousRuns.delete(run.id);
     return previous && previous.sequence > run.sequence ? previous : run;
   });
+  runs.push(...previousRuns.values());
   const conversations = incoming.conversations.map(saved => {
     const previous = previousConversations.get(saved.id);
+    previousConversations.delete(saved.id);
     return previous && previous.revision > saved.revision ? previous : saved;
   });
+  conversations.push(...previousConversations.values());
   return { runs, conversations: projectReplies(conversations, runs) };
 }
 

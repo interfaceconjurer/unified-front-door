@@ -3,17 +3,211 @@ import assert from "node:assert/strict";
 import { testModules } from "./test-modules.mjs";
 const modules = testModules(); after(modules.cleanup);
 const { resolveWorkspace, UNBOUND_TARGET } = modules.load("lib/workspace/context");
-const { NavigationController, destinationHref, readDestination, canvasTarget } = modules.load("lib/navigation/model");
-const { canvasId, parseCanvasInput } = modules.load("lib/surface-canvas/model");
+const { NavigationController, destinationHref, readDestination, canvasTarget, canvasDestination, destinationCanvasTarget, resolveDestination, destinationIdentity } = modules.load("lib/navigation/model");
+const { canvasId, parseCanvasInput, canvasVisibleInWorkspace } = modules.load("lib/surface-canvas/model");
 const { SurfaceCanvasStore } = modules.load("lib/surface-canvas/persistence");
+const { preferencesForWorkspace } = modules.load("lib/surface-canvas/workspace-preferences");
 const { WorkspaceSelectionStore } = modules.load("lib/workspace/persistence");
 const { PROJECTS, ORGS } = modules.load("lib/workspace/fixtures");
+const { signInDestination } = modules.load("lib/navigation/sign-in");
+const { connectedOrgForProfile, orgsForProfile } = modules.load("lib/workspace/orgs");
 afterEach(() => { delete global.window; });
 function browser(values = {}) { const data = new Map(Object.entries(values)); global.window = { localStorage: { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: (key) => data.delete(key) }, addEventListener() {}, removeEventListener() {} }; return data; }
 const project = PROJECTS[0], worktree = project.worktrees[0];
 const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.defaultOrgId };
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
+
+test("sign-in preserves matching deep links without retargeting saved canvases to another org or profile", () => {
+  const target = { ...UNBOUND_TARGET, orgId: 'uat' };
+  const work = destination(capability({ scope: 'unbound', orgId: 'uat' }), target);
+  const href = destinationHref(work);
+  assert.equal(signInDestination('am', 'uat', href), href);
+  const elsewhere = readDestination(signInDestination('am', 'sit', href)).value;
+  assert.deepEqual(elsewhere.target, { ...UNBOUND_TARGET, orgId: 'sit' });
+  assert.equal(elsewhere.surface, null); assert.equal(elsewhere.canvas, undefined);
+  assert.equal(readDestination(signInDestination('kf', 'uat', href)).value.owner, 'kf');
+  const overview = { version: 1, owner: 'am', surface: 'build', target: UNBOUND_TARGET };
+  assert.deepEqual(readDestination(signInDestination('am', 'uat', destinationHref(overview))).value, { ...overview, target });
+  assert.equal(readDestination(signInDestination('am', 'uat', 'https://example.com')).value.surface, null);
+});
+
+test("every profile has a connected starting org; unavailable preferences never become selected connections", () => {
+  for (const id of ['sp', 'jw', 'am', 'kf']) {
+    assert.equal(connectedOrgForProfile(id).connection, 'connected');
+    assert.equal(connectedOrgForProfile(id, 'scratch-hotfix').connection, 'connected');
+    assert.equal(connectedOrgForProfile(id, 'sit').id, 'sit');
+  }
+  assert(!orgsForProfile('sp').some(org => org.id === 'acme-devhub'));
+});
+
+test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {
+  browser(); const legacy = new SurfaceCanvasStore("legacy-tabs");
+  const global = capability({ scope: "unbound", orgId: "prod" });
+  const own = capability({ scope: "project", projectId: ready.projectId, worktreeId: ready.worktreeId, orgId: ready.orgId });
+  const otherBranch = capability({ scope: "project", projectId: ready.projectId, worktreeId: "other", orgId: ready.orgId });
+  for (const input of [global, own, otherBranch]) {
+    const id = canvasId(input.kind, input.params);
+    legacy.openCanvas("code", input); legacy.captureTarget("code", id, canvasTarget(input, UNBOUND_TARGET));
+    legacy.updateDraft("code", id, { source: id });
+  }
+  legacy.closeCanvas("code", canvasId(otherBranch.kind, otherBranch.params));
+  const before = structuredClone(legacy.getSnapshot());
+  const home = preferencesForWorkspace(before, UNBOUND_TARGET), project = preferencesForWorkspace(before, ready);
+  assert.deepEqual(home.code.canvases.map(c => c.id), [canvasId(global.kind, global.params)]);
+  assert.equal(home.code.activeCanvasId, "overview");
+  assert.deepEqual(project.code.canvases.map(c => c.id), [canvasId(own.kind, own.params)]);
+  assert.equal(project.code.activeCanvasId, canvasId(own.kind, own.params));
+  assert.equal(project.code.canvases[0].draft.source, canvasId(own.kind, own.params));
+  assert.deepEqual(preferencesForWorkspace(before, { ...ready, worktreeId: "other" }).code.closedDrafts, before.code.closedDrafts);
+  const homeStore = new SurfaceCanvasStore("home-tabs", home), projectStore = new SurfaceCanvasStore("project-tabs", project);
+  homeStore.openCanvas("code", own); homeStore.closeCanvas("code", canvasId(own.kind, own.params));
+  assert.equal(projectStore.getSnapshot().code.activeCanvasId, canvasId(own.kind, own.params));
+  assert.deepEqual(legacy.getSnapshot(), before);
+  assert.deepEqual(new SurfaceCanvasStore("home-tabs").getSnapshot(), homeStore.getSnapshot());
+});
+
+test("preview identity captures project, worktree and org while global inspection retains global scope", () => {
+  browser();
+  const { previewCanvas } = modules.load("lib/preview/model");
+  const input = previewCanvas("trailblazer-crm", "lead-routing", "uat");
+  const captured = { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" };
+  const global = { ...UNBOUND_TARGET, orgId: "prod" };
+  const browsing = canvasDestination("am", "code", input, captured, global);
+  assert.equal(browsing.surface, "build");
+  assert.deepEqual(browsing.target, global);
+  assert.deepEqual(destinationCanvasTarget(browsing), captured);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["build"], {}).kind, "available");
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, orgId: "sit" }));
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, worktreeId: "main" }));
+  assert.equal(canvasVisibleInWorkspace(input, { ...captured, worktreeId: "main" }), false);
+  const store = new SurfaceCanvasStore("preview-tabs");
+  store.openCanvas("build", input); store.captureTarget("build", canvasId(input.kind, input.params), captured);
+  const restored = new SurfaceCanvasStore("preview-tabs").getSnapshot().build;
+  assert.equal(restored.canvases[0].kind, "preview");
+  assert.deepEqual(restored.targets[restored.canvases[0].id], captured);
+});
+
+test("unavailable previews and preview mutations are rejected", () => {
+  const { previewCanvas } = modules.load("lib/preview/model");
+  const { parseCommand } = modules.load("lib/application/contracts");
+  const input = previewCanvas("trailblazer-crm", "main", "uat");
+  for (const params of [{ ...input.params, projectId: "gone" }, { ...input.params, worktreeId: "gone" }, { ...input.params, orgId: "scratch-hotfix" }]) {
+    const invalid = { ...input, params };
+    assert.equal(resolveDestination(destinationHref(destination(invalid, canvasTarget(invalid, UNBOUND_TARGET), "build")), "am", ["build"], {}).kind, "unavailable");
+  }
+  const scoped = destination(input, canvasTarget(input, UNBOUND_TARGET), "build");
+  assert.equal(resolveDestination(destinationHref({ ...scoped, owner: "sp" }), "sp", ["build"], {}).kind, "unavailable");
+  assert.equal(parseCanvasInput({ ...input, params: { projectId: "trailblazer-crm" } }), null);
+  assert.throws(() => parseCommand({ kind: "canvas.save", canvas: input, target: scoped.target, surface: "build", fields: { source: "mutation" }, commandId: "preview-save", expectedRevision: 0 }));
+});
+
+test("global canvas browsing roundtrips separate ownership without changing project resume or draft targets", () => {
+  browser();
+  const selection = new WorkspaceSelectionStore("global-browsing"), store = new SurfaceCanvasStore("global-canvas");
+  const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const id = canvasId(input.kind, input.params), original = destination(input, ready);
+  selection.rememberDestination(original);
+  store.openCanvas("code", input); store.captureTarget("code", id, ready); store.updateDraft("code", id, { source: "Owned project draft" });
+  const global = { ...UNBOUND_TARGET, orgId: "uat" };
+  const browsing = canvasDestination("am", "code", input, ready, global);
+  assert.deepEqual(browsing.target, global);
+  assert.deepEqual(destinationCanvasTarget(browsing), ready);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["code"], store.getSnapshot()).kind, "available");
+  selection.rememberDestination(browsing); selection.setTarget(browsing.target);
+  assert.deepEqual(selection.destinationFor("am", project.id, worktree.id), original);
+  assert.deepEqual(store.getSnapshot().code.targets[id], ready);
+  assert.equal(store.getSnapshot().code.canvases[0].draft.source, "Owned project draft");
+  assert.notEqual(destinationIdentity(browsing), destinationIdentity(original));
+  assert.deepEqual(canvasDestination("am", "code", input, ready, ready), original, "Explicit project selection keeps the legacy destination");
+  // A work canvas has stable identity independent of its captured org.
+  const work = { kind: "work", title: "Lead routing", params: { workId: "lead-routing-agent", projectId: "trailblazer-crm", worktreeId: "lead-routing" } };
+  const workTarget = { projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" };
+  const workView = canvasDestination("am", "build", work, workTarget, global);
+  const saved = { build: { targets: { [canvasId(work.kind, work.params)]: workTarget } } };
+  assert.equal(resolveDestination(destinationHref(workView), "am", ["build"], saved).kind, "available");
+  assert.equal(resolveDestination(destinationHref({ ...workView, canvasTarget: { ...workTarget, orgId: "prod" } }), "am", ["build"], saved).kind, "unavailable", "Global browsing cannot retarget a saved canvas");
+});
+
+test("separate canvas ownership cannot weaken project isolation or appear on a bare surface", () => {
+  const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const valid = canvasDestination("am", "code", input, ready, UNBOUND_TARGET);
+  for (const bad of [
+    { ...valid, target: ready },
+    { ...valid, canvas: undefined },
+    { ...valid, canvasTarget: null },
+    { ...valid, canvasTarget: UNBOUND_TARGET },
+    { ...valid, canvasTarget: { ...ready, projectId: "another-project" } },
+  ]) {
+    const href = `/code?destination=${encodeURIComponent(JSON.stringify(bad))}`;
+    assert.equal(readDestination(href).kind, "invalid");
+  }
+});
+
+test("project tab projection excludes global, other-project and other-worktree canvases without discarding drafts", () => {
+  browser(); const store = new SurfaceCanvasStore("scoped-tabs");
+  const own = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const other = { kind: "work", title: "Other work", params: { workId: "other-work", projectId: "another-project", worktreeId: "main" } };
+  const global = capability();
+  const branch = capability({ scope: "project", projectId: project.id, worktreeId: "another-branch", orgId: ready.orgId });
+  const projectWide = capability({ scope: "project", projectId: project.id, orgId: ready.orgId });
+  for (const input of [own, other, global, branch, projectWide]) { store.openCanvas("code", input); store.updateDraft("code", canvasId(input.kind, input.params), { notes: input.title }); }
+  const snapshot = store.getSnapshot().code;
+  const visible = snapshot.canvases.filter(canvas => canvasVisibleInWorkspace(canvas, ready, snapshot.targets?.[canvas.id]));
+  assert.deepEqual(visible.map(canvas => canvas.id), [canvasId(own.kind, own.params), canvasId(projectWide.kind, projectWide.params)]);
+  assert.equal(canvasVisibleInWorkspace({ id: "overview", kind: "overview", title: "Overview" }, ready), true);
+  assert.equal(snapshot.canvases.filter(canvas => canvasVisibleInWorkspace(canvas, UNBOUND_TARGET)).length, 5);
+  assert.equal(canvasVisibleInWorkspace(branch, { ...ready, worktreeId: null }), false, "No selected worktree must not expose branch-specific files");
+  assert.equal(store.getSnapshot().code, snapshot);
+  assert.equal(new SurfaceCanvasStore("scoped-tabs").getSnapshot().code.canvases.find(canvas => canvas.id === canvasId(other.kind, other.params)).draft.notes, other.title);
+});
+
+test("project-wide resources preserve the selected worktree without changing saved ownership", () => {
+  browser(); const store = new SurfaceCanvasStore("project-wide-app");
+  const input = { kind: "app", title: "Project app", params: { projectId: project.id, appId: project.apps[0].id } };
+  const captured = { ...ready, worktreeId: null }, id = canvasId(input.kind, input.params);
+  store.openCanvas("alm", input); store.captureTarget("alm", id, captured);
+  const browsing = canvasDestination("am", "alm", input, captured, ready);
+  assert.deepEqual(browsing.target, ready);
+  assert.deepEqual(destinationCanvasTarget(browsing), captured);
+  assert.deepEqual(readDestination(destinationHref(browsing)), { kind: "destination", value: browsing });
+  assert.equal(resolveDestination(destinationHref(browsing), "am", ["alm"], store.getSnapshot()).kind, "available");
+  assert.equal(canvasVisibleInWorkspace(input, ready, captured), true);
+  assert.equal(readDestination(destinationHref({ ...browsing, target: { ...ready, projectId: "other-project" } })).kind, "invalid");
+  assert.equal(resolveDestination(destinationHref({ ...browsing, canvasTarget: { ...captured, orgId: "prod" } }), "am", ["alm"], store.getSnapshot()).kind, "unavailable");
+  assert.deepEqual(store.getSnapshot().alm.targets[id], captured);
+});
+
+test("Home leaves the project but retains its org, and org selection does not split global chat", () => {
+  const { conversationKey, homeTarget } = modules.load("lib/workspace/context");
+  const home = homeTarget(ready);
+  assert.deepEqual(home, { projectId: null, worktreeId: null, orgId: ready.orgId });
+  assert.equal(conversationKey(home), conversationKey(UNBOUND_TARGET));
+  assert.equal(conversationKey({ ...home, orgId: "prod" }), conversationKey(home));
+  assert.notEqual(conversationKey(ready), conversationKey(home));
+  const input = capability({ scope: "unbound", orgId: "uat" });
+  assert.deepEqual(canvasTarget(parseCanvasInput(input), UNBOUND_TARGET), { ...UNBOUND_TARGET, orgId: "uat" });
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, orgId: "prod" }), "global drafts still capture separate execution targets");
+  assert.equal(readDestination(destinationHref(destination(input, { ...UNBOUND_TARGET, orgId: "uat" }))).kind, "destination");
+});
+
+test("project resume retains separate worktree destinations through Home and reload without storing drafts", () => {
+  const storage = browser(), store = new WorkspaceSelectionStore("resume");
+  const first = destination({ ...capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId }), draft: { source: "PRIVATE SOURCE" } }, ready);
+  const other = { version: 1, owner: "am", surface: "build", target: { ...ready, worktreeId: "other" } };
+  store.rememberDestination(first); store.rememberDestination(other);
+  store.rememberDestination({ version: 1, owner: "am", surface: null, target: UNBOUND_TARGET });
+  store.setTarget(UNBOUND_TARGET);
+  const restored = new WorkspaceSelectionStore("resume");
+  assert.equal(restored.destinationFor("am", project.id, worktree.id).canvas.params.capability, "apex");
+  assert.deepEqual(restored.destinationFor("am", project.id, "other"), other);
+  assert.equal(restored.destinationFor("jw", project.id, worktree.id), null);
+  assert.equal(restored.destinationFor("am", "another-project", worktree.id), null);
+  assert.equal(storage.get("resume").includes("PRIVATE SOURCE"), false);
+  assert.deepEqual(restored.getSnapshot().target, UNBOUND_TARGET);
+});
 
 test("workspace models loading, empty, planning, ready and unavailable without fabricated or fallback resources", () => {
   assert.equal(resolveWorkspace(UNBOUND_TARGET, [], [], false).status, "loading");
@@ -71,9 +265,9 @@ test("work target capture survives close/reload/reopen and conflicting targets c
   const input = { kind: "app", title: "App", params: { projectId: project.id, appId: "example" } }, id = canvasId(input.kind, input.params);
   const target = { ...ready, worktreeId: null }; assert.equal(store.captureTarget("build", id, target), true);
   store.openCanvas("build", input); store.updateDraft("build", id, { notes: "keep" }); store.closeCanvas("build", id);
-  const restored = new SurfaceCanvasStore("canvas"); assert.deepEqual(restored.getSnapshot().build.targets[id], target);
+  const restored = new SurfaceCanvasStore("canvas"); assert.deepEqual(restored.getSnapshot().alm.targets[id], target);
   assert.equal(restored.captureTarget("build", id, { ...target, orgId: "other-org" }), false);
-  restored.openCanvas("build", input); assert.deepEqual(restored.getSnapshot().build.targets[id], target); assert.equal(restored.getSnapshot().build.canvases[0].draft.notes, "keep");
+  restored.openCanvas("build", input); assert.deepEqual(restored.getSnapshot().alm.targets[id], target); assert.equal(restored.getSnapshot().alm.canvases[0].draft.notes, "keep");
 });
 
 test("URL boundary serializes only destination fields, never runtime draft/id metadata, and rejects contradictory targets", () => {
@@ -108,10 +302,10 @@ test("superseded route arrivals repair URL and Back during pending navigation ca
 test("one destination decision rejects conflicting captured targets, wrong ownership and profile without granting a usable context", () => {
   const { resolveDestination } = modules.load("lib/navigation/model");
   const input = { kind: "app", title: "Saved app", params: { projectId: project.id, appId: "app" } }, target = { ...ready, worktreeId: null };
-  const value = destination(input, target, "build"), id = canvasId(input.kind, input.params), state = { build: { targets: { [id]: target } } };
-  const allowed = resolveDestination(destinationHref(value), "am", ["build", "code"], state); assert.equal(allowed.kind, "available");
+  const value = destination(input, target, "build"), id = canvasId(input.kind, input.params), state = { alm: { targets: { [id]: target } } };
+  const allowed = resolveDestination(destinationHref(value), "am", ["alm", "code"], state); assert.equal(allowed.kind, "available");
   for (const changed of [{ ...value, target: { ...target, orgId: "other" } }, { ...value, owner: "jw" }]) {
-    const result = resolveDestination(destinationHref(changed), "am", ["build", "code"], state);
+    const result = resolveDestination(destinationHref(changed), "am", ["alm", "code"], state);
     assert.equal(result.kind, "unavailable"); assert.equal(result.destination, undefined);
   }
   const wrongWork = destination({ kind: "work", title: "Wrong", params: { workId: "unknown", projectId: project.id, worktreeId: worktree.id } }, ready);
@@ -161,10 +355,10 @@ test("read-only legacy work arrival captures its original org at the next explic
     events.push(source);
     if (source === "capture" && value.canvas) store.captureTarget(value.surface, canvasId(value.canvas.kind, value.canvas.params), value.target);
   }, () => {});
-  controller.restore(destinationHref(original)); assert.equal(store.getSnapshot().build.targets[id], undefined);
+  controller.restore(destinationHref(original)); assert.equal(store.getSnapshot().alm.targets[id], undefined);
   controller.navigate({ version: 1, owner: "am", surface: "build", target: { ...original.target, orgId: "sit" } });
-  assert.deepEqual(events, ["restore", "capture", "navigation"]); assert.equal(store.getSnapshot().build.targets[id].orgId, "uat");
-  assert.equal(store.getSnapshot().build.activeCanvasId, "overview"); assert.equal(store.getSnapshot().build.canvases.length, 0);
+  assert.deepEqual(events, ["restore", "capture", "navigation"]); assert.equal(store.getSnapshot().alm.targets[id].orgId, "uat");
+  assert.equal(store.getSnapshot().alm.activeCanvasId, "overview"); assert.equal(store.getSnapshot().alm.canvases.length, 0);
 });
 
 test("login continuation only returns normalized typed internal destinations; denied bare routes resolve unavailable", () => {

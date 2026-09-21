@@ -35,5 +35,5 @@ test("uncertain commit is failure until subsequent read-only status confirms imm
   const uncertain = database([], "COMMIT"); await assert.rejects(runMigrations(uncertain, migrations, "migrate"), /Injected/);
   assert.equal(uncertain.queries.at(-1).sql, "ROLLBACK");
   const status = database(migrations); assert.equal(await runMigrations(status, migrations, "status"), 2);
-  const files = await readMigrations(); assert.equal(files.length, 7); assert(files.every(file => /^[a-f0-9]{64}$/.test(file.checksum)));
+  const files = await readMigrations(); assert.equal(files.length, 9); assert(files.every(file => /^[a-f0-9]{64}$/.test(file.checksum)));
 });

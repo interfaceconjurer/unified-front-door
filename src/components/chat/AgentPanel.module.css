@@ -1,5 +1,7 @@
 .agent {
   --agent-content-inset: 1.5rem;
+  --chat-entry-inset: 1.25rem;
+  --chat-fade-height: 3rem;
   --chat-scroll-duration: 650ms;
   --chat-scroll-easing: cubic-bezier(0.45, 0, 0.2, 1);
   --chat-reveal-duration: 240ms;
@@ -9,20 +11,47 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  background: var(--slds-g-color-surface-2, #f3f3f3);
+  background: var(--workspace-background-chat);
 }
 
 .heading {
   display: flex;
   align-items: center;
-  flex: 0 0 auto;
+  flex: 0 0 var(--workspace-heading-height);
+  block-size: var(--workspace-heading-height);
   gap: 0.65rem;
-  padding: 0.85rem var(--agent-content-inset);
-  border-block-end: 1px solid color-mix(in srgb, var(--slds-g-color-border-1, #c9c9c9) 65%, transparent);
+  padding: 0 var(--agent-content-inset);
+  border-block-end: 1px solid var(--workspace-heading-border);
 }
 .heading h1 { margin: 0; font-size: 0.875rem; font-weight: 600; }
 .avatar { display: grid; place-items: center; color: var(--slds-g-color-accent-2, #0176d3); }
+.activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--slds-g-color-accent-2, #0176d3);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.activity:not(:empty) {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 10%, transparent);
+}
+.activityText { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activitySpinner {
+  flex: 0 0 0.875rem;
+  block-size: 0.875rem;
+  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: activity-spin 0.8s linear infinite;
+}
+@keyframes activity-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .activitySpinner { animation: none; } }
 .scopeChip {
+  flex-shrink: 0;
   margin-inline-start: auto;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
@@ -40,12 +69,24 @@
   overflow-x: hidden;
   overflow-anchor: auto;
   overscroll-behavior: contain;
+  scroll-padding-block-start: var(--chat-entry-inset);
   scrollbar-gutter: stable;
+  /* Fade the scrolling content to zero alpha before it reaches the composer. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--chat-fade-height)), transparent);
 }
 .thread {
-  width: min(62rem, 100%);
-  margin-inline: auto;
-  padding: 1.25rem var(--agent-content-inset);
+  width: min(var(--chat-content-width, 1200px), 100%);
+  margin-inline: var(--chat-content-offset, 0px) 0;
+  padding: var(--chat-entry-inset) var(--agent-content-inset);
+  /* Let the final content scroll fully above the transparent edge. */
+  padding-block-end: var(--chat-fade-height);
+}
+
+/* Use the panel timeline even when width stays capped and only the centered
+   column's margin changes. Both elements participate in layout completion. */
+.thread, .composerDock {
+  transition: width var(--shell-motion-duration) var(--shell-motion-easing),
+    margin-inline-start var(--shell-motion-duration) var(--shell-motion-easing);
 }
 .entry {
   padding-block-end: 1rem;
@@ -55,7 +96,7 @@
 .entry[data-pending] { opacity: 0; overflow-anchor: none; }
 /* Room below the newest turn lets it scroll to the top without discarding
    earlier entries. ResizeObserver measures the actual available chat height. */
-.entry:last-child { min-height: calc(var(--transcript-height, 0px) - 2.5rem); }
+.entry:last-child { min-height: calc(var(--transcript-height, 0px) - 2 * var(--chat-entry-inset)); }
 .todaySection { container: today / inline-size; }
 .todayHeader {
   display: flex;
@@ -96,6 +137,15 @@
   border-color: var(--slds-g-color-accent-1, #0176d3);
   background: var(--slds-g-color-accent-1, #0176d3);
   color: var(--slds-g-color-on-accent-1, #fff);
+}
+
+.agentReply {
+  width: 100%;
+  min-width: 0;
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 /* A slim divider in the thread that names the surface the agent just followed
@@ -145,8 +195,8 @@
 
 .composerDock {
   flex: 0 0 auto;
-  width: min(62rem, 100%);
-  margin-inline: auto;
+  width: min(var(--chat-content-width, 1200px), 100%);
+  margin-inline: var(--chat-content-offset, 0px) 0;
   padding: 0.5rem var(--agent-content-inset) 1rem;
 }
 
@@ -266,7 +316,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entry { transition: none; }
+  .entry, .thread, .composerDock { transition: none; }
 }
 .runStatus {
   margin-top: 10px;

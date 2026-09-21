@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import {
   BoxIcon,
   GitBranchIcon,
   LayersIcon,
   PlusIcon,
-  SparklesIcon,
 } from "@/components/icons";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
-import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useWorkspace, type WorkspacePanelFilter } from "@/components/workspace/workspace-context";
 import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
@@ -24,13 +22,7 @@ import {
 } from "@/lib/workspace/selectors";
 import styles from "./WorkspacePanel.module.css";
 
-/** The Projects section's own filter — rendered as a segmented control at the
- *  top of that section. Local, ephemeral UI state (not persisted, not shared
- *  with the palette): unlike the project/worktree/org selection, "what am I
- *  looking at right now" resets fine on reload. */
-type PanelFilter = "all" | "projects" | "apps";
-
-const FILTER_LABEL: Record<PanelFilter, string> = {
+const FILTER_LABEL: Record<WorkspacePanelFilter, string> = {
   all: "All",
   projects: "Projects",
   apps: "Apps",
@@ -89,13 +81,13 @@ function AppRow({
  * idiom as the palette's Projects tab, PLUS each project's deployed apps —
  * a project is the hub for everything it owns: source (worktrees), work in
  * flight (sessions, below), and now outputs (apps). A local All/Projects/Apps
- * filter (not persisted — see `PanelFilter`) governs this section only:
+ * filter (ephemeral WorkspaceProvider state) governs this section only:
  * "all" nests app rows under their project, "projects" hides them for the
  * plain source tree, "apps" flattens every app across every project into one
  * list (the "what's running right now" view) instead of grouping by project.
  * Picking a project/worktree row re-points workspace context and STAYS on
  * the current surface — this section is ambient wayfinding, not a jump list.
- * An app row is the exception: it jumps to Build & Setup (see `AppRow`'s
+ * An app row is the exception: it jumps to ALM (see `AppRow`'s
  * caller below) since an app isn't a place you navigate context within, it's
  * a deployed thing you go look at.
  *
@@ -110,65 +102,49 @@ function AppRow({
  * Projects filter above.
  */
 export function WorkspacePanel({ onClose }: { onClose: () => void }) {
-  const { navigateSurface, selectProject } = useNavigation();
-  const pathname = usePathname();
+  const { selectProject, openProjectCreation } = useNavigation();
   const { profile } = useDemoProfile();
-  const { openCanvas } = useSurfaceCanvases("build");
-  const { projects, activeProject, activeWorktree, hasProjects } =
+  const { openCanvas } = useSurfaceCanvases("alm");
+  const { projects, activeProject, activeWorktree, hasProjects,
+    panelFilter: filter, setPanelFilter: setFilter, projectPanelRequest } =
     useWorkspace();
-  const [filter, setFilter] = useState<PanelFilter>("all");
+  const activeProjectRow = useRef<HTMLButtonElement>(null);
+  const projectsFilter = useRef<HTMLButtonElement>(null);
+  const projectsHeading = useRef<HTMLHeadingElement>(null);
+  const projectsList = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!projectPanelRequest) return;
+    // Wait for the open panel to lose `inert`. Consume only this reveal request;
+    // later context changes must not steal focus from the user's next action.
+    const frame = requestAnimationFrame(() => {
+      const row = activeProjectRow.current ?? projectsFilter.current ?? projectsHeading.current;
+      const list = projectsList.current;
+      if (!row || !list || row.closest("[inert]")) return;
+      row.focus({ preventScroll: true });
+      // Reveal vertically inside Projects without scrolling the whole shell.
+      if (!list.contains(row)) return;
+      const bounds = row.getBoundingClientRect(), viewport = list.getBoundingClientRect();
+      if (bounds.top < viewport.top) list.scrollTop += bounds.top - viewport.top;
+      else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [projectPanelRequest]);
 
   const tree = buildProjectTree(projects);
   const sessions = allSessionRows(projects);
   const apps = allAppRows(projects);
 
-  function goToBuild() {
+  function startProject() {
     onClose();
-    navigateSurface(profile?.onboarding ? null : "build");
-  }
-
-  function startConversation() {
-    onClose();
-    if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
-    } else {
-      navigateSurface(null);
-      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
-    }
+    openProjectCreation();
   }
 
   if (!profile) return null;
 
-  if (!hasProjects) {
-    return (
-      <aside className={styles.panel} aria-label="Workspace">
-
-        <section className={styles.section} aria-label="Projects">
-          <h2 className={styles.heading}>Projects</h2>
-          <div className={styles.guidedEmpty}>
-            <button type="button" className={styles.emptyAction} onClick={goToBuild}>
-              <PlusIcon width={15} height={15} aria-hidden="true" />
-              Start your first project
-            </button>
-          </div>
-        </section>
-
-        <section className={styles.section} aria-label="Sessions">
-          <h2 className={styles.heading}>Sessions</h2>
-          <div className={styles.guidedEmpty}>
-            <button type="button" className={styles.emptyAction} onClick={startConversation}>
-              <SparklesIcon width={15} height={15} aria-hidden="true" />
-              Start a conversation
-            </button>
-          </div>
-        </section>
-      </aside>
-    );
-  }
-
-  // Open the app in this profile’s Build canvas and focus its project.
+  // Deployed app operations live in ALM.
   function openApp(project: Project, app: DeployedApp) {
-    openCanvas("build", {
+    openCanvas("alm", {
       kind: "app",
       title: app.label,
       params: { projectId: project.id, appId: app.id },
@@ -179,14 +155,15 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     <aside className={styles.panel} aria-label="Workspace">
 
       <section className={styles.section} aria-label="Projects">
-        <h2 className={styles.heading}>Projects</h2>
+        <h2 ref={projectsHeading} tabIndex={-1} className={styles.heading}>Projects</h2>
 
         {/* Segmented filter — governs this section only, the Sessions section
-            below is untouched. Local state, not persisted (see `PanelFilter`). */}
-        <div className={styles.filterBar} role="group" aria-label="Filter projects panel">
-          {(Object.keys(FILTER_LABEL) as PanelFilter[]).map((mode) => (
+            below is untouched. Overview project links request Projects here. */}
+        {hasProjects && <div className={styles.filterBar} role="group" aria-label="Filter projects panel">
+          {(Object.keys(FILTER_LABEL) as WorkspacePanelFilter[]).map((mode) => (
             <button
               key={mode}
+              ref={mode === "projects" ? projectsFilter : undefined}
               type="button"
               className={`${styles.filterButton} ${filter === mode ? styles.filterButtonActive : ""}`}
               aria-pressed={filter === mode}
@@ -195,9 +172,10 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
               {FILTER_LABEL[mode]}
             </button>
           ))}
-        </div>
+        </div>}
 
-        {filter === "apps" ? (
+        <div ref={projectsList} className={styles.projectList}>
+        {!hasProjects ? <p className={styles.empty}>No projects yet.</p> : filter === "apps" ? (
           // The flat cross-project view: "show me everything running,"
           // ungrouped — the point is a single scannable list, not a tree.
           apps.length === 0 ? (
@@ -239,7 +217,8 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                       the Active list below; no status dot here. */}
                   <button
                     type="button"
-                    className={`${styles.row} ${isBaseCurrent ? styles.rowCurrent : ""}`}
+                    ref={isProjectCurrent ? activeProjectRow : undefined}
+                    className={`${styles.row} ${isProjectCurrent ? styles.rowCurrent : ""}`}
                     aria-current={isBaseCurrent}
                     onClick={() => {
                       selectProject(project.id, base?.worktree.id);
@@ -303,12 +282,19 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
             })}
           </ul>
         )}
+        </div>
+        <div className={styles.projectFooter}>
+          <button type="button" className={styles.startProject} onClick={startProject}>
+            <PlusIcon width={16} height={16} aria-hidden="true" />
+            Start project
+          </button>
+        </div>
       </section>
 
       <section className={styles.section} aria-label="Sessions">
         <h2 className={styles.heading}>Sessions</h2>
         {sessions.length === 0 ? (
-          <p className={styles.empty}>No agent sessions yet.</p>
+          <p className={styles.empty}>Your chats will appear here.</p>
         ) : (
           <ul className={styles.sessionList}>
             {sessions.map(({ project, worktree, session }) => {
@@ -320,7 +306,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     className={`${styles.sessionRow} ${isCurrent ? styles.rowCurrent : ""}`}
                     aria-current={isCurrent}
                     onClick={() => {
-                      selectProject(project.id, worktree.id, "code");
+                      selectProject(project.id, worktree.id);
                     }}
                   >
                     <StatusDot status={session.status} className={styles.sessionDot} />

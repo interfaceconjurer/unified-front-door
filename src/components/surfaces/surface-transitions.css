@@ -1,5 +1,20 @@
 /* Browser snapshots preserve the outgoing canvas without mounting two live
    surfaces. The incoming canvas lands above it inside the same pane. */
+/* A canvas-only change must not inherit the browser's root crossfade. Keep
+   the rest of the app sharp and interactive during rapid tab selections. */
+:root:active-view-transition-type(canvas-change)::view-transition-old(root) {
+  display: none;
+  animation: none;
+}
+
+:root:active-view-transition-type(canvas-change)::view-transition-new(root) {
+  animation: none;
+}
+
+:root:active-view-transition-type(canvas-change)::view-transition {
+  pointer-events: none;
+}
+
 ::view-transition-group(.surface-swap) {
   animation-duration: 500ms;
   animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -60,10 +75,52 @@
   }
 }
 
+/* Changes between projects/worktrees and global Home share the strong blur. Browser
+   snapshots preserve outgoing content while the mounted composer keeps focus,
+   its draft, and its existing layout animation. No navigation delay is added. */
+::view-transition-group(.workspace-dissolve) {
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  overflow: clip;
+  pointer-events: none;
+}
+
+::view-transition-old(.workspace-dissolve),
+::view-transition-new(.workspace-dissolve) {
+  height: 100%;
+  mix-blend-mode: normal;
+  object-fit: none;
+  object-position: top left;
+}
+
+::view-transition-old(.workspace-dissolve) {
+  animation: workspace-blur-out 220ms ease-in both;
+}
+
+::view-transition-new(.workspace-dissolve) {
+  animation: workspace-blur-in 320ms 180ms ease-out both;
+}
+
+@keyframes workspace-blur-out {
+  from { opacity: 1; filter: blur(0); }
+  to { opacity: 0; filter: blur(24px); }
+}
+
+@keyframes workspace-blur-in {
+  from { opacity: 0; filter: blur(24px); }
+  to { opacity: 1; filter: blur(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root),
   ::view-transition-group(.surface-swap),
   ::view-transition-old(.surface-swap),
-  ::view-transition-new(.surface-swap) {
+  ::view-transition-new(.surface-swap),
+  ::view-transition-group(.workspace-dissolve),
+  ::view-transition-old(.workspace-dissolve),
+  ::view-transition-new(.workspace-dissolve) {
     animation: none;
   }
 }

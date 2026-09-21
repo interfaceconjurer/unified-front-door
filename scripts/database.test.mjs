@@ -40,8 +40,54 @@ const run = (s,command)=>transaction(c=>executeCommand(c,s.token,s.session.gener
 const command = (kind,expectedRevision,fields={})=>({kind,expectedRevision,commandId:randomUUID(),...fields});
 async function complete(s) { let snap=await read(s);await run(s,command("assessment.start",snap.assessmentRevision));const execution=(await transaction(c=>observeAgent(c,s.token,s.session.generation))).runs.find(r=>r.kind==="assessment");for(let step=0;step<12;step++){await workerTick({runId:execution.id,adapter:fastAdapter});snap=await read(s);if(snap.assessment.status==="complete")return snap;}throw Error("Assessment worker did not complete"); }
 async function draft(s) { const snap=await complete(s);await run(s,command("draft.begin",snap.assessmentRevision,{runId:snap.assessment.currentRunId,fields:{name:"Integration project",goal:"Preserve captured evidence",targetOrgId:"sit",findingIds:[snap.assessment.runs[0].findings[0].id]}}));return read(s); }
+async function createBriefProject(s, name) {
+  const brief = { kind: "capability", title: "Start a project", params: { scope: "unbound", surface: "alm", capability: "project" } };
+  const sourceId = canvasId(brief.kind, brief.params), snapshot = await read(s);
+  const revision = snapshot.canvases.find(canvas => canvas.id === sourceId)?.revision ?? 0;
+  await run(s, command("canvas.save", revision, { canvas: brief, target, surface: "alm", fields: { name, goal: "Verify reset ownership", projectType: "standard" } }));
+  return (await run(s, command("project.createFromBrief", snapshot.assessmentRevision, { sourceId, sourceRevision: revision + 1 }))).project;
+}
 const canvas={kind:"capability",title:"Automation",params:{scope:"unbound",surface:"build",capability:"automation"}},target={projectId:null,worktreeId:null,orgId:null};
 const save = (fields,expectedRevision=0)=>command("canvas.save",expectedRevision,{canvas,target,surface:"build",fields});
+
+test("legacy deployed-app rows and receipts remain usable after their ALM surface move", async () => {
+  const s = await scope("am");
+  const { workCanvasInput, RETURNING_WORK } = modules.load("lib/workspace/returning-work");
+  const { PROJECTS } = modules.load("lib/workspace/fixtures");
+  const { hash } = modules.load("lib/server/session");
+  const { stableJson, parseCommand } = modules.load("lib/application/contracts");
+  const project = PROJECTS.find(project => project.id === "acme-storefront");
+  const work = RETURNING_WORK.find(work => work.id === "storefront-app");
+  const inputs = [workCanvasInput(work), { kind: "app", title: project.apps[0].label, params: { projectId: project.id, appId: project.apps[0].id } }];
+  for (const input of inputs) {
+    const captured = { projectId: project.id, worktreeId: input.kind === "app" ? null : "main", orgId: "prod" };
+    const id = canvasId(input.kind, input.params), original = { notes: "Before the surface move", context: "Keep this captured note" };
+    const legacy = command("canvas.save", 0, { canvas: input, target: captured, surface: "build", fields: original });
+    const receipt = { revision: 1 };
+    await transaction(async client => {
+      await client.query("INSERT INTO canvas_drafts(namespace_id,profile_id,id,surface_id,canvas,target,fields,revision) VALUES($1,$2,$3,'build',$4,$5,$6,1)",
+        [s.session.namespaceId, "am", id, input, captured, original]);
+      await client.query("INSERT INTO command_receipts(namespace_id,profile_id,generation,command_id,payload_hash,result) VALUES($1,$2,$3,$4,$5,$6)",
+        [s.session.namespaceId, "am", s.session.generation, legacy.commandId, hash(stableJson(legacy)), receipt]);
+    });
+    assert.deepEqual(parseCommand(legacy), legacy, "Compatibility must not rewrite a previously hashed command");
+    const migrated = (await read(s)).canvases.find(canvas => canvas.id === id);
+    assert.equal(migrated.surface, "alm"); assert.equal(migrated.revision, 1);
+    assert.deepEqual(migrated.fields, original); assert.deepEqual(migrated.target, captured);
+    assert.deepEqual(await run(s, legacy), receipt, "An uncertain old acknowledgement can replay without a hash conflict");
+    if (input.kind === "work") {
+      await assert.rejects(run(s, command("canvas.save", 1, { canvas: input, target: captured, surface: "code", fields: { notes: "Wrong destination" } })), error => error.code === "invalid");
+      const unchanged = (await read(s)).canvases.find(canvas => canvas.id === id);
+      assert.equal(unchanged.revision, 1); assert.deepEqual(unchanged.fields, original);
+    }
+    await run(s, command("canvas.save", 1, { canvas: input, target: captured, surface: "alm", fields: { notes: "Saved after the surface move" } }));
+    const records = (await read(s)).canvases.filter(canvas => canvas.id === id);
+    assert.equal(records.length, 1); assert.equal(records[0].revision, 2); assert.equal(records[0].surface, "alm");
+    assert.equal(records[0].fields.context, original.context);
+    const stored = await transaction(async client => (await client.query("SELECT surface_id,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id='am' AND id=$2", [s.session.namespaceId, id])).rows[0]);
+    assert.deepEqual(stored, { surface_id: "alm", revision: 2 });
+  }
+});
 
 test("repeatable seed and concurrent same-command execution commit once; changed reuse conflicts",async()=>{
   const s=await scope();await transaction(async c=>{await seedWorkspace(c,s.session.namespaceId,"sp");await seedWorkspace(c,s.session.namespaceId,"sp");});
@@ -104,6 +150,39 @@ test("clearing another profile preserves the selected workspace, generation and 
   assert.deepEqual(await read(s), before);
   assert.deepEqual((await transaction(c => c.query("SELECT * FROM agent_runs WHERE id=$1", [accepted.runId]))).rows[0], runBefore);
   assert.equal(await transaction(c => applyStep(c, lease, { kind: "complete", text: "Finished in the unchanged workspace" })), true);
+});
+test("clearing Karen deletes brief projects only in her workspace; rollback and receipt replay preserve work", async () => {
+  const s = await scope("kf"), other = await scope("kf");
+  await createBriefProject(s, "testing");
+  const otherProject = await createBriefProject(other, "Another browser's project");
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "jw", generation: s.session.generation, commandId: randomUUID() }));
+  const jordanProject = await createBriefProject(s, "Jordan's project");
+  s.session = await transaction(c => changeSession(c, s.token, { action: "signout", generation: s.session.generation, commandId: randomUUID() }));
+  const clear = { action: "reset-profile", profileId: "kf", generation: s.session.generation, commandId: randomUUID() };
+  const saved = () => transaction(async c => (await c.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf'", [s.session.namespaceId])).rows);
+  await assert.rejects(transaction(async c => { await changeSession(c, s.token, clear); throw Error("force rollback"); }), /force rollback/);
+  assert.equal((await saved()).length, 1, "A rolled-back reset retains the project");
+  assert.deepEqual(await transaction(c => changeSession(c, s.token, clear)), s.session);
+  assert.deepEqual(await saved(), [], "Brief projects must cascade without an assessment run");
+  assert.deepEqual((await read(other)).assessment.projects, [otherProject]);
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "jw", generation: s.session.generation, commandId: randomUUID() }));
+  assert.deepEqual((await read(s)).assessment.projects, [jordanProject]);
+  s.session = await transaction(c => changeSession(c, s.token, { action: "select", profileId: "kf", generation: s.session.generation, commandId: randomUUID() }));
+  assert.deepEqual((await read(s)).assessment.projects, []);
+  const newProject = await createBriefProject(s, "Created after reset");
+  await transaction(c => changeSession(c, s.token, clear));
+  assert.deepEqual((await read(s)).assessment.projects, [newProject], "Retrying an acknowledged reset cannot delete later projects");
+  await assert.rejects(transaction(c => c.query("UPDATE improvement_projects SET namespace_id=$1 WHERE namespace_id=$2 AND profile_id='kf'", [randomUUID(), s.session.namespaceId])), e => e.code === "23503", "A brief project must have an owning workspace even without a run");
+});
+test("current-profile reset removes brief projects on every profile", async () => {
+  for (const profile of ["kf", "jw", "am", "sp"]) {
+    const s = await scope(profile);
+    await createBriefProject(s, "Current profile project");
+    const previousEpoch = s.session.workspaceEpoch;
+    s.session = await transaction(c => changeSession(c, s.token, { action: "reset", generation: s.session.generation, commandId: randomUUID() }));
+    assert.notEqual(s.session.workspaceEpoch, previousEpoch);
+    assert.deepEqual((await read(s)).assessment.projects, [], `${profile}'s project should be removed`);
+  }
 });
 test("current-profile reset fences stale writes and workers without refunding model reservations", async () => {
   const s = await scope("jw"), original = s.session, budgetScope = `profile-clear-test-${s.session.namespaceId}`;
@@ -228,4 +307,36 @@ test("snapshot reads recover a concurrent session change and enforce its fresh g
       } finally { if (pending) await pending; console.info = previousInfo; }
     }
   }
+});
+
+test('create from a saved brief is atomic, owned, idempotent, reopenable, and reusable for another project', async () => {
+  const s = await scope('jw'), outsider = await scope('kf');
+  const brief = { kind: 'capability', title: 'Start a project', params: { scope: 'unbound', surface: 'alm', capability: 'project' } };
+  const sourceId = canvasId(brief.kind, brief.params);
+  const fields = { name: 'Service app', goal: 'Reduce handoffs', projectType: 'react', context: 'Use existing sign-in', repository: 'https://github.com/example/service-app' };
+  await run(s, command('canvas.save', 0, { surface: 'alm', canvas: brief, target, fields }));
+  const create = command('project.createFromBrief', 0, { sourceId, sourceRevision: 1 });
+  await assert.rejects(run(outsider, create), error => error.code === 'invalid');
+  await assert.rejects(run(s, { ...create, commandId: randomUUID(), sourceRevision: 2 }), error => error.code === 'conflict');
+  assert.equal((await read(s)).assessment.projects.length, 0);
+  const [a,b] = await Promise.all([run(s, create), run(s, { ...create, commandId: randomUUID() })]);
+  assert.equal(a.project.id, b.project.id); assert.deepEqual(await run(s, create), a);
+  let snapshot = await read(s);
+  assert.equal(snapshot.assessment.projects.length, 1); assert.equal(snapshot.assessment.runs.length, 0);
+  assert.equal(a.project.runId, null); assert.equal(a.project.context, fields.context); assert.equal(a.project.targetOrgId, null);
+  assert.deepEqual(snapshot.canvases[0].fields, {}); assert.equal(snapshot.canvases[0].revision, 2);
+  const entered = await transaction(c => executeAgentCommand(c, s.token, s.session.generation, { kind: 'visit', requestId: randomUUID(), context: { target: { ...target, projectId: a.project.id }, surface: 'home' } }));
+  assert(entered.conversationId, 'The project can open its own acknowledged conversation');
+  const { captureAgentContext } = modules.load('lib/server/agent-context');
+  const captured = await transaction(async c => captureAgentContext(c, await requireSession(c, s.token, s.session.generation), { target: { ...target, projectId: a.project.id }, surface: 'alm' }));
+  assert.equal(captured.context.improvement.projectType, 'react');
+  await run(s, command('canvas.save', 2, { surface: 'alm', canvas: brief, target, fields: { ...fields, name: 'Second app' } }));
+  snapshot = await read(s);
+  const second = await run(s, command('project.createFromBrief', snapshot.assessmentRevision, { sourceId, sourceRevision: 3 }));
+  assert.notEqual(second.project.id, a.project.id);
+  assert.equal((await read(s)).assessment.projects.length, 2);
+  // Empty briefs reject without consuming the reset draft or inserting a project.
+  snapshot = await read(s);
+  await assert.rejects(run(s, command('project.createFromBrief', snapshot.assessmentRevision, { sourceId, sourceRevision: 4 })), error => error.code === 'invalid');
+  assert.equal((await read(s)).assessment.projects.length, 2);
 });

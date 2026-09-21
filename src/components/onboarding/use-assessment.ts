@@ -16,12 +16,13 @@ export function useAssessment() {
 export function useAssessmentRunner() {
   const { profile } = useDemoProfile();
   const { state, store } = useAssessment();
-  const application = useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
   const persistence = useSyncExternalStore(store.subscribe, store.getPersistenceSnapshot, store.getServerPersistenceSnapshot);
   const agent = applicationClient.agent ?? inactiveAgent;
   const execution = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
   useEffect(() => { agent.start(); }, [agent]);
-  const enabled = profile?.onboarding === "org-assessment" && !application.legacy && persistence === "saved";
+  // Legacy browser records are an optional, explicit import. Their presence
+  // must not block work in the independently saved server workspace.
+  const enabled = profile?.onboarding === "org-assessment" && persistence === "saved";
   useEffect(() => {
     if (enabled && execution.ready && (state.status === "idle" || state.status === "running" && !execution.data.runs.some(run => run.assessmentRunId === state.currentRunId))) store.start();
   }, [enabled, execution.ready, execution.data.runs, store, state.status, state.currentRunId]);

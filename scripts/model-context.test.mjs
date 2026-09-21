@@ -7,7 +7,7 @@ const { modelExecution, captureModelExecution } = modules.load("lib/server/model
 const { MODEL_POLICY, serializeModelRequest } = modules.load("lib/server/model-provider");
 const { parseAgentCommand } = modules.load("lib/agent/contracts");
 const settings = { policy: MODEL_POLICY, globalDailyCalls: 10, namespaceDailyCalls: 5 };
-const context = { target: { projectId: null, worktreeId: null, orgId: null }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
+const context = { profile: modules.load("lib/demo-profiles").demoProfileById("sp"), target: { projectId: null, worktreeId: null, orgId: null }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
 const finding = (id, orgId = "prod") => ({ id, orgId, title: `Finding ${id}`, runId: "assessment", evidence: ["Captured sample evidence"] });
 const assessment = { currentRunId: "assessment", runs: [{ id: "assessment", completedAt: "2026-09-16T00:00:00Z", source: { adapter: "demo", version: "1" }, findings: [finding("A"), finding("B", "sit")] }] };
 const evidence = execution => JSON.parse(execution.prompt.messages.at(-1).content).evidence;
@@ -59,4 +59,42 @@ test("captured history excludes Today blobs, greetings, incomplete turns, and fa
 test("public commands cannot select provider, prompt, budget scope, model or execution", () => {
   const command = { kind: "submit", requestId: "request", context: { target: context.target, surface: "home" }, text: "Explain" };
   for (const field of ["provider", "model", "execution", "settings", "budgetScope", "prompt"]) assert.throws(() => parseAgentCommand({ ...command, [field]: "client controlled" }));
+});
+
+test("v3 offers scoped navigation only for the current explicit request; old history cannot authorize it", () => {
+  const current = { ...context, profile: modules.load("lib/demo-profiles").demoProfileById("am"), target: { projectId: null, worktreeId: null, orgId: "uat" } };
+  const history = [{ messageId: 1, runId: "old", role: "user", content: "Open Code" }, { messageId: 2, runId: "old", role: "assistant", content: "Code is available." }];
+  for (const request of ["Help me plan a React app", "Show me how to open Account", "Open Account, but stay here", 'Explain the example "open Code"']) {
+    const captured = modelExecution(current, assessment, request, history, settings);
+    assert.equal(captured.prompt.navigation, undefined, request);
+    assert.equal(JSON.parse(serializeModelRequest(captured.prompt, settings.policy)).tools, undefined);
+    assert.equal(captured.provenance.history.length, 2);
+  }
+  const captured = modelExecution(current, assessment, "Please open Account object", history, settings);
+  assert.ok(captured.prompt.navigation.some(option => option.id === "resource:standard-object:Account"));
+  assert.ok(captured.prompt.navigation.every(option => JSON.stringify(option.destination.target) === JSON.stringify(current.target)));
+  assert.equal(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-explainer-v1" } }).prompt.navigation, undefined);
+  assert.ok(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-navigator-v2" } }).prompt.navigation.length);
+});
+
+test('model requests include saved project intent without treating the brief as a created project', () => {
+  const brief = { id: 'brief', revision: 2, source: 'planning-brief', name: 'Service app', projectType: 'react', goal: 'Reduce handoffs', context: 'Use existing sign-in' };
+  const execution = modelExecution({ ...context, projectBrief: brief }, assessment, 'Help plan the first step', [], settings);
+  brief.context = 'Changed later';
+  assert.equal(evidence(execution).projectBrief.context, 'Use existing sign-in');
+  assert.equal(evidence(execution).projectBrief.projectType, 'react');
+  assert.equal(evidence(execution).project, null);
+  const improvement = { id: 'p', revision: 1, name: 'Agent plan', runId: 'assessment', targetOrgId: 'uat', projectType: 'agent', goal: 'Triage service requests', context: 'Require approval before sending a reply', workItems: [] };
+  const created = evidence(modelExecution({ ...context, improvement }, assessment, 'What should we do next?', [], settings));
+  assert.equal(created.project.projectType, 'agent'); assert.equal(created.project.context, improvement.context);
+});
+
+test('a project created from a brief keeps its intent without inheriting the current org assessment', () => {
+  const improvement = { id: 'p', revision: 1, name: 'Service app', source: 'brief', runId: null, targetOrgId: null, projectType: 'react', goal: 'Reduce handoffs', context: 'Use existing sign-in', workItems: [] };
+  const captured = evidence(modelExecution({ ...context, improvement }, assessment, 'Plan the first milestone', [], settings));
+  assert.equal(captured.project.goal, improvement.goal);
+  assert.equal(captured.project.context, improvement.context);
+  assert.equal(captured.project.sourceRunId, null);
+  assert.equal(captured.assessment, null);
+  assert.deepEqual(captured.findings, []);
 });

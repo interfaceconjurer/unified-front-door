@@ -2,9 +2,11 @@ import { exact, invalid, record, text } from "../application/contracts";
 import type { DemoProfile } from "../demo-profiles";
 import type { Conversation } from "../chat/conversation";
 import type { ImprovementProject } from "../projects/model";
+import type { ProjectBriefContext } from "../projects/brief-context";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import type { FindingSnapshot } from "../assessment/model";
+import type { AgentNavigation } from "./navigation";
 
 export type RunStatus = "pending" | "running" | "streaming" | "completed" | "failed" | "cancelled";
 export type RunError = { code: "adapter_failed" | "recovery_exhausted" | "reconciliation_required" | "tool_denied" | "unconfigured" | "model_outcome_unknown" | "model_limit" | "model_busy" | "model_failed" | "model_refused" | "model_incomplete" | "model_rate_limited" | "model_timeout"; message: string; retryable: boolean; effects: "none" | "confirmed" | "unknown"; providerCost?: "unknown" };
@@ -12,7 +14,9 @@ export type AgentContext = { target: WorkspaceTarget; surface: SurfaceId | "home
 export type CapturedContext = AgentContext & {
   profile: DemoProfile; capturedAt: string; threadKey: string; projectName: string; branch: string;
   worktreeLabel: string | null; orgLabel: string | null; hasProjects: boolean;
+  assessmentNavigation?: { runId: string; findings: { id: string; title: string }[] };
   improvement: ImprovementProject | null; greeting: string | null;
+  projectBrief?: ProjectBriefContext;
 };
 export type RunInput = { kind: "chat"; text: string; context: CapturedContext; destination: SurfaceId | null }
   | { kind: "assessment"; assessmentRunId: string; orgIds: string[]; context: CapturedContext };
@@ -28,15 +32,19 @@ export type AgentEvent = { runId: string; requestId: string; turnId: string | nu
 export type SavedConversation = { id: string; threadKey: string; revision: number; conversation: Conversation };
 export type AgentSnapshot = { conversations: SavedConversation[]; runs: RunView[] };
 export type AgentCommand = { requestId: string } & (
-  | { kind: "visit"; context: AgentContext; workId?: string }
+  | { kind: "visit"; context: AgentContext; workId?: string; refreshToday?: true }
   | { kind: "submit"; context: AgentContext; text: string }
   | { kind: "cancel"; runId: string }
   | { kind: "retry"; runId: string }
 );
 export type AgentReceipt = { conversationId?: string; runId?: string; turnId?: string; destination?: SurfaceId | null };
+/** Current history travels with the acknowledgement, never in durable receipts. */
+export type AgentAcknowledgement = AgentReceipt & {
+  conversation?: SavedConversation;
+};
 export type StepOutcome =
   | { kind: "progress"; checkpoint: number; text?: string; delayMs: number }
-  | { kind: "complete"; text?: string; findings?: FindingSnapshot[] }
+  | { kind: "complete"; text?: string; findings?: FindingSnapshot[]; navigation?: AgentNavigation }
   | { kind: "failed"; error: RunError }
   | { kind: "tool"; name: string; input: unknown };
 export type AgentAdapter = { step(input: RunInput, checkpoint: number, now: string, signal: AbortSignal): Promise<StepOutcome> };
@@ -62,8 +70,10 @@ export function parseAgentCommand(value: unknown): AgentCommand {
     return value as AgentCommand;
   }
   if (value.kind !== "submit" && value.kind !== "visit") invalid();
-  exact(value, ["kind", "requestId", "context", ...(value.kind === "submit" ? ["text"] : ["workId"])]);
+  exact(value, ["kind", "requestId", "context", ...(value.kind === "submit" ? ["text"] : ["workId", "refreshToday"])]);
   if (value.kind === "submit" && (!text(value.text, AGENT_LIMITS.text) || !value.text.trim())) invalid("Write a message of up to 8,000 characters.");
   if (value.kind === "visit" && value.workId !== undefined && !text(value.workId, 200)) invalid();
-  return { ...value, context: parseAgentContext(value.context) } as AgentCommand;
+  const context = parseAgentContext(value.context);
+  if (value.kind === "visit" && value.refreshToday !== undefined && (value.refreshToday !== true || context.surface !== "home" || context.target.projectId !== null || value.workId !== undefined)) invalid();
+  return { ...value, context } as AgentCommand;
 }

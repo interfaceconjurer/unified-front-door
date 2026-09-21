@@ -1,7 +1,8 @@
 import type { AssessmentState } from "../assessment/state";
 import type { DemoProfileId } from "../demo-profiles";
 import type { DraftEdit, ImprovementProject, ProjectDraftFields } from "../projects/model";
-import { parseCanvasInput, canvasId, canvasTarget, type CanvasSpecInput } from "../surface-canvas/model";
+import { isProjectType, PROJECT_CONTEXT_LIMIT } from "../projects/templates";
+import { parseCanvasInput, canvasId, canvasTarget, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { SURFACE_IDS, type SurfaceId } from "../workspace/surfaces";
 
@@ -15,6 +16,7 @@ export type ApplicationOperation =
   | { kind: "draft.begin"; runId: string; fields: ProjectDraftFields }
   | { kind: "draft.edit"; draftId: string; edit: DraftEdit }
   | { kind: "draft.discard"; draftId: string }
+  | { kind: "project.createFromBrief"; sourceId: string; sourceRevision: number }
   | { kind: "project.create"; draftId: string; draftRevision: number }
   | { kind: "work.status"; projectId: string; itemId: string; status: "todo" | "in-progress" | "done" }
   | { kind: "canvas.save"; surface: SurfaceId; canvas: CanvasSpecInput; target: WorkspaceTarget; fields: Record<string, string> }
@@ -50,24 +52,27 @@ export function parseCommand(value: unknown): ApplicationCommand {
       exact(value, [...common, "runId", "fields"]);
       const f = value.fields;
       if (!text(value.runId) || !record(f)) invalid();
-      exact(f, ["name", "goal", "targetOrgId", "findingIds"]);
+      exact(f, ["name", "goal", "targetOrgId", "findingIds", "projectType", "context"]);
       if (!text(f.name, 1000) || !text(f.goal, 50000) || !text(f.targetOrgId) || !stringList(f.findingIds)) invalid();
+      if (f.projectType !== undefined && !isProjectType(f.projectType) || f.context !== undefined && (typeof f.context !== "string" || f.context.length > PROJECT_CONTEXT_LIMIT)) invalid();
       break;
     }
     case "draft.edit": {
       exact(value, [...common, "draftId", "edit"]); const e = value.edit;
       if (!text(value.draftId) || !record(e)) invalid();
       if (e.field === "finding") { exact(e, ["field", "id", "included"]); if (!text(e.id) || typeof e.included !== "boolean") invalid(); }
-      else { exact(e, ["field", "value"]); if (!["name", "goal", "targetOrgId"].includes(e.field as string) || typeof e.value !== "string" || e.value.length > 50000) invalid(); }
+      else { exact(e, ["field", "value"]); if (!["name", "goal", "targetOrgId", "projectType", "context"].includes(e.field as string) || typeof e.value !== "string" || e.value.length > 50000) invalid();
+        if (e.field === "projectType" && !isProjectType(e.value) || e.field === "context" && e.value.length > PROJECT_CONTEXT_LIMIT) invalid(); }
       break;
     }
     case "draft.discard": exact(value, [...common, "draftId"]); if (!text(value.draftId)) invalid(); break;
+    case "project.createFromBrief": exact(value, [...common, "sourceId", "sourceRevision"]); if (!text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid(); break;
     case "project.create": exact(value, [...common, "draftId", "draftRevision"]); if (!text(value.draftId) || !revision(value.draftRevision) || value.draftRevision === 0) invalid(); break;
     case "work.status": exact(value, [...common, "projectId", "itemId", "status"]); if (!text(value.projectId) || !text(value.itemId) || !["todo", "in-progress", "done"].includes(value.status as string)) invalid(); break;
     case "canvas.save": case "canvas.copy": {
       exact(value, [...common, "surface", "canvas", "target", ...(value.kind === "canvas.save" ? ["fields"] : ["sourceId", "sourceRevision"])]);
       const canvas = parseCanvasInput(value.canvas), target = parseTarget(value.target);
-      if (!canvas || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
+      if (!canvas || isReadOnlyCanvas(canvas) || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
         || stableJson(canvasTarget(canvas, target)) !== stableJson(target)) invalid();
       if (value.kind === "canvas.save" ? !fields(value.fields) : !text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid();
       // Whitelist runtime canvas data at the server boundary, just as at the URL boundary.

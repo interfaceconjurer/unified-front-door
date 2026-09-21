@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
-import { CloseIcon } from "@/components/icons";
+import { ChevronRightIcon, CloseIcon } from "@/components/icons";
 import { CanvasLayout } from "@/components/canvas/CanvasLayout";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
@@ -12,13 +12,8 @@ import type { SurfaceId } from "@/lib/workspace/model";
 import { OVERVIEW_CANVAS_ID } from "@/lib/surface-canvas/model";
 import { CanvasContent } from "./canvas-registry";
 import { useSurfaceCanvases } from "./surface-canvas-context";
+import { SurfaceSwitcherMenu } from "./SurfaceSwitcherMenu";
 import styles from "./SurfaceCanvasHost.module.css";
-
-type PendingCanvasClose = {
-  id: string;
-  animation: Animation;
-  finish: (restoreFocus?: boolean) => void;
-};
 
 /** DOM ids that wire each tab to the shared panel for `aria-controls` /
  *  `aria-labelledby`. Scoped by surface so two surface panes (were they ever
@@ -54,7 +49,7 @@ export function SurfaceCanvasHost({
   surfaceId: SurfaceId;
   children: React.ReactNode;
 }) {
-  const { problem } = useNavigation();
+  const { problem, navigateSurface } = useNavigation();
   const surface = surfaceAppById(surfaceId);
   const SurfaceIcon = surface.Icon;
   const { profile } = useDemoProfile();
@@ -62,7 +57,7 @@ export function SurfaceCanvasHost({
   const emptyWorkspace = profile?.workspaceExperience === "empty";
   // Hide project-backed canvases from profiles with an empty workspace.
   const canvases = emptyWorkspace
-    ? stored.canvases.filter((canvas) => canvas.kind !== "app" && canvas.kind !== "work")
+    ? stored.canvases.filter((canvas) => canvas.kind !== "app" && canvas.kind !== "work" && canvas.kind !== "preview")
     : stored.canvases;
   const activeCanvasId = canvases.some((canvas) => canvas.id === stored.activeCanvasId)
     ? stored.activeCanvasId
@@ -73,27 +68,11 @@ export function SurfaceCanvasHost({
   // is fine — programmatic focus ignores tabindex.
   const tabRefs = useRef(new Map<string, HTMLButtonElement | null>());
   const tabListRef = useRef<HTMLDivElement>(null);
+  const surfaceMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const surfaceMenuRef = useRef<HTMLDivElement>(null);
+  const [surfaceMenuOpen, setSurfaceMenuOpen] = useState(false);
+  const surfaceMenuId = `surface-switcher-${surfaceId}`;
   const panelRef = useRef<HTMLDivElement>(null);
-  const pendingClose = useRef<PendingCanvasClose | null>(null);
-  const current = useRef({ canvases, activeCanvasId });
-
-  useLayoutEffect(() => {
-    current.current = { canvases, activeCanvasId };
-    // A new selection from elsewhere (e.g. the palette) must not inherit the
-    // outgoing canvas's blur. Cancellation still completes the requested close.
-    if (pendingClose.current && pendingClose.current.id !== activeCanvasId)
-      pendingClose.current.animation.cancel();
-  }, [canvases, activeCanvasId]);
-
-  useEffect(() => {
-    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-    const settle = () => { if (reducedMotion.matches) pendingClose.current?.finish(); };
-    reducedMotion.addEventListener("change", settle);
-    return () => {
-      reducedMotion.removeEventListener("change", settle);
-      pendingClose.current?.animation.cancel();
-    };
-  }, []);
 
   // Reveal a newly opened canvas without scrolling the content or letting it
   // hide behind the pinned surface tab.
@@ -121,58 +100,24 @@ export function SurfaceCanvasHost({
   const activeCanvas = canvases.find((c) => c.id === activeCanvasId) ?? canvases[0]!;
   const activeIndex = canvases.findIndex((c) => c.id === activeCanvas.id);
   function selectTab(canvasId: string): void {
-    pendingClose.current?.finish(false);
     setActiveCanvas(surfaceId, canvasId);
   }
 
   function dismissTab(canvasId: string): void {
     const index = canvases.findIndex((canvas) => canvas.id === canvasId);
-    if (index < 0 || canvasId === OVERVIEW_CANVAS_ID || pendingClose.current?.id === canvasId) return;
-    const panel = panelRef.current;
-    let animation: Animation | null = null;
-    let settled = false;
-    const finish = (restoreFocus = true) => {
-      if (settled) return;
-      settled = true;
-      if (pendingClose.current?.id === canvasId) pendingClose.current = null;
-      const latest = current.current;
-      const latestIndex = latest.canvases.findIndex((canvas) => canvas.id === canvasId);
-      const neighborId = latest.canvases[latestIndex + 1]?.id ?? latest.canvases[latestIndex - 1]?.id;
-      const isActive = latest.activeCanvasId === canvasId;
-      const shouldFocus = restoreFocus && tabListRef.current?.contains(document.activeElement);
-      // Keep the finished fade applied until the replacement content commits.
-      // The tab then disappears immediately, with no movement or second effect.
-      if (latestIndex >= 0) {
-        flushSync(() => {
-          closeCanvas(surfaceId, canvasId);
-          if (panel?.isConnected && isActive && neighborId) selectTab(neighborId);
-        });
-      }
-      animation?.cancel();
-      if (animation && panel) panel.inert = false;
-      const focusId = isActive ? neighborId : latest.activeCanvasId;
-      if (shouldFocus && focusId) tabRefs.current.get(focusId)?.focus({ preventScroll: true });
-    };
-    if (canvasId !== activeCanvasId || !panel?.animate || matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      finish();
-      return;
-    }
-
-    const motionStyle = getComputedStyle(panel);
-    const duration = motionStyle.getPropertyValue("--shell-motion-duration").trim();
-    const blur = motionStyle.getPropertyValue("--shell-motion-blur").trim();
-    if (panel.contains(document.activeElement)) tabRefs.current.get(canvasId)?.focus({ preventScroll: true });
-    panel.inert = true;
-    animation = panel.animate([
-      { opacity: 1, filter: "blur(0px)" },
-      { opacity: 0, filter: `blur(${blur})` },
-    ], {
-      duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000),
-      easing: motionStyle.getPropertyValue("--shell-motion-easing").trim(),
-      fill: "forwards",
+    if (index < 0 || canvasId === OVERVIEW_CANVAS_ID) return;
+    const isActive = canvasId === activeCanvasId;
+    const neighborId = canvases[index + 1]?.id ?? canvases[index - 1]?.id;
+    const shouldFocus = tabListRef.current?.contains(document.activeElement)
+      || (isActive && panelRef.current?.contains(document.activeElement));
+    // Close and select the neighboring tab immediately; only whole-surface
+    // navigation animates. The saved draft remains available for reopening.
+    flushSync(() => {
+      closeCanvas(surfaceId, canvasId);
+      if (isActive && neighborId) setActiveCanvas(surfaceId, neighborId);
     });
-    pendingClose.current = { id: canvasId, animation, finish };
-    void animation.finished.then(() => finish(), () => finish(false));
+    const focusId = isActive ? neighborId : activeCanvasId;
+    if (shouldFocus && focusId) tabRefs.current.get(focusId)?.focus({ preventScroll: true });
   }
 
   function focusTab(canvasId: string): void {
@@ -181,12 +126,24 @@ export function SurfaceCanvasHost({
   }
 
   function onTabsKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (document.activeElement === surfaceMenuTriggerRef.current) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        surfaceMenuRef.current?.showPopover();
+      }
+      // The menu button is separate from the tabs' roving selection/close keys.
+      return;
+    }
     const last = canvases.length - 1;
+    // Focus moves before a route transition commits. Repeated arrows should
+    // advance from that focused tab, even while the previous canvas is leaving.
+    const focusedIndex = canvases.findIndex((canvas) => tabRefs.current.get(canvas.id) === document.activeElement);
+    const index = focusedIndex < 0 ? activeIndex : focusedIndex;
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       const delta = event.key === "ArrowRight" ? 1 : -1;
       // Wrap around so the strip is a ring, matching the tabs APG pattern.
-      const nextIndex = (activeIndex + delta + canvases.length) % canvases.length;
+      const nextIndex = (index + delta + canvases.length) % canvases.length;
       focusTab(canvases[nextIndex]!.id);
     } else if (event.key === "Home") {
       event.preventDefault();
@@ -195,11 +152,10 @@ export function SurfaceCanvasHost({
       event.preventDefault();
       focusTab(canvases[last]!.id);
     } else if (event.key === "Delete" || event.key === "Backspace") {
-      // Dismissal restores focus after the content fade and tab removal, so
-      // keyboard close keeps the selected tab and roving tabindex together.
-      if (activeCanvas.id === OVERVIEW_CANVAS_ID) return;
+      // Keyboard close keeps the selected tab and roving tabindex together.
+      if (canvases[index]!.id === OVERVIEW_CANVAS_ID) return;
       event.preventDefault();
-      dismissTab(activeCanvas.id);
+      dismissTab(canvases[index]!.id);
     }
   }
 
@@ -247,8 +203,8 @@ export function SurfaceCanvasHost({
                   // The pinned first tab IS the surface: its own icon + name,
                   // always present and non-closable, so which surface you're in
                   // stays visible no matter which canvas is active. Its text
-                  // (the surface label) is the tab's accessible name; clicking it
-                  // returns to the surface overview.
+                  // (the surface label) is the tab's accessible name. Clicking
+                  // opens its overview; the adjacent chevron switches surfaces.
                   <>
                     <SurfaceIcon
                       width={15}
@@ -262,6 +218,12 @@ export function SurfaceCanvasHost({
                   canvas.title
                 )}
               </button>
+              {isOverview && <button type="button" className={styles.surfaceTrigger}
+                ref={surfaceMenuTriggerRef} aria-label="Switch surface" title="Switch surface"
+                aria-haspopup="menu" aria-expanded={surfaceMenuOpen} aria-controls={surfaceMenuId}
+                popoverTarget={surfaceMenuId}>
+                <ChevronRightIcon className={styles.surfaceChevron} width={13} height={13} aria-hidden="true" />
+              </button>}
               {closable && (
                 <button
                   type="button"
@@ -279,7 +241,13 @@ export function SurfaceCanvasHost({
           );
         })}
       </div>
+      <SurfaceSwitcherMenu id={surfaceMenuId} surfaceId={surfaceId} menuRef={surfaceMenuRef}
+        triggerRef={surfaceMenuTriggerRef} onOpenChange={setSurfaceMenuOpen}
+        onSelect={next => {
+          navigateSurface(next, next === surfaceId ? "overview" : "restore");
+        }} />
 
+      {/* Tab changes are immediate; the shell animates whole-surface changes. */}
       <div
         ref={panelRef}
         role="tabpanel"

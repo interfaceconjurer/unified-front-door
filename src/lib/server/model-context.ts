@@ -5,6 +5,9 @@ import type { AssessmentState } from "../assessment/state";
 import type { Conversation } from "../chat/conversation";
 import type { OwnedSession } from "./session";
 import { ModelProviderError, serializeModelRequest, type ModelPrompt, type ModelSettings } from "./model-provider";
+import { navigationOptions } from "../agent/navigation";
+import { hasExplicitNavigationIntent } from "../agent/navigation-intent";
+import { projectTemplate } from "../projects/templates";
 
 export type ModelExecution = {
   kind: "model"; version: 1; settings: ModelSettings; prompt: ModelPrompt;
@@ -17,7 +20,9 @@ type History = { messageId: number; runId: string; role: "user" | "assistant"; c
 /** A pure snapshot projection. History arrives only after owned completed-run
  * filtering; neither UI Today blobs nor pending/failed placeholders are sent. */
 export function modelExecution(context: CapturedContext, assessment: AssessmentState, text: string, history: History[], settings: ModelSettings): ModelExecution {
-  const completed = assessment.runs.find(run => run.id === (context.improvement?.runId ?? assessment.currentRunId) && run.completedAt);
+  const navigation = settings.policy.promptVersion === "workspace-navigator-v2"
+    || settings.policy.promptVersion === "workspace-planner-v3" && hasExplicitNavigationIntent(text) ? navigationOptions(context) : undefined;
+  const completed = assessment.runs.find(run => run.id === (context.improvement ? context.improvement.runId : assessment.currentRunId) && run.completedAt);
   // An owned project can intentionally investigate production evidence in a
   // sandbox. Its work items define evidence scope; target org is the execution
   // destination. Standalone assessment scope follows the selected org.
@@ -34,9 +39,11 @@ export function modelExecution(context: CapturedContext, assessment: AssessmentS
     const evidence = { provenance, workspace: { target: context.target, surface: context.surface, projectName: context.projectName, branch: context.branch, orgLabel: context.orgLabel },
       project: context.improvement ? { id: context.improvement.id, revision: context.improvement.revision, name: context.improvement.name, targetOrgId: context.improvement.targetOrgId,
         sourceRunId: context.improvement.runId, sourceOrgIds: [...new Set(findings.map(finding => finding.orgId))],
-        goal: context.improvement.goal, workItems: context.improvement.workItems.filter(item => included.some(finding => finding.id === item.findingId)).map(({ id, findingId, status }) => ({ id, findingId, status })) } : null,
+        goal: context.improvement.goal, projectType: projectTemplate(context.improvement.projectType).id, context: context.improvement.context ?? "",
+        workItems: context.improvement.workItems.filter(item => included.some(finding => finding.id === item.findingId)).map(({ id, findingId, status }) => ({ id, findingId, status })) } : null,
+      ...(context.projectBrief ? { projectBrief: context.projectBrief } : {}),
       assessment: completed ? { id: completed.id, completedAt: completed.completedAt, source: completed.source } : null, findings: included };
-    const prompt: ModelPrompt = { messages: [...prior.map(({ role, content }) => ({ role, content })),
+    const prompt: ModelPrompt = { ...(navigation ? { navigation } : {}), messages: [...prior.map(({ role, content }) => ({ role, content })),
       { role: "user", content: JSON.stringify({ evidence, request: text }) }] };
     try { serializeModelRequest(prompt, settings.policy); return structuredClone({ kind: "model", version: 1, settings, prompt, provenance }); }
     catch (error) {

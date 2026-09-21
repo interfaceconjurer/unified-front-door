@@ -2,6 +2,7 @@ import type { SavedCanvas } from "../application/contracts";
 import type { PersistedCanvases } from "./persistence";
 import { SURFACE_IDS } from "../workspace/surfaces";
 import { sameTarget } from "../workspace/context";
+import { canonicalCanvasSurface } from "./routing";
 
 function sameFields(a: Record<string, string> | undefined, b: Record<string, string> | undefined) {
   return a === b || !!a && !!b && Object.keys(a).length === Object.keys(b).length && Object.keys(a).every(key => a[key] === b[key]);
@@ -11,7 +12,7 @@ export function projectCanvases(previous: PersistedCanvases, preferences: Persis
   let next = previous;
   for (const surface of SURFACE_IDS) {
     const prefs = preferences[surface], before = previous[surface];
-    const records = saved.filter(canvas => canvas.surface === surface);
+    const records = saved.filter(canvas => canonicalCanvasSurface(canvas.surface, canvas.canvas) === surface);
     const targets = { ...prefs.targets }, closedDrafts = { ...prefs.closedDrafts };
     for (const canvas of records) {
       const oldTarget = before.targets?.[canvas.id];

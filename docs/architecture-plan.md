@@ -429,7 +429,7 @@ Provider credentials stay in server environment configuration, outside Neon and
 browser data. New worktrees require explicit private configuration; Git does not
 transfer ignored `.env.local` files. A future authorized Heroku deployment will
 use app config vars, preferably a separate provider key, and the separate hosted
-database. The [README credential guidance](../README.md#provider-credentials-worktrees-and-hosted-configuration)
+database. The [development credential guidance](development.md#provider-credentials-worktrees-and-hosted-configuration)
 records the local and hosted boundaries; no automatic shared-secret mechanism or
 hosted deployment has been added.
 

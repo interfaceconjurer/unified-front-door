@@ -35,6 +35,7 @@ export function decodeLegacy(source: LegacySource) {
   }
   // Reference validation is structural and historical. Retired org IDs are retained.
   for (const project of assessment.projects) {
+    if (project.source === "brief") continue;
     const run = assessment.runs.find((run) => run.id === project.runId);
     if (!run || project.workItems.some((item) => !run.findings.some((f) => f.id === item.findingId))) invalid("A project's historical finding references are inconsistent.");
     if (project.workItems.some((item) => stableJson(item.finding) !== stableJson(run.findings.find((finding) => finding.id === item.findingId)))) invalid("A project's copied evidence differs from its original run. The browser source was kept.");

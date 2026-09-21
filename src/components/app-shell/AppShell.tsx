@@ -11,6 +11,9 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { normalizeDestinationHref } from "@/lib/navigation/model";
+import { signInDestination } from "@/lib/navigation/sign-in";
+import { applicationClient } from "@/lib/application/client";
+import { connectedOrgForProfile } from "@/lib/workspace/orgs";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -37,11 +40,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const destination = normalizeDestinationHref(`${window.location.pathname}${window.location.search}`);
       router.replace(destination ? `/login?returnTo=${encodeURIComponent(destination)}` : "/login");
     } else if (profile && pathname === "/login") {
-      router.replace(normalizeDestinationHref(new URLSearchParams(window.location.search).get("returnTo")) ?? "/");
+      const org = connectedOrgForProfile(profile.id, applicationClient.selection?.getSnapshot().target?.orgId);
+      if (org) router.replace(signInDestination(profile.id, org.id, new URLSearchParams(window.location.search).get("returnTo")));
     }
   }, [pathname, profile, resolved, router]);
-  if (!resolved) return null;
   if (pathname === "/login") return children;
+  if (!resolved) return null;
   if (!profile) return null;
   return <Suspense fallback={null}><WorkspaceProvider key={sessionKey}><SurfaceCanvasProvider><NavigationProvider><ShellContent>{children}</ShellContent></NavigationProvider></SurfaceCanvasProvider></WorkspaceProvider></Suspense>;
 }
@@ -53,10 +57,23 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
   const isFrontDoor = pathname === "/";
-  const [homeRequest, setHomeRequest] = useState(0);
   const shellRef = useRef<HTMLDivElement>(null);
   const waitForLayout = useCallback(async (signal: AbortSignal) => {
     if (shellRef.current) await waitForWorkspaceMotion(shellRef.current, signal);
+  }, []);
+  useEffect(() => {
+    // Breakpoints and viewport-based insets can start the same CSS transitions
+    // used for panel toggles. Finish them before the resize frame is painted so
+    // the layout follows the window immediately, including mid-toggle resizes.
+    const finishResizeTransitions = () => {
+      shellRef.current?.querySelectorAll("[data-workspace-motion]").forEach(node => {
+        for (const animation of node.getAnimations()) {
+          if (animation instanceof CSSTransition) animation.finish();
+        }
+      });
+    };
+    window.addEventListener("resize", finishResizeTransitions);
+    return () => window.removeEventListener("resize", finishResizeTransitions);
   }, []);
   // Which surface (if any) this route belongs to — drives whether the route
   // content is wrapped in its per-surface canvas/tab host. The front door and
@@ -132,7 +149,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       if (event.shiftKey && key === "p") {
         event.preventDefault();
         if (paletteOpen) closePalette();
-        else openPalette("surfaces");
+        else openPalette("all");
       } else if (key === "b") {
         event.preventDefault();
         if (event.shiftKey) toggleSurfacePanel();
@@ -148,8 +165,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
       <div className={styles.shell} ref={shellRef}>
         <TopBar
-          onOpenHome={() => { if (isFrontDoor) setHomeRequest((value) => value + 1); }}
-          onOpenPalette={() => openPalette("surfaces")}
+          onOpenPalette={() => openPalette("all")}
+          onOpenProjects={() => openPalette("projects")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
           surfaceOpen={surfaceOpen}
@@ -167,11 +184,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
-                  <AgentPanel homeRequest={homeRequest} waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
+                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
                 </div>
               </div>
               {/* The surface is an overlay pinned at its final 60% width: adding
@@ -186,10 +203,13 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 inert={!surfaceOpen}
               >
                 {surface ? (
-                  // Matching names retain the outgoing canvas image across a
-                  // surface swap. Only shared transitions animate: entering or
-                  // leaving home keeps the existing agent/panel sequence.
-                  <ViewTransition key={surface.id} name="surface-canvas" share="surface-swap" default="none">
+                  // Workspace changes dissolve; surface-only swaps retain
+                  // their movement without mounting duplicate live canvases.
+                  <ViewTransition key={surface.id} name="surface-canvas" default="none"
+                    share={{ "workspace-context": "workspace-dissolve", default: "surface-swap" }}
+                    update={{ "workspace-context": "workspace-dissolve", default: "none" }}
+                    enter={{ "workspace-context": "workspace-dissolve", default: "none" }}
+                    exit={{ "workspace-context": "workspace-dissolve", default: "none" }}>
                     <div className={styles.surfaceInner}>
                       <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
                     </div>

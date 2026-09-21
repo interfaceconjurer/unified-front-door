@@ -79,7 +79,10 @@ try {
       await node(["node_modules/playwright/cli.js", "install", ...(process.env.CI ? ["--with-deps"] : []), "chromium"]);
     } },
     { id: "browser-regressions", work: () => node(["scripts/browser/run.mjs", "release"], 1200000) },
-    { id: "browser-database", work: async () => { for (let repeat = 1; repeat <= 2; repeat++) await node(["--conditions=react-server", "scripts/browser/neon-client.mjs", `release-${repeat}`]); } },
+    { id: "browser-database", work: async () => {
+      for (let repeat = 1; repeat <= 2; repeat++) await node(["--conditions=react-server", "scripts/browser/neon-client.mjs", `release-${repeat}`]);
+      await node(["--conditions=react-server", "scripts/browser/project-create-database.mjs", "release"]);
+    } },
     { id: "worker-recovery", work: () => node(["--conditions=react-server", "scripts/worker-recovery.mjs"]) },
     { id: "browser-performance", work: () => node(["scripts/browser/performance.mjs", "release"], 1800000) },
   ];

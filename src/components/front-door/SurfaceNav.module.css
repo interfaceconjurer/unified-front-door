@@ -32,7 +32,7 @@
   transition: border-color 140ms ease, background-color 140ms ease;
 }
 
-.link:hover {
+.link:not([aria-disabled]):hover {
   border-color: var(--slds-g-color-accent-2, #0176d3);
   color: var(--slds-g-color-accent-2, #0176d3);
   background: color-mix(in srgb, var(--slds-g-color-accent-1, #0176d3) 5%, var(--slds-g-color-surface-1, #fff));

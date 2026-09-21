@@ -1,3 +1,4 @@
+import type { AgentNavigation } from "../agent/navigation";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
@@ -44,13 +45,13 @@ export async function createAgentRun(client: PoolClient, session: OwnedSession, 
   [session.namespaceId, session.profileId, session.workspaceEpoch, randomUUID(), session.id, session.generation, requestId, options.turnId ?? null, options.conversationId ?? null, options.retryOf ?? null, input.kind, input, options.checkpoint ?? 0, options.execution ?? { kind: "demo", version: 1 }])).rows[0] as RunRow;
   await appendRunEvent(client, row, "pending"); return row;
 }
-export async function updateRunMessage(client: PoolClient, run: RunRow, text: string): Promise<void> {
+export async function updateRunMessage(client: PoolClient, run: RunRow, text: string, navigation?: AgentNavigation): Promise<void> {
   if (!run.conversation_id) return;
   const scope = [run.namespace_id, run.profile_id, run.conversation_id];
   const row = (await client.query("SELECT conversation FROM agent_conversations WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", scope)).rows[0];
   if (!row) return;
   const conversation = row.conversation as Conversation;
-  const updated: Conversation = { ...conversation, messages: conversation.messages.map(message => message.role === "agent" && message.turnId === run.turn_id ? { ...message, text, runId: run.id } : message) };
+  const updated: Conversation = { ...conversation, messages: conversation.messages.map(message => message.role === "agent" && message.turnId === run.turn_id ? { ...message, text, runId: run.id, navigation } : message) };
   assertBytes(updated, AGENT_LIMITS.conversationBytes, "Conversation history");
   await client.query("UPDATE agent_conversations SET conversation=$4,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, updated]);
 }

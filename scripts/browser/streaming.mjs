@@ -30,7 +30,7 @@ try {
         if (command.kind === 'submit') {
             submits++;
             current = { id: 'streamed-run', requestId: command.requestId, turnId: 'streamed-turn', conversationId: 'phase6-conversation', retryOf: null,
-                kind: 'chat', status: 'running', sequence: 2, checkpoint: 0, result: null, error: null, context: command.context,
+                kind: 'chat', status: 'pending', sequence: 1, checkpoint: 0, result: null, error: null, context: command.context,
                 createdAt: '2026-09-17T00:00:00.000Z', updatedAt: '2026-09-17T00:00:00.000Z', assessmentRunId: null,
                 execution: { provider: 'anthropic', model: 'simulated-stream' } };
             state.agent.runs.push(current);
@@ -54,7 +54,12 @@ try {
     await composer.waitFor();
     await composer.fill('Explain the findings as you work.');
     await page.getByRole('button', { name: 'Send message', exact: true }).click();
+    const suggestions = page.locator('[aria-label="Suggested prompts"]');
+    await page.locator('[data-run-status="pending"]').waitFor();
+    assert.equal(await suggestions.count(), 0, 'No suggestions while queued');
+    publish('', 'running');
     await page.locator('[data-run-status="running"]').waitFor();
+    assert.equal(await suggestions.count(), 0, 'No suggestions while preparing a reply');
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]').dataset.motion === 'idle');
     const reply = page.locator('[data-kind="agent"]');
     const first = 'First streamed words';
@@ -62,6 +67,17 @@ try {
     await page.waitForFunction(text => document.querySelector('[data-kind="agent"]')?.textContent.includes(text), first);
     assert.equal(await page.locator('[data-run-status="completed"]').count(), 0);
     assert(await page.getByRole('button', { name: 'Cancel reply', exact: true }).isVisible());
+    assert.equal(await suggestions.count(), 0, 'No suggestions during streaming');
+    const replyStyle = await page.locator('[data-streamed-text]').evaluate(node => {
+        const style = getComputedStyle(node.parentElement);
+        return { background: style.backgroundColor, border: style.borderTopWidth, padding: style.paddingLeft };
+    });
+    assert.deepEqual(replyStyle, { background: 'rgba(0, 0, 0, 0)', border: '0px', padding: '0px' }, 'Agent prose has no bubble');
+    assert(await page.locator('[data-kind="user"]').evaluate(node => {
+        const style = getComputedStyle(node.firstElementChild.firstElementChild);
+        return style.borderTopWidth === '1px' && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && parseFloat(style.paddingLeft) > 0;
+    }), 'User messages keep their bubbles');
+    out.checks.push('Agent prose has no bubble; user bubbles remain; pending/running/streaming replies hide suggestions');
     await page.evaluate(() => {
         const text = document.querySelector('[data-streamed-text]');
         window.streamingNode = text;
@@ -135,6 +151,7 @@ try {
     });
     assert(beforeCancel < cancelledText.length, 'Cancellation must be issued while text is buffered');
     await page.locator('[data-run-status="cancelled"]').waitFor();
+    assert.equal(await suggestions.count(), 0, 'Cancelled replies keep retry controls without next-step suggestions');
     assert.equal(await page.locator('[data-streamed-text]').textContent(), cancelledText);
     await page.evaluate(() => { window.streamingFrames = []; });
     await page.waitForTimeout(600);
@@ -149,6 +166,7 @@ try {
 
     await page.getByRole('button', { name: 'Retry reply', exact: true }).click();
     await page.locator('[data-run-id="retry-streamed-run"]').waitFor();
+    assert.equal(await suggestions.count(), 0, 'Retry waits for its new reply to complete');
     assert(!(await page.locator('[data-kind="agent"]').textContent()).includes(first));
     const retriedText = 'The explicit retry streams its own new answer.';
     publish(retriedText);
@@ -159,6 +177,9 @@ try {
     assert.equal(await page.locator('[data-kind="agent"]').count(), 1);
     assert.equal(retryCount, 1); assert.equal(submits, 1);
     assert.equal(await page.locator('[data-streamed-text]').textContent(), completed);
+    await suggestions.waitFor();
+    assert(await suggestions.getByRole('button').count() > 0);
+    out.checks.push('Suggestions appear with the completed reply; cancellation and retry keep their own status controls');
     await page.reload();
     await page.locator('[data-run-status="completed"]').waitFor();
     assert.equal(await page.locator('[data-streamed-text]').textContent(), completed);

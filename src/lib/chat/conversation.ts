@@ -1,10 +1,11 @@
 import type { TodaySnapshot } from "./today-snapshot";
+import type { AgentNavigation } from "../agent/navigation";
 
 export type Message =
-  | { id: number; role: "agent" | "user" | "context"; text: string; turnId?: string; runId?: string }
+  | { id: number; role: "agent" | "user" | "context"; text: string; turnId?: string; runId?: string; navigation?: AgentNavigation }
   | { id: number; role: "today"; snapshot: TodaySnapshot };
 
-export type Conversation = { scopeKey: string; messages: Message[]; visitKey?: string };
+export type Conversation = { scopeKey: string; messages: Message[]; visitKey?: string; targetOrgId?: string | null };
 
 type Presentation = {
   sessionKey: string;
@@ -15,7 +16,9 @@ type Presentation = {
 };
 
 export type ConversationEvent =
-  | { type: "today"; snapshot: TodaySnapshot }
+  | { type: "today"; snapshot: TodaySnapshot; force?: boolean }
+  | { type: "project"; label: string; reply: string }
+  | { type: "org"; orgId: string | null; label: string | null }
   | { type: "surface"; scopeKey: string; label: string; reply: string; force?: boolean }
   | { type: "send"; text: string; reply: string; destination?: { key: string; label: string } };
 
@@ -23,14 +26,30 @@ export type ConversationEvent =
 export function updateConversation(current: Conversation | undefined, event: ConversationEvent): Conversation {
   const thread = current ?? { scopeKey: "home", messages: [] };
   let id = (thread.messages.at(-1)?.id ?? 0) + 1;
+  const target = thread.targetOrgId === undefined ? {} : { targetOrgId: thread.targetOrgId };
+  if (event.type === "org") {
+    if (thread.targetOrgId === event.orgId) return thread;
+    const messages = thread.targetOrgId === undefined && event.orgId === null ? thread.messages
+      : [...thread.messages, { id, role: "context" as const, text: event.orgId ? `Target org · ${event.label ?? event.orgId}` : "Target org cleared" }];
+    return { ...thread, targetOrgId: event.orgId, messages };
+  }
   if (event.type === "today") {
-    // Repeated Home clicks focus the current briefing without filling history.
-    if (thread.scopeKey === "home" && thread.messages.at(-1)?.role === "today") return thread;
-    return { scopeKey: "home", messages: [...thread.messages, { id, role: "today", snapshot: event.snapshot }] };
+    // A Today card remains current until something else is printed after it.
+    // Older queued Home visits may carry force, but must not duplicate it.
+    const last = thread.messages.at(-1);
+    if (last?.role === "today") return thread.scopeKey === "home" ? thread : { ...thread, scopeKey: "home" };
+    return { ...target, scopeKey: "home", messages: [...thread.messages, { id, role: "today", snapshot: event.snapshot }] };
+  }
+  if (event.type === "project") {
+    // Existing conversations resume verbatim, including their last surface.
+    // Legacy Today and target-org markers do not replace the introduction.
+    if (thread.messages.some(message => message.role === "agent" || message.role === "user")) return thread;
+    return { ...target, scopeKey: "home", messages: [...thread.messages,
+      { id: id++, role: "context", text: event.label }, { id, role: "agent", text: event.reply }] };
   }
   if (event.type === "surface") {
     if (!event.force && thread.scopeKey === event.scopeKey && thread.messages.length) return thread;
-    return { scopeKey: event.scopeKey, messages: [
+    return { ...target, scopeKey: event.scopeKey, messages: [
       ...thread.messages,
       { id: id++, role: "context", text: event.label },
       { id, role: "agent", text: event.reply },
@@ -41,7 +60,7 @@ export function updateConversation(current: Conversation | undefined, event: Con
     messages.push({ id: id++, role: "context", text: event.destination.label });
   }
   messages.push({ id, role: "agent", text: event.reply });
-  return { scopeKey: event.destination?.key ?? thread.scopeKey, messages };
+  return { ...target, scopeKey: event.destination?.key ?? thread.scopeKey, messages };
 }
 
 /** Owned by the mounted agent. Navigation and assessment subscriptions write

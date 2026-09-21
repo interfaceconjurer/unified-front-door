@@ -11,7 +11,57 @@
 
 .content {
   width: 100%;
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
   padding: 1rem 0 1.5rem;
+}
+
+.briefing { display: flow-root; }
+
+/* History keeps its layout and readable text, with barely visible containers. */
+.frontDoor[data-read-only] { filter: grayscale(1); opacity: 0.78; }
+.frontDoor[data-read-only] * {
+  animation: none !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+.frontDoor[data-read-only] [data-today-container] {
+  background: light-dark(rgb(0 0 0 / 3%), rgb(255 255 255 / 3%)) !important;
+  border-color: light-dark(rgb(0 0 0 / 6%), rgb(255 255 255 / 6%)) !important;
+}
+.frontDoor[data-read-only] :is(progress, input[type="checkbox"]) { visibility: hidden; }
+.frontDoor[data-read-only] :is(button, input, select, textarea, summary) {
+  pointer-events: none;
+  cursor: default;
+}
+.frontDoor[data-read-only] button:disabled { opacity: 1; }
+
+/* Restore the Today reveal from f6313a2 in the current continuous transcript. */
+.frontDoor [data-today-row] {
+  transform-origin: center top;
+  animation: todayRowReveal var(--shell-motion-duration, 500ms)
+    var(--shell-motion-easing, cubic-bezier(0.22, 0.61, 0.36, 1))
+    calc(var(--today-order, 0) * 75ms) backwards;
+}
+
+@keyframes todayRowReveal {
+  from { opacity: 0; filter: blur(6px); transform: translateY(10px) scale(0.985); }
+  72% { opacity: 1; filter: blur(0); transform: translateY(-1px) scale(1.003); }
+  to { opacity: 1; filter: blur(0); transform: none; }
+}
+
+/* Don't spend the reveal while the transcript or navigation snapshot hides it.
+   This also coordinates the existing day-zero animations. */
+:global([data-pending]) .frontDoor *,
+:global(:root:active-view-transition) .frontDoor * { animation-play-state: paused; }
+
+/* Departing content stays fully revealed throughout the outgoing scroll. */
+.frontDoor[data-retiring] [data-today-row] { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .frontDoor [data-today-row] { animation: none; }
 }
 
 .hero {
