@@ -4,7 +4,7 @@ import type { AssessmentState } from "../assessment/state";
 import type { ProjectDraft } from "../projects/model";
 import type { ReturningWork } from "../workspace/returning-work";
 export const BRIEFING_LIMITS = { findings: 20, projects: 12, workReferences: 100, text: 2000, entries: 12, recent: 12 } as const;
-export type ProjectSummary = { id: string; name: string; runId: string; targetOrgId: string; findingIds: string[]; workItemCount: number; completedCount: number };
+export type ProjectSummary = { id: string; name: string; runId: string | null; targetOrgId: string | null; findingIds: string[]; workItemCount: number; completedCount: number };
 export type AssessmentBriefing = Pick<AssessmentState, "status" | "step" | "completedAt" | "currentRunId"> & {
   scopeOrgIds: string[]; draft: ProjectDraft | null; findings: FindingSnapshot[]; projects: ProjectSummary[];
   totalFindings: number; totalProjects: number; findingsAvailable: boolean; truncated: boolean;

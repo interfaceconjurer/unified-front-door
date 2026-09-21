@@ -112,3 +112,19 @@ test("agent planning briefs respect org, project, worktree and surface boundarie
   const draft = { ...begin.fields, id: 'assessment-draft', revision: 2, projectType: 'agent' };
   assert.equal(projectBriefForContext({ ...workspace, assessment: { draft } }, { ...target, orgId: 'sit' }, 'alm').source, 'assessment-draft');
 });
+
+test('general projects retain intent without fabricating assessment runs or repository connections', () => {
+  const { projectFromBrief } = modules.load('lib/projects/from-brief');
+  const { decodeAssessment } = modules.load('lib/assessment/state-codec');
+  const brief = { id: 'brief', surface: 'alm', canvas: projectCreationCanvas({ scope: 'unbound' }), target: { projectId: null, worktreeId: null, orgId: null }, revision: 2,
+    fields: { name: 'Mobile service', goal: 'Reduce handoffs', projectType: 'mobile', context: 'Offline first', repository: 'https://github.com/team/mobile-service' } };
+  const project = projectFromBrief(brief, 2, 'Jordan', 'create', '2026-09-20T12:00:00Z', 'p');
+  assert.equal(project.source, 'brief'); assert.equal(project.runId, null); assert.equal(project.targetOrgId, null);
+  assert.equal(project.context, 'Offline first'); assert.equal(project.projectType, 'mobile'); assert.deepEqual(project.workItems, []);
+  const decoded = decodeAssessment({ ...INITIAL, projects: [project] });
+  assert.equal(decoded.value.projects[0].repository, brief.fields.repository);
+  assert.throws(() => projectFromBrief(brief, 1, 'Jordan', 'create', '', 'p'), error => error.code === 'conflict');
+  for (const fields of [{ ...brief.fields, name: ' ' }, { ...brief.fields, goal: '' }, { ...brief.fields, projectType: 'unknown' }, { ...brief.fields, repository: 'javascript:alert(1)' }]) {
+    assert.throws(() => projectFromBrief({ ...brief, fields }, 2, 'Jordan', 'create', '', 'p'));
+  }
+});

@@ -322,6 +322,13 @@ function assessmentAdapter(workspace: RemoteWorkspaceStore | null) { return {
   rescan: (orgIds: string[]) => { void workspace?.enqueue({ kind: "assessment.rescan", orgIds }); },
   isBeginningDraft: () => workspace?.getPending().some(command => command.kind === "draft.begin") ?? false,
   isCreatingProject: (draftId: string) => workspace?.getPending().some(command => command.kind === "project.create" && command.draftId === draftId) ?? false,
+  isCreatingFromBrief: (sourceId: string) => workspace?.getPending().some(command => command.kind === "project.createFromBrief" && command.sourceId === sourceId) ?? false,
+  createFromBrief: async (sourceId: string) => {
+    if (!workspace || workspace.getPersistenceSnapshot() !== "saved") return null;
+    const source = workspace.getSnapshot().canvases.find(canvas => canvas.id === sourceId);
+    if (!source?.revision) return null;
+    return (await workspace.enqueue({ kind: "project.createFromBrief", sourceId, sourceRevision: source.revision }))?.project ?? null;
+  },
   beginDraft: async (runId: string, fields: ProjectDraftFields) => {
     const result = await workspace?.enqueue({ kind: "draft.begin", runId, fields });
     return result ? workspace?.getSnapshot().assessment.draft ?? null : null;

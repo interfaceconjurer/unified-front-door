@@ -43,7 +43,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname(), search = useSearchParams();
   const route = `${pathname}?${search.toString()}`;
   const dayZero = profile?.onboarding === "org-assessment";
-  const projects = useMemo(() => dayZero ? assessment.projects.map(workspaceProject) : profile?.workspaceExperience === "established" ? PROJECTS : [], [dayZero, assessment.projects, profile?.workspaceExperience]);
+  const projects = useMemo(() => [...(profile?.workspaceExperience === "established" ? PROJECTS : []), ...assessment.projects.map(workspaceProject)], [assessment.projects, profile?.workspaceExperience]);
   const orgs = dayZero ? ASSESSMENT_ORGS : ORGS;
   const store = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);

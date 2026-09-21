@@ -11,6 +11,7 @@ export const SURFACE_QUESTIONS: Record<SurfaceId, string> = {
   govern: "What would you like to review in Govern & Observe? I can help with access, platform health, or policy controls.",
 };
 export function projectIntroduction(context: CapturedContext): string {
+  if (context.improvement?.source === "brief") return `“${context.projectName}” was created and is ready.\n\nGoal: ${context.improvement.goal}\n\nWhat would you like to work on first?`;
   if (context.improvement) return `“${context.projectName}” is ready for planning.\n\n${context.greeting}\n\nChoose a work item to review its approach and decide the next step.`;
   return `“${context.projectName}” · ${context.branch}\n\n${context.greeting ?? "Your project workspace is ready. Tell me what you’d like to work on first."}`;
 }
@@ -22,6 +23,7 @@ export function demoReply(input: Extract<RunInput, { kind: "chat" }>): string {
   const { context: c, text, destination } = input, improvement = c.improvement;
   const findings = improvement?.workItems.flatMap(item => item.finding ? [{ item, finding: item.finding }] : []) ?? [];
   const first = findings.find(({ item }) => item.status !== "done");
+  if (improvement?.source === "brief") return `Your project goal is: ${improvement.goal}\n\nLet’s choose the smallest useful first step. What should someone be able to do in the first version?`;
   if (improvement) {
     if (/validat|success|test|acceptance/i.test(text)) return findings.map(({ finding }) => `${finding.title}: ${finding.validation}`).join("\n\n");
     if (/plan|steps/i.test(text)) return findings.map(({ finding }) => `${finding.title}\n${finding.steps.map((step, i) => `${i + 1}. ${step}`).join("\n")}`).join("\n\n");

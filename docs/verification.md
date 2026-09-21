@@ -173,7 +173,7 @@ browser registry. Restored behaviors have these checks:
 | --- | --- | --- |
 | Starter cards open scoped canvases and seed without submitting | `starter-canvases.mjs` | `starters.test.mjs` |
 | Assessment scope, captured findings, rescan and retry | `assessment-canvas.mjs` | `assessment-canvas.test.mjs` |
-| Project templates, saved goals/context, retained drafts, acknowledged creation and own conversation | `project-creation.mjs` | `project-creation.test.mjs`, `model-context.test.mjs` (saved intent and scope boundaries) |
+| Project templates, saved intent, brief-to-project creation on all profiles, sidebar/reload/reopen, second project, delayed navigation, retry recovery and assessment creation | `project-creation.mjs`, `project-create-end-to-end.mjs`; `project-create-database.mjs` in the database browser gate | `project-creation.test.mjs`, `database.test.mjs` (atomic creation, ownership, duplicate retries), `model-context.test.mjs` |
 | Planning stays in chat; explicit agent navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (no-tool planning and saved-catalog validation) |
 | Project links reveal the sidebar parent without changing scope; persistent Start project footer on all profiles; Sessions only lists chats | `project-panel.mjs` | Navigation tests |
 | Default All navigator search, ranked typed results, intact project trees, org pill/category filters, clear search, scope-preserving selection and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs` |

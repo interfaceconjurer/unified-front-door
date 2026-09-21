@@ -83,11 +83,14 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
 
   const { activeProject, activeWorktree, sessionKey, target, projects, orgs } = useWorkspace();
   const { state: assessment } = useAssessment();
-  const improvement = profile?.onboarding ? assessment.projects.find((project) => project.id === activeProject?.id) : undefined;
+  const improvement = assessment.projects.find((project) => project.id === activeProject?.id);
   const returningSession = profile?.workspaceExperience === "established"
     ? activeProject?.agentSessions.find((session) => session.worktreeId === activeWorktree?.id)
     : undefined;
-  const scope: Scope = improvement ? {
+  const scope: Scope = improvement?.source === "brief" ? {
+    ...baseScope,
+    suggestions: ["Plan the first milestone", "What should we clarify first?", "Define success for the first version"],
+  } : improvement ? {
     ...baseScope,
     suggestions: SUGGESTIONS_0,
   } : profile?.onboarding ? {

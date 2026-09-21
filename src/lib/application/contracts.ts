@@ -16,6 +16,7 @@ export type ApplicationOperation =
   | { kind: "draft.begin"; runId: string; fields: ProjectDraftFields }
   | { kind: "draft.edit"; draftId: string; edit: DraftEdit }
   | { kind: "draft.discard"; draftId: string }
+  | { kind: "project.createFromBrief"; sourceId: string; sourceRevision: number }
   | { kind: "project.create"; draftId: string; draftRevision: number }
   | { kind: "work.status"; projectId: string; itemId: string; status: "todo" | "in-progress" | "done" }
   | { kind: "canvas.save"; surface: SurfaceId; canvas: CanvasSpecInput; target: WorkspaceTarget; fields: Record<string, string> }
@@ -65,6 +66,7 @@ export function parseCommand(value: unknown): ApplicationCommand {
       break;
     }
     case "draft.discard": exact(value, [...common, "draftId"]); if (!text(value.draftId)) invalid(); break;
+    case "project.createFromBrief": exact(value, [...common, "sourceId", "sourceRevision"]); if (!text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid(); break;
     case "project.create": exact(value, [...common, "draftId", "draftRevision"]); if (!text(value.draftId) || !revision(value.draftRevision) || value.draftRevision === 0) invalid(); break;
     case "work.status": exact(value, [...common, "projectId", "itemId", "status"]); if (!text(value.projectId) || !text(value.itemId) || !["todo", "in-progress", "done"].includes(value.status as string)) invalid(); break;
     case "canvas.save": case "canvas.copy": {

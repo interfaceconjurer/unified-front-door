@@ -14,6 +14,7 @@ import { readWorkspace, writeAssessment } from "./repository";
 import { importLegacy } from "./import";
 import { assertAssessmentLimits, assertBytes, assertCanvasCount, assertCanvasLimits, DEMO_LIMITS, lockCanvasQuota } from "./quota";
 import { syncAssessmentExecution } from "./agent";
+import { briefSourceId, projectFromBrief } from "../projects/from-brief";
 
 async function lockKey(client: PoolClient, value: string): Promise<void> { await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [value]); }
 async function canvasCommand(client: PoolClient, session: OwnedSession, command: Extract<ApplicationCommand, { kind: "canvas.save" | "canvas.copy" }>): Promise<CommandResult> {
@@ -77,7 +78,26 @@ export async function executeCommand(client: PoolClient, token: string | undefin
   } else {
     if (command.kind === "legacy.import") await lockCanvasQuota(client, scope);
     const before = await readWorkspace(client, session, true);
-    if (command.kind === "legacy.import") {
+    if (command.kind === "project.createFromBrief") {
+      const existing = before.assessment.projects.find(project => project.sourceDraftId === briefSourceId(command.sourceId, command.sourceRevision));
+      if (existing) result = { revision: before.assessmentRevision, project: existing };
+      else {
+        if (before.assessmentRevision !== command.expectedRevision) conflict();
+        const row = (await client.query("SELECT id,surface_id,canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 AND id=$3 FOR UPDATE", [...scope, command.sourceId])).rows[0];
+        if (!row) invalid("Save the project brief before creating a project.");
+        const profile = demoProfileById(session.profileId!);
+        const orgs = profile.onboarding ? ASSESSMENT_ORGS : ORGS;
+        if (row.target.orgId && !orgs.some(org => org.id === row.target.orgId && org.connection === "connected")) invalid("The brief’s target org is unavailable.");
+        const project = projectFromBrief({ ...row, surface: row.surface_id }, command.sourceRevision, profile.name, command.commandId, new Date().toISOString(), `project-${randomUUID()}`);
+        const after = { ...before.assessment, projects: [...before.assessment.projects, project] };
+        assertAssessmentLimits(after);
+        const revision = before.assessmentRevision + 1;
+        await writeAssessment(client, session, before.assessment, after, revision);
+        // Reset atomically; the immutable source revision identifies retries.
+        await client.query("UPDATE canvas_drafts SET fields='{}'::jsonb,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, command.sourceId]);
+        result = { revision, project };
+      }
+    } else if (command.kind === "legacy.import") {
       // Import receipts precede revision validation: a repeat source cannot overwrite later edits.
       const imported = await importLegacy(client, session, before, command.source, command.expectedRevision);
       const row = (await client.query("SELECT assessment_revision FROM workspaces WHERE namespace_id=$1 AND profile_id=$2", scope)).rows[0];

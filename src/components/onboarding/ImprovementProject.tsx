@@ -8,6 +8,7 @@ import { CheckIcon, ChevronRightIcon, LayersIcon, SparklesIcon } from "@/compone
 import { ASSESSMENT_ORGS } from "@/lib/onboarding/assessment";
 import { orgAvailability } from "@/lib/assessment/model";
 import type { ImprovementProject, PlannedWorkItem } from "@/lib/projects/model";
+import { BriefProjectPlan } from "./BriefProjectPlan";
 import { projectTemplate } from "@/lib/projects/templates";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { useAssessment } from "./use-assessment";
@@ -23,6 +24,7 @@ export function ImprovementProjectCanvas({ spec }: { spec: CanvasOf<"improvement
   const { state, store } = useAssessment();
   const project = state.projects.find((project) => project.id === spec.params?.projectId);
   if (!project) return <div className={styles.projectCanvas}><h2>Project unavailable</h2><p>This project is not saved for the current profile.</p></div>;
+  if (project.source === "brief") return <BriefProjectPlan project={project} />;
   return <ProjectPlan key={project.id} project={project} onStatusChange={(itemId, status) => store.setWorkItemStatus(project.id, itemId, status)} />;
 }
 
@@ -31,7 +33,7 @@ function ProjectPlan({ project, onStatusChange }: { project: ImprovementProject;
   const [expanded, setExpanded] = useState<string | null>(project.workItems[0]?.id ?? null);
   const completed = project.workItems.filter((item) => item.status === "done").length;
   const next = project.workItems.find((item) => item.status !== "done");
-  const target = orgAvailability(project.targetOrgId, ASSESSMENT_ORGS);
+  const target = orgAvailability(project.targetOrgId ?? "", ASSESSMENT_ORGS);
   return <article className={styles.projectCanvas}>
     <header className={styles.projectHeader}><p className={styles.kicker}><LayersIcon width={16} height={16} aria-hidden="true" /> ALM · IMPROVEMENT PROJECT</p><h1>{project.name}</h1><p>{project.goal}</p><div className={styles.projectMeta}><span>Owner · {project.owner}</span><span>Work environment · {target?.label}</span><span>Type · {projectTemplate(project.projectType).label}</span><span>Created from org assessment</span>{!target.available && <span>{target.reason} · saved plan preserved</span>}</div></header>
     <div className={styles.projectStats}><div><strong>{project.workItems.length}</strong><span>Planned work items</span></div><div><strong>{completed}/{project.workItems.length}</strong><span>Complete</span></div><div><strong>{project.workItems.filter((item) => item.priority === "High").length}</strong><span>High priority</span></div></div>
@@ -65,6 +67,7 @@ export function ImprovementProjectsOverview() {
   const { navigateGlobalHome, openProjectCreation } = useNavigation();
   if (target.projectId) {
     const project = state.projects.find(project => project.id === target.projectId);
+    if (project?.source === "brief") return <BriefProjectPlan project={project} />;
     return project ? <ProjectPlan key={project.id} project={project} onStatusChange={(id, status) => store.setWorkItemStatus(project.id, id, status)} />
       : <section className={styles.projectCanvas}><h2>Project unavailable</h2><p>This project is not saved for the current profile.</p></section>;
   }

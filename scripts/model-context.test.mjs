@@ -88,3 +88,13 @@ test('model requests include saved project intent without treating the brief as 
   const created = evidence(modelExecution({ ...context, improvement }, assessment, 'What should we do next?', [], settings));
   assert.equal(created.project.projectType, 'agent'); assert.equal(created.project.context, improvement.context);
 });
+
+test('a project created from a brief keeps its intent without inheriting the current org assessment', () => {
+  const improvement = { id: 'p', revision: 1, name: 'Service app', source: 'brief', runId: null, targetOrgId: null, projectType: 'react', goal: 'Reduce handoffs', context: 'Use existing sign-in', workItems: [] };
+  const captured = evidence(modelExecution({ ...context, improvement }, assessment, 'Plan the first milestone', [], settings));
+  assert.equal(captured.project.goal, improvement.goal);
+  assert.equal(captured.project.context, improvement.context);
+  assert.equal(captured.project.sourceRunId, null);
+  assert.equal(captured.assessment, null);
+  assert.deepEqual(captured.findings, []);
+});

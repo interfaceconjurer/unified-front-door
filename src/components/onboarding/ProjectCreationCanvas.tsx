@@ -5,8 +5,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { PersistenceStatus } from "@/components/persistence/PersistenceStatus";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { CapabilityDraftCanvas } from "@/components/surfaces/CapabilityDraftCanvas";
-import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
+import { ProjectBriefCanvas } from "./ProjectBriefCanvas";
 import { assessmentCanvas } from "@/lib/assessment/canvas";
 import type { FindingSnapshot } from "@/lib/assessment/model";
 import type { DraftEdit, ProjectDraft } from "@/lib/projects/model";
@@ -20,7 +19,7 @@ import styles from "./onboarding.module.css";
 export function ProjectCreationCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
   const { profile } = useDemoProfile();
   return profile?.onboarding ? <ImprovementProjectCreation spec={spec} />
-    : <CapabilityDraftCanvas surfaceId="alm" capability={capabilityForCanvas("alm", "project")!} spec={spec} />;
+    : <ProjectBriefCanvas spec={spec} />;
 }
 
 function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) {
@@ -42,7 +41,7 @@ function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) 
     } finally { inFlight.current = false; setCreating(false); }
   }
   if (!draft) return <>
-    <CapabilityDraftCanvas surfaceId="alm" capability={capabilityForCanvas("alm", "project")!} spec={spec} />
+    <ProjectBriefCanvas spec={spec} />
     <section className={`${styles.projectCanvas} ${styles.review}`} aria-label="Project creation from assessment">
     <h2>Start from your org assessment</h2><p>Choose opportunities from your org assessment to create a saved project with evidence and planned work items.</p>
     <PersistenceStatus store={store} onlyProblems label="Project draft" />

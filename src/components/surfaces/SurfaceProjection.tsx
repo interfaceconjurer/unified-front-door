@@ -3,6 +3,8 @@
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import type { SurfaceId } from "@/lib/workspace/model";
+import { useWorkspace } from "@/components/workspace/workspace-context";
+import { useAssessment } from "@/components/onboarding/use-assessment";
 import { SurfaceLauncher } from "./SurfaceLauncher";
 import { ReturningSurface } from "./ReturningSurface";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
@@ -16,7 +18,9 @@ export function SurfaceProjection({ surfaceId, children }: {
 }) {
   const surface = surfaceAppById(surfaceId);
   const { profile } = useDemoProfile();
-  if (profile?.onboarding === "org-assessment" && surfaceId === "alm") {
+  const { target } = useWorkspace();
+  const { state } = useAssessment();
+  if (surfaceId === "alm" && (profile?.onboarding === "org-assessment" || state.projects.some(project => project.id === target.projectId))) {
     return <LazyFeature load={loadProjects} properties={{}} />;
   }
   if (profile?.workspaceExperience === "established") {

@@ -6,20 +6,23 @@ const intent = (value: Record<string, unknown>) => ({
   ...(typeof value.context === "string" ? { context: value.context } : {}),
 });
 export function parseProject(value: unknown, legacy: boolean): ImprovementProject | null {
-  if (!record(value) || !["id", "name", "goal", "owner", "targetOrgId"].every((key) => typeof value[key] === "string") || !date(value.createdAt) || !Array.isArray(value.workItems)) return null;
-  const runId = typeof value.runId === "string" ? value.runId : `legacy-project:${value.id}`;
+  if (!record(value) || !["id", "name", "goal", "owner"].every((key) => typeof value[key] === "string") || !date(value.createdAt) || !Array.isArray(value.workItems)) return null;
+  const fromBrief = value.source === "brief";
+  if (fromBrief ? value.runId !== null || value.targetOrgId !== null && typeof value.targetOrgId !== "string" || value.workItems.length !== 0 : typeof value.targetOrgId !== "string") return null;
+  const runId = fromBrief ? null : typeof value.runId === "string" ? value.runId : `legacy-project:${value.id}`;
   const items: PlannedWorkItem[] = [];
   for (const item of value.workItems) {
     if (!record(item) || typeof item.id !== "string" || typeof item.title !== "string" || typeof item.findingId !== "string" || !["todo", "in-progress", "done"].includes(String(item.status))) return null;
     const priority = item.priority === "High" ? "High" : item.priority === "Medium" ? "Medium" : "Unknown";
-    const finding = legacy ? legacyFinding(item.findingId, item.title, priority, runId) : parseFinding(item.finding);
+    const finding = legacy ? legacyFinding(item.findingId, item.title, priority, runId!) : parseFinding(item.finding);
     if (!finding || finding.runId !== runId || (!legacy && finding.id !== item.findingId)) return null;
     items.push({ id: item.id, title: item.title, findingId: finding.id, priority, status: item.status as PlannedWorkItem["status"], finding });
   }
   if (new Set(items.map((item) => item.id)).size !== items.length || new Set(items.map((item) => item.findingId)).size !== items.length) return null;
   if (!legacy && (typeof value.sourceDraftId !== "string" || typeof value.createCommandId !== "string" || !Number.isSafeInteger(value.revision) || Number(value.revision) < 1)) return null;
   return { ...intent(value), id: value.id as string, name: value.name as string, goal: value.goal as string, owner: value.owner as string,
-    targetOrgId: value.targetOrgId as string, scopeOrgIds: strings(value.scopeOrgIds), createdAt: value.createdAt,
+    ...(fromBrief ? { source: "brief" as const, ...(typeof value.repository === "string" ? { repository: value.repository } : {}) } : {}),
+    targetOrgId: value.targetOrgId as string | null, scopeOrgIds: strings(value.scopeOrgIds), createdAt: value.createdAt,
     workItems: items, runId, sourceDraftId: typeof value.sourceDraftId === "string" ? value.sourceDraftId : `legacy-draft:${value.id}`,
     createCommandId: typeof value.createCommandId === "string" ? value.createCommandId : `legacy-create:${value.id}`,
     revision: typeof value.revision === "number" ? value.revision : 1 };

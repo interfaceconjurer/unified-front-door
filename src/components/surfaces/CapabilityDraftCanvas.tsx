@@ -100,7 +100,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
             const project = projects.find((item) => item.id === assignmentProject);
             if (!project) return;
             const worktree = primaryWorktree(project);
-            const input = { kind: "capability" as const, title: spec.title, params: { ...spec.params, scope: "project" as const, projectId: project.id, ...(worktree ? { worktreeId: worktree.id } : {}), orgId: project.defaultOrgId } };
+            const input = { kind: "capability" as const, title: spec.title, params: { ...spec.params, scope: "project" as const, projectId: project.id, ...(worktree ? { worktreeId: worktree.id } : {}), orgId: project.defaultOrgId ?? undefined } };
             setAssignmentMessage(await copyToSelectedScope(surfaceId, spec.id, input) ? "A project copy was created. The unbound draft is preserved." : "The copy was not saved. Review the workspace message and retry. Your original draft is preserved.");
           }}>Copy draft to project</button></>}
           {persistenceState !== "saved" && <p>Save or recover this draft before copying it to a project.</p>}
@@ -158,7 +158,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
               onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })}
             />}
           </section>
-          <p className={styles.note}>{capability.id === "project" ? "This planning brief does not create a project, repository, or org. Your edits are saved as a draft." : "This is a configuration draft. No files, commands, or connections are created."}</p>
+          <p className={styles.note}>{capability.id === "project" ? "Your brief saves as you type. Create project to add it to your workspace. Repository and runtime setup can follow." : "This is a configuration draft. No files, commands, or connections are created."}</p>
         </>
       )}
     </article>

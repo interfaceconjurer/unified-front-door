@@ -22,7 +22,7 @@ type History = { messageId: number; runId: string; role: "user" | "assistant"; c
 export function modelExecution(context: CapturedContext, assessment: AssessmentState, text: string, history: History[], settings: ModelSettings): ModelExecution {
   const navigation = settings.policy.promptVersion === "workspace-navigator-v2"
     || settings.policy.promptVersion === "workspace-planner-v3" && hasExplicitNavigationIntent(text) ? navigationOptions(context) : undefined;
-  const completed = assessment.runs.find(run => run.id === (context.improvement?.runId ?? assessment.currentRunId) && run.completedAt);
+  const completed = assessment.runs.find(run => run.id === (context.improvement ? context.improvement.runId : assessment.currentRunId) && run.completedAt);
   // An owned project can intentionally investigate production evidence in a
   // sandbox. Its work items define evidence scope; target org is the execution
   // destination. Standalone assessment scope follows the selected org.

@@ -5,11 +5,13 @@ export type PlannedWorkItem = {
   id: string; findingId: string; title: string; priority: "High" | "Medium" | "Unknown";
   status: "todo" | "in-progress" | "done"; finding: FindingSnapshot;
 };
-export type ImprovementProject = ProjectIntent & {
-  id: string; name: string; goal: string; owner: string; targetOrgId: string;
+export type SavedProject = ProjectIntent & {
+  id: string; name: string; goal: string; owner: string; targetOrgId: string | null;
   scopeOrgIds: string[]; createdAt: string; workItems: PlannedWorkItem[];
-  runId: string; sourceDraftId: string; createCommandId: string; revision: number;
+  runId: string | null; source?: "brief"; repository?: string; sourceDraftId: string; createCommandId: string; revision: number;
 };
+/** Compatibility name for existing assessment APIs. Both paths share one saved project record. */
+export type ImprovementProject = SavedProject;
 export type ProjectDraftFields = ProjectIntent & { name: string; goal: string; targetOrgId: string; findingIds: string[] };
 export type ProjectDraft = ProjectDraftFields & { id: string; runId: string; revision: number };
 export type DraftEdit = { field: "name" | "goal" | "targetOrgId" | "projectType" | "context"; value: string } | { field: "finding"; id: string; included: boolean };

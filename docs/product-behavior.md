@@ -427,12 +427,17 @@ context captures audience, success criteria, constraints, and existing systems
 (up to 6,000 characters). These are saved planning choices, not provisioned
 frameworks or repositories.
 
-General setup saves a brief, including an optional repository URL. Sam can also
-start from assessment findings, where type and context remain attached to the
-created project alongside its evidence and work items. Earlier drafts still
+General setup saves a brief, including an optional repository URL. **Create project**
+creates a persistent Studio project, opens its overview, and reveals it in the
+sidebar for any profile. The project retains its type, goal, context, repository
+reference, and optional org. It has its own conversation and can be reopened
+after reload. The acknowledged source brief resets atomically for the next
+project; repeated creation requests for the same source revision return the same
+project. A delayed acknowledgement never overrides newer navigation. Sam can also
+start from assessment findings, retaining evidence and work items. Earlier drafts still
 open with Standard as the default. The real agent receives saved planning
 briefs in the matching ALM context and the type/goals/context of a selected
-assessment project. Pending edits are not treated as acknowledged context;
+saved project. Pending edits are not treated as acknowledged context;
 selecting a template does not itself submit a model request.
 
 ## Saved application data and pending edits

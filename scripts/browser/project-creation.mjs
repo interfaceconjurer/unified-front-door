@@ -39,7 +39,7 @@ try {
     && response.url().includes('/api/application')
     && response.request().postDataJSON().command.kind === 'canvas.save'
     && Object.values(response.request().postDataJSON().command.fields).includes('https://github.com/example/account-experience'));
-  assert.equal(await general.page.getByRole('button', { name: 'Create project', exact: true }).count(), 0);
+  await general.page.getByRole('button', { name: 'Create project', exact: true }).waitFor();
   await general.page.getByRole('link', { name: 'Global home', exact: true }).click();
   await general.page.waitForURL(url => url.pathname === '/');
   await general.page.goto(projectCanvas('jw'));

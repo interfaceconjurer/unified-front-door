@@ -156,7 +156,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const target: WorkspaceTarget = { projectId, worktreeId: worktreeId ?? stored.worktreeByProject[projectId] ?? (project ? primaryWorktree(project)?.id ?? null : null), orgId: stored.orgByProject[projectId] ?? project?.defaultOrgId ?? null };
     const previous = selection.destinationFor(owner, projectId, target.worktreeId);
     if (previous && (surface === undefined || previous.surface === surface)) { controller.navigate(previous); return; }
-    if (surface === undefined && profile?.onboarding && project) { openImprovementProject({ id: project.id, name: project.name, targetOrgId: project.defaultOrgId }); return; }
+    if (surface === undefined && project && applicationClient.workspace?.getSnapshot().assessment.projects.some(saved => saved.id === project.id)) { openImprovementProject({ id: project.id, name: project.name, targetOrgId: project.defaultOrgId }); return; }
     const conversation = applicationClient.agent?.getSnapshot().data.conversations.find(saved => saved.threadKey === sessionKey(projectId, target.worktreeId))?.conversation;
     const lastWork = RETURNING_WORK.filter(work => work.projectId === projectId && work.worktreeId === target.worktreeId)
       .sort((a, b) => b.updated.localeCompare(a.updated))[0];

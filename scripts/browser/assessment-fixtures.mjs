@@ -7,6 +7,7 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
   const modules = testModules();
   const { captureFindings } = modules.load('lib/assessment/model');
   const { ASSESSMENT_FINDINGS, ASSESSMENT_ORGS } = modules.load('lib/onboarding/assessment');
+  const { projectFromBrief, briefSourceId } = modules.load('lib/projects/from-brief');
   const { applyAssessmentCommand } = modules.load('lib/application/assessment-commands');
   const { updateConversation } = modules.load('lib/chat/conversation');
   const { captureToday } = modules.load('lib/chat/today-snapshot');
@@ -55,6 +56,16 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
     if (command.kind.startsWith('canvas.')) return route.fallback();
     commands.push(command);
     await beforeCommand?.(command);
+    if (command.kind === 'project.createFromBrief') {
+      let project = state.snapshot.assessment.projects.find(project => project.sourceDraftId === briefSourceId(command.sourceId, command.sourceRevision));
+      if (!project) {
+        const source = state.snapshot.canvases.find(canvas => canvas.id === command.sourceId);
+        project = projectFromBrief(source, command.sourceRevision, profile.name, command.commandId, new Date().toISOString(), 'project-' + randomUUID());
+        state.snapshot.assessment.projects.push(project); state.snapshot.assessmentRevision++;
+        source.fields = {}; source.revision++;
+      }
+      return route.fulfill({ json: { result: { revision: state.snapshot.assessmentRevision, project } } });
+    }
     const saved = applyAssessmentCommand(state.snapshot.assessment, command, { id: randomUUID, now: new Date().toISOString(), owner: profile.name });
     state.snapshot.assessment = saved; state.snapshot.assessmentRevision++;
     if (command.kind.startsWith('assessment.')) {

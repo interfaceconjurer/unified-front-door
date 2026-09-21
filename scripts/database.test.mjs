@@ -268,3 +268,35 @@ test("snapshot reads recover a concurrent session change and enforce its fresh g
     }
   }
 });
+
+test('create from a saved brief is atomic, owned, idempotent, reopenable, and reusable for another project', async () => {
+  const s = await scope('jw'), outsider = await scope('kf');
+  const brief = { kind: 'capability', title: 'Start a project', params: { scope: 'unbound', surface: 'alm', capability: 'project' } };
+  const sourceId = canvasId(brief.kind, brief.params);
+  const fields = { name: 'Service app', goal: 'Reduce handoffs', projectType: 'react', context: 'Use existing sign-in', repository: 'https://github.com/example/service-app' };
+  await run(s, command('canvas.save', 0, { surface: 'alm', canvas: brief, target, fields }));
+  const create = command('project.createFromBrief', 0, { sourceId, sourceRevision: 1 });
+  await assert.rejects(run(outsider, create), error => error.code === 'invalid');
+  await assert.rejects(run(s, { ...create, commandId: randomUUID(), sourceRevision: 2 }), error => error.code === 'conflict');
+  assert.equal((await read(s)).assessment.projects.length, 0);
+  const [a,b] = await Promise.all([run(s, create), run(s, { ...create, commandId: randomUUID() })]);
+  assert.equal(a.project.id, b.project.id); assert.deepEqual(await run(s, create), a);
+  let snapshot = await read(s);
+  assert.equal(snapshot.assessment.projects.length, 1); assert.equal(snapshot.assessment.runs.length, 0);
+  assert.equal(a.project.runId, null); assert.equal(a.project.context, fields.context); assert.equal(a.project.targetOrgId, null);
+  assert.deepEqual(snapshot.canvases[0].fields, {}); assert.equal(snapshot.canvases[0].revision, 2);
+  const entered = await transaction(c => executeAgentCommand(c, s.token, s.session.generation, { kind: 'visit', requestId: randomUUID(), context: { target: { ...target, projectId: a.project.id }, surface: 'home' } }));
+  assert(entered.conversationId, 'The project can open its own acknowledged conversation');
+  const { captureAgentContext } = modules.load('lib/server/agent-context');
+  const captured = await transaction(async c => captureAgentContext(c, await requireSession(c, s.token, s.session.generation), { target: { ...target, projectId: a.project.id }, surface: 'alm' }));
+  assert.equal(captured.context.improvement.projectType, 'react');
+  await run(s, command('canvas.save', 2, { surface: 'alm', canvas: brief, target, fields: { ...fields, name: 'Second app' } }));
+  snapshot = await read(s);
+  const second = await run(s, command('project.createFromBrief', snapshot.assessmentRevision, { sourceId, sourceRevision: 3 }));
+  assert.notEqual(second.project.id, a.project.id);
+  assert.equal((await read(s)).assessment.projects.length, 2);
+  // Empty briefs reject without consuming the reset draft or inserting a project.
+  snapshot = await read(s);
+  await assert.rejects(run(s, command('project.createFromBrief', snapshot.assessmentRevision, { sourceId, sourceRevision: 4 })), error => error.code === 'invalid');
+  assert.equal((await read(s)).assessment.projects.length, 2);
+});

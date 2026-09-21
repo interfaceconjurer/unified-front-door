@@ -103,7 +103,7 @@ export type Project = {
   worktrees: readonly Worktree[];
   /** The org this project targets by default; the active target can be switched
    *  to any org in the global registry. */
-  defaultOrgId: string;
+  defaultOrgId: string | null;
   facets: ProjectFacets;
   /** One session per worktree — nested on the project (like `worktrees`) rather
    *  than a flat global list, since worktree ids are only unique within a
