@@ -8,6 +8,7 @@ import { ORGS, PROJECTS } from "../workspace/fixtures";
 import { resolveWorkspace } from "../workspace/context";
 import { readWorkspace } from "./repository";
 import type { OwnedSession } from "./session";
+import { projectBriefForContext } from "../projects/brief-context";
 
 /** Only authenticated server records/fixtures contribute execution context. */
 export async function captureAgentContext(client: PoolClient, session: OwnedSession, input: AgentContext) {
@@ -26,6 +27,7 @@ export async function captureAgentContext(client: PoolClient, session: OwnedSess
     projectName: project?.name ?? "No project selected", branch: worktree?.branch ?? (project ? "Planning" : "No project selected"),
     worktreeLabel: (project?.worktrees.length ?? 0) > 1 ? worktree?.label ?? null : null,
     orgLabel: org?.label ?? null, hasProjects: projects.length > 0, improvement,
+    projectBrief: projectBriefForContext(workspace, input.target, input.surface),
     ...(assessmentRun ? { assessmentNavigation: { runId: assessmentRun.id,
       findings: assessmentRun.findings.filter(finding => improvement ? improvement.workItems.some(item => item.findingId === finding.id) : !input.target.orgId || finding.orgId === input.target.orgId)
         .slice(0, 32).map(finding => ({ id: finding.id, title: `${finding.title} · ${finding.orgLabel}` })) } } : {}),

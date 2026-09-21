@@ -2,6 +2,7 @@ import { exact, invalid, record, text } from "../application/contracts";
 import type { DemoProfile } from "../demo-profiles";
 import type { Conversation } from "../chat/conversation";
 import type { ImprovementProject } from "../projects/model";
+import type { ProjectBriefContext } from "../projects/brief-context";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import type { FindingSnapshot } from "../assessment/model";
@@ -15,6 +16,7 @@ export type CapturedContext = AgentContext & {
   worktreeLabel: string | null; orgLabel: string | null; hasProjects: boolean;
   assessmentNavigation?: { runId: string; findings: { id: string; title: string }[] };
   improvement: ImprovementProject | null; greeting: string | null;
+  projectBrief?: ProjectBriefContext;
 };
 export type RunInput = { kind: "chat"; text: string; context: CapturedContext; destination: SurfaceId | null }
   | { kind: "assessment"; assessmentRunId: string; orgIds: string[]; context: CapturedContext };

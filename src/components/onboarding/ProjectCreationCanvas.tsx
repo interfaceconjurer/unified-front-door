@@ -14,6 +14,7 @@ import { projectDraftView } from "@/lib/projects/creation";
 import { ASSESSMENT_ORGS } from "@/lib/onboarding/assessment";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { useAssessment } from "./use-assessment";
+import { ProjectIntentFields } from "./ProjectIntentFields";
 import styles from "./onboarding.module.css";
 
 export function ProjectCreationCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
@@ -40,14 +41,16 @@ function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) 
       if (project && current()) openImprovementProject(project);
     } finally { inFlight.current = false; setCreating(false); }
   }
-  if (!draft) return <section className={`${styles.projectCanvas} ${styles.review}`} aria-label="Project creation">
-    <h1>Start a project</h1><p>Choose opportunities from your org assessment to create a saved project with evidence and planned work items.</p>
+  if (!draft) return <>
+    <CapabilityDraftCanvas surfaceId="alm" capability={capabilityForCanvas("alm", "project")!} spec={spec} />
+    <section className={`${styles.projectCanvas} ${styles.review}`} aria-label="Project creation from assessment">
+    <h2>Start from your org assessment</h2><p>Choose opportunities from your org assessment to create a saved project with evidence and planned work items.</p>
     <PersistenceStatus store={store} onlyProblems label="Project draft" />
     <div className={styles.actions}>
       <button type="button" className={styles.primary} onClick={navigateGlobalHome}>Choose opportunities</button>
       <button type="button" className={styles.secondary} onClick={() => openCanvas("govern", assessmentCanvas(spec.params, state.currentRunId))}>Open org assessment</button>
     </div>
-  </section>;
+  </section></>;
   return <ProjectReview draft={draft} findings={findings} owner={profile?.name ?? "Sam Patel"}
     earlier={draft.runId !== state.currentRunId} sourceAvailable={sourceAvailable} creating={creating || queuedCreate} busy={creating || queuedCreate || persistence !== "saved"}
     persistence={<PersistenceStatus store={store} label="Project draft" />}
@@ -73,7 +76,7 @@ function ProjectReview({ draft, findings, owner, earlier, sourceAvailable, creat
     <form onSubmit={event => { event.preventDefault(); if (!busy && sourceAvailable && selected.length && targetAvailable) onCreate(); }}>
       <fieldset className={styles.briefingFields} disabled={creating} aria-busy={creating}>
       <label className={styles.field} htmlFor={`${id}-name`}>Project name<input id={`${id}-name`} required maxLength={100} value={draft.name} onChange={event => onChange({ field: "name", value: event.target.value })} /></label>
-      <label className={styles.field}>What should this project achieve?<textarea required rows={3} maxLength={1500} value={draft.goal} onChange={event => onChange({ field: "goal", value: event.target.value })} /></label>
+      <ProjectIntentFields value={draft} goalLimit={1500} onChange={(field, value) => onChange({ field, value })} />
       <div className={styles.formRow}><label className={styles.field}>Start work in<select value={draft.targetOrgId} onChange={event => onChange({ field: "targetOrgId", value: event.target.value })}>{!targetAvailable && <option value={draft.targetOrgId}>{draft.targetOrgId} · unavailable</option>}{ASSESSMENT_ORGS.filter(org => org.kind === "sandbox" && org.connection === "connected").map(org => <option key={org.id} value={org.id}>{org.label}</option>)}</select></label><div className={styles.field}>Project owner<strong className={styles.owner}>{owner}</strong></div></div>
       <h3 className={styles.workHeading}>Planned work items <span>{selected.length}</span></h3><p className={styles.quiet}>Each item retains its captured evidence, implementation steps, and validation criteria.</p>
       <div className={styles.reviewItems}>{findings.map(finding => <div className={styles.reviewItem} key={finding.id}><label><input type="checkbox" checked={draft.findingIds.includes(finding.id)} onChange={event => onChange({ field: "finding", id: finding.id, included: event.target.checked })} /><span><strong>{finding.title}</strong><small>{finding.priority} priority · {finding.effort} · {finding.orgLabel}</small></span></label>{draft.findingIds.includes(finding.id) && <details className={styles.evidence}><summary>Review work item plan</summary><ul>{finding.evidence.map((evidence, index) => <li key={index}>{evidence}</li>)}</ul><ol>{finding.steps.map((step, index) => <li key={index}>{step}</li>)}</ol><p><strong>Validation:</strong> {finding.validation}</p></details>}</div>)}</div>

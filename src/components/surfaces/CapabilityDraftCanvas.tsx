@@ -3,6 +3,7 @@
 import { CANVAS_FIELD_CHARACTER_LIMIT } from "@/lib/surface-canvas/model";
 
 import { PersistenceStatus } from "@/components/persistence/PersistenceStatus";
+import { ProjectIntentFields } from "@/components/onboarding/ProjectIntentFields";
 import { useId, useState, useSyncExternalStore } from "react";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useWorkspace } from "@/components/workspace/workspace-context";
@@ -147,11 +148,15 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
               <h2>{toolkitSection ? `${toolkitSection.label} draft` : "Your starting point"}</h2>
               <PersistenceStatus store={persistence} hasContent={hasDraft} />
             </div>
-            <DraftFields
+            {capability.id === "project" ? <>
+              <DraftFields fields={capability.fields.filter(field => field.id === "name")} draft={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+              <ProjectIntentFields value={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+              <DraftFields fields={capability.fields.filter(field => field.id === "repository")} draft={draft} onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })} />
+            </> : <DraftFields
               fields={toolkitSection?.fields ?? capability.fields}
               draft={draft}
               onChange={(id, value) => updateDraft(surfaceId, spec.id, { [id]: value })}
-            />
+            />}
           </section>
           <p className={styles.note}>{capability.id === "project" ? "This planning brief does not create a project, repository, or org. Your edits are saved as a draft." : "This is a configuration draft. No files, commands, or connections are created."}</p>
         </>

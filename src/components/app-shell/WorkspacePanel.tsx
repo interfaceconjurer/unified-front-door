@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
 import {
   BoxIcon,
   GitBranchIcon,
   LayersIcon,
   PlusIcon,
-  SparklesIcon,
 } from "@/components/icons";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
@@ -104,8 +102,7 @@ function AppRow({
  * Projects filter above.
  */
 export function WorkspacePanel({ onClose }: { onClose: () => void }) {
-  const { navigateSurface, selectProject, openProjectCreation } = useNavigation();
-  const pathname = usePathname();
+  const { selectProject, openProjectCreation } = useNavigation();
   const { profile } = useDemoProfile();
   const { openCanvas } = useSurfaceCanvases("alm");
   const { projects, activeProject, activeWorktree, hasProjects,
@@ -114,6 +111,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const activeProjectRow = useRef<HTMLButtonElement>(null);
   const projectsFilter = useRef<HTMLButtonElement>(null);
   const projectsHeading = useRef<HTMLHeadingElement>(null);
+  const projectsList = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!projectPanelRequest) return;
@@ -121,13 +119,14 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     // later context changes must not steal focus from the user's next action.
     const frame = requestAnimationFrame(() => {
       const row = activeProjectRow.current ?? projectsFilter.current ?? projectsHeading.current;
-      const section = row?.closest("section");
-      if (!row || !section || row.closest("[inert]")) return;
+      const list = projectsList.current;
+      if (!row || !list || row.closest("[inert]")) return;
       row.focus({ preventScroll: true });
       // Reveal vertically inside Projects without scrolling the whole shell.
-      const bounds = row.getBoundingClientRect(), viewport = section.getBoundingClientRect();
-      if (bounds.top < viewport.top) section.scrollTop += bounds.top - viewport.top;
-      else if (bounds.bottom > viewport.bottom) section.scrollTop += bounds.bottom - viewport.bottom;
+      if (!list.contains(row)) return;
+      const bounds = row.getBoundingClientRect(), viewport = list.getBoundingClientRect();
+      if (bounds.top < viewport.top) list.scrollTop += bounds.top - viewport.top;
+      else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
     });
     return () => cancelAnimationFrame(frame);
   }, [projectPanelRequest]);
@@ -141,44 +140,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     openProjectCreation();
   }
 
-  function startConversation() {
-    onClose();
-    if (pathname === "/") {
-      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
-    } else {
-      navigateSurface(null);
-      requestAnimationFrame(() => document.getElementById("agent-composer")?.focus());
-    }
-  }
-
   if (!profile) return null;
-
-  if (!hasProjects) {
-    return (
-      <aside className={styles.panel} aria-label="Workspace">
-
-        <section className={styles.section} aria-label="Projects">
-          <h2 ref={projectsHeading} tabIndex={-1} className={styles.heading}>Projects</h2>
-          <div className={styles.guidedEmpty}>
-            <button type="button" className={styles.emptyAction} onClick={startProject}>
-              <PlusIcon width={15} height={15} aria-hidden="true" />
-              Start your first project
-            </button>
-          </div>
-        </section>
-
-        <section className={styles.section} aria-label="Sessions">
-          <h2 className={styles.heading}>Sessions</h2>
-          <div className={styles.guidedEmpty}>
-            <button type="button" className={styles.emptyAction} onClick={startConversation}>
-              <SparklesIcon width={15} height={15} aria-hidden="true" />
-              Start a conversation
-            </button>
-          </div>
-        </section>
-      </aside>
-    );
-  }
 
   // Deployed app operations live in ALM.
   function openApp(project: Project, app: DeployedApp) {
@@ -197,7 +159,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
 
         {/* Segmented filter — governs this section only, the Sessions section
             below is untouched. Overview project links request Projects here. */}
-        <div className={styles.filterBar} role="group" aria-label="Filter projects panel">
+        {hasProjects && <div className={styles.filterBar} role="group" aria-label="Filter projects panel">
           {(Object.keys(FILTER_LABEL) as WorkspacePanelFilter[]).map((mode) => (
             <button
               key={mode}
@@ -210,9 +172,10 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
               {FILTER_LABEL[mode]}
             </button>
           ))}
-        </div>
+        </div>}
 
-        {filter === "apps" ? (
+        <div ref={projectsList} className={styles.projectList}>
+        {!hasProjects ? <p className={styles.empty}>No projects yet.</p> : filter === "apps" ? (
           // The flat cross-project view: "show me everything running,"
           // ungrouped — the point is a single scannable list, not a tree.
           apps.length === 0 ? (
@@ -319,12 +282,19 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
             })}
           </ul>
         )}
+        </div>
+        <div className={styles.projectFooter}>
+          <button type="button" className={styles.startProject} onClick={startProject}>
+            <PlusIcon width={16} height={16} aria-hidden="true" />
+            Start project
+          </button>
+        </div>
       </section>
 
       <section className={styles.section} aria-label="Sessions">
         <h2 className={styles.heading}>Sessions</h2>
         {sessions.length === 0 ? (
-          <p className={styles.empty}>No agent sessions yet.</p>
+          <p className={styles.empty}>Your chats will appear here.</p>
         ) : (
           <ul className={styles.sessionList}>
             {sessions.map(({ project, worktree, session }) => {

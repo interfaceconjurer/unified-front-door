@@ -1,4 +1,5 @@
 import type { SurfaceId } from "@/lib/workspace/model";
+import { PROJECT_TEMPLATES } from "../projects/templates";
 
 export type CapabilityField = {
   id: string;
@@ -120,7 +121,10 @@ const CAPABILITIES: Record<SurfaceId, readonly SurfaceCapability[]> = {
     {
       id: "project", label: "Start a project",
       description: "Define a project brief, its goals, and the work to plan next.",
-      fields: [{ ...NAME_FIELD, label: "Project name" }, { ...GOAL_FIELD, label: "What should this project achieve?" },
+      fields: [{ ...NAME_FIELD, label: "Project name" },
+        { id: "projectType", label: "Project type", type: "select", options: PROJECT_TEMPLATES.map(template => template.id) },
+        { ...GOAL_FIELD, label: "What should this project achieve?" },
+        { id: "context", label: "Context for the agent (optional)", type: "textarea" },
         { id: "repository", label: "Repository URL (optional)", placeholder: "https://github.com/your-team/your-project" }],
     },
     {

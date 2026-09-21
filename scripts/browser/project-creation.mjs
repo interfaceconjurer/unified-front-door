@@ -27,6 +27,13 @@ try {
   assert.deepEqual(destination(general.page).target, target);
   await general.page.getByLabel('Project name', { exact: true }).fill('Account experience plan');
   await general.page.getByLabel('What should this project achieve?', { exact: true }).fill('Help account managers quickly find customers.');
+  await general.page.getByRole('radio', { name: /^React app/ }).check();
+  await general.page.getByText(/Describe your users, their main journey/).waitFor();
+  await general.page.getByLabel('Context for the agent (optional)', { exact: true }).fill('Account managers; use existing sign-in. Success means fewer handoffs.');
+  await general.page.getByRole('radio', { name: /^Agent / }).check();
+  await general.page.getByText(/which actions require a person/).waitFor();
+  assert.equal(await general.page.getByLabel('What should this project achieve?', { exact: true }).inputValue(), 'Help account managers quickly find customers.');
+  await general.page.getByRole('radio', { name: /^React app/ }).check();
   await general.page.getByLabel('Repository URL (optional)', { exact: true }).fill('https://github.com/example/account-experience');
   await general.page.waitForResponse(response => response.request().method() === 'POST'
     && response.url().includes('/api/application')
@@ -39,6 +46,9 @@ try {
   await general.page.waitForFunction(() => [...document.querySelectorAll('input')].some(input => input.value === 'Account experience plan'));
   await general.page.reload();
   assert.equal(await general.page.getByLabel('Project name', { exact: true }).inputValue(), 'Account experience plan');
+  assert(await general.page.getByRole('radio', { name: /^React app/ }).isChecked());
+  assert.equal(await general.page.getByLabel('Context for the agent (optional)', { exact: true }).inputValue(), 'Account managers; use existing sign-in. Success means fewer handoffs.');
+  await general.page.screenshot({ path: outputPath(`${label}-project-setup.png`) });
   assert.equal(general.state.snapshot.assessment.projects.length, 0);
   assert(general.stats.commands.every(command => command.kind === 'canvas.save'));
   out.checks.push('General starter opens scoped ALM project planning; acknowledged fields survive Home and reload without fabricating a project');
@@ -53,6 +63,8 @@ try {
   assert.deepEqual(destination(assessment.page).target, target);
   const draftId = assessment.state.snapshot.assessment.draft.id;
   await assessment.page.getByLabel('Project name', { exact: true }).fill('Captured opportunity plan');
+  await assessment.page.getByRole('radio', { name: /^LWC & Apex/ }).check();
+  await assessment.page.getByLabel('Context for the agent (optional)', { exact: true }).fill('Improve lead assignment for service teams; validate in UAT.');
   await assessment.page.getByRole('link', { name: 'Global home', exact: true }).click();
   await assessment.page.waitForURL(url => url.pathname === '/');
   await assessment.page.getByRole('button', { name: 'Continue project draft', exact: true }).click();
@@ -70,6 +82,8 @@ try {
   const created = assessment.state.snapshot.assessment.projects[0];
   assert.equal(created.runId, oldRun.id);
   assert.equal(created.name, 'Captured opportunity plan');
+  assert.equal(created.projectType, 'lwc-apex');
+  assert.equal(created.context, 'Improve lead assignment for service teams; validate in UAT.');
   assert.equal(assessment.state.snapshot.assessment.draft, null);
   assert.equal(assessment.commands.filter(command => command.kind === 'project.create').length, 1);
   assert.equal(assessment.commands.find(command => command.kind === 'project.create').commandId, `create:${draftId}`);

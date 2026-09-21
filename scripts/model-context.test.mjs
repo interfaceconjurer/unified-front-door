@@ -76,3 +76,15 @@ test("v3 offers scoped navigation only for the current explicit request; old his
   assert.equal(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-explainer-v1" } }).prompt.navigation, undefined);
   assert.ok(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-navigator-v2" } }).prompt.navigation.length);
 });
+
+test('model requests include saved project intent without treating the brief as a created project', () => {
+  const brief = { id: 'brief', revision: 2, source: 'planning-brief', name: 'Service app', projectType: 'react', goal: 'Reduce handoffs', context: 'Use existing sign-in' };
+  const execution = modelExecution({ ...context, projectBrief: brief }, assessment, 'Help plan the first step', [], settings);
+  brief.context = 'Changed later';
+  assert.equal(evidence(execution).projectBrief.context, 'Use existing sign-in');
+  assert.equal(evidence(execution).projectBrief.projectType, 'react');
+  assert.equal(evidence(execution).project, null);
+  const improvement = { id: 'p', revision: 1, name: 'Agent plan', runId: 'assessment', targetOrgId: 'uat', projectType: 'agent', goal: 'Triage service requests', context: 'Require approval before sending a reply', workItems: [] };
+  const created = evidence(modelExecution({ ...context, improvement }, assessment, 'What should we do next?', [], settings));
+  assert.equal(created.project.projectType, 'agent'); assert.equal(created.project.context, improvement.context);
+});

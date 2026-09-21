@@ -18,7 +18,7 @@ const ctx = { id: () => "test-id", now: "2026-09-19T12:02:00Z", owner: "Sam Pate
 
 test("the shared project capability is a scoped planning brief with explicit project fields", () => {
   const capability = capabilitiesForSurface("alm").find(capability => capability.id === "project");
-  assert.ok(capability); assert.deepEqual(capability.fields.map(field => field.id), ["name", "goal", "repository"]);
+  assert.ok(capability); assert.deepEqual(capability.fields.map(field => field.id), ["name", "projectType", "goal", "context", "repository"]);
   for (const scope of [{ scope: "unbound", orgId: "uat" }, { scope: "project", projectId: "trailblazer-crm", worktreeId: "lead-routing", orgId: "uat" }]) {
     const input = projectCreationCanvas(scope);
     assert.equal(input.params.capability, "project"); assert.equal(input.params.surface, "alm");
@@ -73,4 +73,42 @@ test("beginDraft returns only the acknowledged server draft, never a speculative
     release(); const project = await creation;
     assert.equal(project.sourceDraftId, acknowledged.id); assert.equal(adapter.isCreatingProject(acknowledged.id), false);
   } finally { applicationClient.workspace = null; remote.deactivate(); }
+});
+
+test("project type and context survive edits, persisted decoding and project creation; old drafts still load", () => {
+  const { parseCommand } = modules.load('lib/application/contracts');
+  const { parseDraft, parseProject } = modules.load('lib/projects/codec');
+  let state = applyAssessmentCommand(completed, begin, ctx);
+  assert.equal(parseDraft(state.draft, source.id, false).projectType, undefined);
+  for (const [field, value] of [['projectType', 'mulesoft'], ['context', 'Connect CRM and billing; preserve existing customer IDs.']]) {
+    const command = parseCommand({ kind: 'draft.edit', commandId: field, expectedRevision: 1, draftId: state.draft.id, edit: { field, value } });
+    state = applyAssessmentCommand(state, command, ctx);
+  }
+  state.draft = parseDraft(JSON.parse(JSON.stringify(state.draft)), source.id, false);
+  const result = applyAssessmentCommand(state, { kind: 'project.create', draftId: state.draft.id, draftRevision: state.draft.revision, commandId: 'create-intent', expectedRevision: 3 }, ctx);
+  const project = parseProject(JSON.parse(JSON.stringify(result.projects[0])), false);
+  assert.equal(project.projectType, 'mulesoft'); assert.equal(project.context, state.draft.context);
+  assert.equal(project.goal, begin.fields.goal); assert.equal(project.workItems[0].findingId, source.findings[0].id);
+  for (const edit of [{ field: 'projectType', value: 'invented-type' }, { field: 'context', value: 'x'.repeat(6001) }]) {
+    assert.throws(() => parseCommand({ kind: 'draft.edit', commandId: 'bad', expectedRevision: 1, draftId: state.draft.id, edit }));
+    assert.throws(() => parseCommand({ ...begin, fields: { ...begin.fields, [edit.field]: edit.value } }));
+  }
+});
+
+test("agent planning briefs respect org, project, worktree and surface boundaries", () => {
+  const { projectBriefForContext } = modules.load('lib/projects/brief-context');
+  const target = { projectId: null, worktreeId: null, orgId: 'uat' };
+  const fields = { name: 'Service app', projectType: 'react', goal: 'Reduce manual handoffs', context: 'Use existing sign-in' };
+  const saved = { id: 'brief', revision: 3, surface: 'alm', canvas: projectCreationCanvas({ scope: 'unbound', orgId: 'uat' }), target, fields };
+  const workspace = { assessment: { draft: null }, canvases: [saved] };
+  assert.equal(projectBriefForContext(workspace, target, 'alm').projectType, 'react');
+  for (const other of [{ ...target, orgId: 'sit' }, { ...target, projectId: 'trailblazer-crm', worktreeId: 'main' }]) {
+    assert.equal(projectBriefForContext(workspace, other, 'alm'), undefined);
+  }
+  assert.equal(projectBriefForContext(workspace, target, 'build'), undefined);
+  const projectTarget = { ...target, projectId: 'trailblazer-crm', worktreeId: 'main' };
+  const scoped = { ...workspace, canvases: [{ ...saved, target: projectTarget }] };
+  assert.equal(projectBriefForContext(scoped, { ...projectTarget, worktreeId: 'lead-routing' }, 'alm'), undefined);
+  const draft = { ...begin.fields, id: 'assessment-draft', revision: 2, projectType: 'agent' };
+  assert.equal(projectBriefForContext({ ...workspace, assessment: { draft } }, { ...target, orgId: 'sit' }, 'alm').source, 'assessment-draft');
 });
