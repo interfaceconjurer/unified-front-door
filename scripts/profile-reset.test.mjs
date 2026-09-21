@@ -156,3 +156,28 @@ test("failed session changes restore usable stores once a later reconnect succee
   assert.equal(client.getSnapshot().session.profileId, "am");
   assert.equal(client.getSnapshot().message, "");
 });
+
+test("sign-in chooses an org before workspace entry and remembers each profile's own selection", async () => {
+  const h = harness(), client = await h.connect(), fetch = globalThis.fetch;
+  const selections = [];
+  globalThis.fetch = async (path, options = {}) => {
+    if (path === '/api/session' && options.method === 'POST') {
+      const command = JSON.parse(options.body); selections.push(command);
+      h.state.session = { ...h.state.session, profileId: command.profileId, generation: randomUUID(), workspaceEpoch: `epoch-${command.profileId}` };
+      return Response.json({ session: h.state.session });
+    }
+    return fetch(path, options);
+  };
+  assert.equal(await client.change('select', 'kf', 'scratch-hotfix'), false);
+  assert.equal(await client.change('select', 'sp', 'acme-devhub'), false);
+  assert.equal(selections.length, 0, 'Reject unavailable orgs before changing the signed-in session');
+  assert.equal(await client.change('select', 'kf', 'sit'), true);
+  assert.deepEqual(client.selection.getSnapshot().target, { projectId: null, worktreeId: null, orgId: 'sit' });
+  assert.equal(await client.change('select', 'am'), true);
+  assert.equal(client.selection.getSnapshot().target.orgId, 'uat');
+  assert.equal(await client.change('select', 'kf'), true);
+  assert.equal(client.selection.getSnapshot().target.orgId, 'sit', 'Switching profiles retains their own connected org');
+  client.selection.setTarget({ projectId: null, worktreeId: null, orgId: 'scratch-hotfix' });
+  assert.equal(await client.change('select', 'kf'), true);
+  assert.equal(client.selection.getSnapshot().target.orgId, 'uat', 'Expired remembered orgs fall back to a connected starting org');
+});

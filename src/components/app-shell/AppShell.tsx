@@ -11,6 +11,9 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { normalizeDestinationHref } from "@/lib/navigation/model";
+import { signInDestination } from "@/lib/navigation/sign-in";
+import { applicationClient } from "@/lib/application/client";
+import { connectedOrgForProfile } from "@/lib/workspace/orgs";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -37,11 +40,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       const destination = normalizeDestinationHref(`${window.location.pathname}${window.location.search}`);
       router.replace(destination ? `/login?returnTo=${encodeURIComponent(destination)}` : "/login");
     } else if (profile && pathname === "/login") {
-      router.replace(normalizeDestinationHref(new URLSearchParams(window.location.search).get("returnTo")) ?? "/");
+      const org = connectedOrgForProfile(profile.id, applicationClient.selection?.getSnapshot().target?.orgId);
+      if (org) router.replace(signInDestination(profile.id, org.id, new URLSearchParams(window.location.search).get("returnTo")));
     }
   }, [pathname, profile, resolved, router]);
-  if (!resolved) return null;
   if (pathname === "/login") return children;
+  if (!resolved) return null;
   if (!profile) return null;
   return <Suspense fallback={null}><WorkspaceProvider key={sessionKey}><SurfaceCanvasProvider><NavigationProvider><ShellContent>{children}</ShellContent></NavigationProvider></SurfaceCanvasProvider></WorkspaceProvider></Suspense>;
 }

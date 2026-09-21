@@ -9,12 +9,37 @@ const { SurfaceCanvasStore } = modules.load("lib/surface-canvas/persistence");
 const { preferencesForWorkspace } = modules.load("lib/surface-canvas/workspace-preferences");
 const { WorkspaceSelectionStore } = modules.load("lib/workspace/persistence");
 const { PROJECTS, ORGS } = modules.load("lib/workspace/fixtures");
+const { signInDestination } = modules.load("lib/navigation/sign-in");
+const { connectedOrgForProfile, orgsForProfile } = modules.load("lib/workspace/orgs");
 afterEach(() => { delete global.window; });
 function browser(values = {}) { const data = new Map(Object.entries(values)); global.window = { localStorage: { getItem: (key) => data.get(key) ?? null, setItem: (key, value) => data.set(key, value), removeItem: (key) => data.delete(key) }, addEventListener() {}, removeEventListener() {} }; return data; }
 const project = PROJECTS[0], worktree = project.worktrees[0];
 const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.defaultOrgId };
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
+
+test("sign-in preserves matching deep links without retargeting saved canvases to another org or profile", () => {
+  const target = { ...UNBOUND_TARGET, orgId: 'uat' };
+  const work = destination(capability({ scope: 'unbound', orgId: 'uat' }), target);
+  const href = destinationHref(work);
+  assert.equal(signInDestination('am', 'uat', href), href);
+  const elsewhere = readDestination(signInDestination('am', 'sit', href)).value;
+  assert.deepEqual(elsewhere.target, { ...UNBOUND_TARGET, orgId: 'sit' });
+  assert.equal(elsewhere.surface, null); assert.equal(elsewhere.canvas, undefined);
+  assert.equal(readDestination(signInDestination('kf', 'uat', href)).value.owner, 'kf');
+  const overview = { version: 1, owner: 'am', surface: 'build', target: UNBOUND_TARGET };
+  assert.deepEqual(readDestination(signInDestination('am', 'uat', destinationHref(overview))).value, { ...overview, target });
+  assert.equal(readDestination(signInDestination('am', 'uat', 'https://example.com')).value.surface, null);
+});
+
+test("every profile has a connected starting org; unavailable preferences never become selected connections", () => {
+  for (const id of ['sp', 'jw', 'am', 'kf']) {
+    assert.equal(connectedOrgForProfile(id).connection, 'connected');
+    assert.equal(connectedOrgForProfile(id, 'scratch-hotfix').connection, 'connected');
+    assert.equal(connectedOrgForProfile(id, 'sit').id, 'sit');
+  }
+  assert(!orgsForProfile('sp').some(org => org.id === 'acme-devhub'));
+});
 
 test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {
   browser(); const legacy = new SurfaceCanvasStore("legacy-tabs");

@@ -6,12 +6,13 @@ import { readDestination, resolveDestination, type DestinationDecision } from "@
 import { createContext, useContext, useMemo, useState, useSyncExternalStore } from "react";
 import { primaryWorktree, type AgentSession, type Org, type Project, type Worktree } from "@/lib/workspace/model";
 import { homeTarget, resolveWorkspace, UNBOUND_TARGET, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
-import { ORGS, PROJECTS } from "@/lib/workspace/fixtures";
+import { PROJECTS } from "@/lib/workspace/fixtures";
+import { orgsForProfile } from "@/lib/workspace/orgs";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
 import { getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
 import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
-import { ASSESSMENT_ORGS, workspaceProject } from "@/lib/onboarding/assessment";
+import { workspaceProject } from "@/lib/onboarding/assessment";
 
 export type WorkspacePanelFilter = "all" | "projects" | "apps";
 
@@ -42,9 +43,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const assessment = useAssessmentRunner();
   const pathname = usePathname(), search = useSearchParams();
   const route = `${pathname}?${search.toString()}`;
-  const dayZero = profile?.onboarding === "org-assessment";
   const projects = useMemo(() => [...(profile?.workspaceExperience === "established" ? PROJECTS : []), ...assessment.projects.map(workspaceProject)], [assessment.projects, profile?.workspaceExperience]);
-  const orgs = dayZero ? ASSESSMENT_ORGS : ORGS;
+  const orgs = orgsForProfile(profile?.id ?? "jw");
   const store = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   const decoded = readDestination(route);

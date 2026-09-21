@@ -55,6 +55,8 @@ try {
   await page.getByRole('status').filter({ hasText: 'Clear data completed for Karen Flores.' }).waitFor();
   assert.equal((await transaction(db => db.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf'", [namespace]))).rowCount, 0);
   await page.getByRole('button', { name: /Karen Flores New platform builder/ }).click();
+  await page.getByRole('radio', { name: /UAT Sandbox/ }).check();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
   if (await panel.getAttribute('data-open') !== 'true') await page.locator('#workspace-panel-toggle').click();
   assert.equal(await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).count(), 0);

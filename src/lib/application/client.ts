@@ -9,6 +9,7 @@ import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
 import { WorkspaceSelectionStore } from "../workspace/persistence";
 import { conversationKey, UNBOUND_TARGET, type WorkspaceTarget } from "../workspace/context";
+import { connectedOrgForProfile, orgsForProfile } from "../workspace/orgs";
 import type { SurfaceId } from "../workspace/model";
 import { ApplicationError, stableJson, text, type ApplicationSnapshot, type CommandResult, type ImportedSource, type ImportSummary, type LegacySource, type SessionView } from "./contracts";
 import { EMPTY_APPLICATION, RemoteWorkspaceStore } from "./remote-store";
@@ -77,7 +78,10 @@ class ApplicationClient {
         send: async command => (await api<{ result: AgentAcknowledgement }>("/api/agent", { generation: session.generation, command })).result,
       }, () => { if (!this.workspace?.hasPending()) void this.workspace?.load(); }, () => { void this.reconnect(); });
       const selectionKey = `ufd.workspace-preferences.v2.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`;
-      this.selection = new WorkspaceSelectionStore(selectionKey, session.profileId === "am" ? { activeProjectId: "trailblazer-crm", worktreeByProject: { "trailblazer-crm": "main" }, orgByProject: { "trailblazer-crm": "uat" }, panelOpen: null } : undefined);
+      this.selection = new WorkspaceSelectionStore(selectionKey, {
+        activeProjectId: null, worktreeByProject: {}, orgByProject: {}, panelOpen: null,
+        target: { ...UNBOUND_TARGET, orgId: connectedOrgForProfile(session.profileId)?.id ?? null },
+      });
       this.workspace.retryPersistence();
     }
     let legacy: LegacySource | null = null;
@@ -121,8 +125,9 @@ class ApplicationClient {
       if (same && this.workspace && !this.workspace.hasPending()) await this.workspace.load();
     } catch (error) { if (request === this.request) this.publish({ resolved: true, message: error instanceof Error ? error.message : "Database connection is unavailable." }); }
   };
-  change = async (action: "select" | "signout" | "reset", profileId?: DemoProfileId): Promise<boolean> => {
+  change = async (action: "select" | "signout" | "reset", profileId?: DemoProfileId, orgId?: string): Promise<boolean> => {
     if (this.resettingProfile || this.changing) return false;
+    if (action === "select" && orgId !== undefined && (!profileId || !orgsForProfile(profileId).some(org => org.id === orgId && org.connection === "connected"))) return false;
     if (!this.view.session) { await this.reconnect(); if (!this.view.session) return false; }
     if (this.resettingProfile || this.changing) return false;
     const request = ++this.request, current = this.view.session;
@@ -132,6 +137,10 @@ class ApplicationClient {
       const response = await api<{ session: SessionView }>("/api/session", { action, generation: current.generation, commandId: crypto.randomUUID(), ...(profileId ? { profileId } : {}) });
       if (request !== this.request) return false;
       this.adopt(response.session);
+      if (action === "select" && response.session.profileId === profileId && profileId) {
+        const org = connectedOrgForProfile(profileId, orgId ?? this.selection?.getSnapshot().target?.orgId);
+        if (org) this.selection?.setTarget({ ...UNBOUND_TARGET, orgId: org.id });
+      }
       try { localStorage.setItem("ufd.session.changed", crypto.randomUUID()); } catch { /* Focus/polling also reconcile session changes. */ }
       return true;
     } catch (error) {
