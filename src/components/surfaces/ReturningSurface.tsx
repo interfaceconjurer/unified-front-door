@@ -12,6 +12,7 @@ import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { useSurfaceCanvasActions } from "./surface-canvas-context";
 import { SurfaceLauncher } from "./SurfaceLauncher";
+import { BuildSetupAreas } from "./BuildSetupAreas";
 import styles from "./ReturningSurface.module.css";
 
 const COPY: Record<SurfaceId, { heading: string; description: string; workHeading: string }> = {
@@ -56,6 +57,8 @@ export function ReturningSurface({ surfaceId, children }: {
     </header>
 
     {children}
+
+    {surfaceId === "build" && <BuildSetupAreas />}
 
     <section aria-labelledby="surface-work-heading">
       <div className={styles.sectionHeading}><h2 id="surface-work-heading">{copy.workHeading}</h2>

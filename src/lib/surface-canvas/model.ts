@@ -1,6 +1,7 @@
 import type { WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { isResourceType, type ResourceIdentity } from "../org-resources/model";
+import { setupAreaForId } from "../org-resources/setup";
 export const OVERVIEW_CANVAS_ID = "overview";
 export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview"] as const;
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
@@ -80,8 +81,8 @@ export function canvasTarget(input: CanvasSpecInput, fallback: WorkspaceTarget):
     : { projectId: input.params.projectId, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId ?? null };
   return { projectId: input.params.projectId, worktreeId: input.kind === "work" ? input.params.worktreeId : null, orgId: fallback.orgId };
 }
-/** Global browsing includes all work; project views include the selected
- * worktree and project-wide resources, without discarding other saved tabs. */
+/** Permission to browse a canvas, independent of the workspace's open-tab set.
+ * Home may explicitly inspect project work; project views remain scoped. */
 export function canvasVisibleInWorkspace(canvas: CanvasSpec | CanvasSpecInput, workspace: WorkspaceTarget, captured?: WorkspaceTarget): boolean {
   if (!workspace.projectId || canvas.kind === "overview") return true;
   const target = captured ?? canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null });
@@ -91,4 +92,7 @@ export function canvasVisibleInWorkspace(canvas: CanvasSpec | CanvasSpecInput, w
 export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
 
 /** Evidence canvases persist tab identity, never a second editable copy of the evidence. */
-export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean { return canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"; }
+export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean {
+  return canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"
+    || (canvas.kind === "capability" && canvas.params.surface === "build" && !!setupAreaForId(canvas.params.capability));
+}

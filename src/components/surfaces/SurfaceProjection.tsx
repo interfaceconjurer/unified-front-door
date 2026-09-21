@@ -7,6 +7,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useAssessment } from "@/components/onboarding/use-assessment";
 import { SurfaceLauncher } from "./SurfaceLauncher";
 import { ReturningSurface } from "./ReturningSurface";
+import { BuildSetupAreas } from "./BuildSetupAreas";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
 const loadProjects = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectsOverview }));
 import styles from "./SurfaceProjection.module.css";
@@ -34,6 +35,7 @@ export function SurfaceProjection({ surfaceId, children }: {
           <p className={styles.lead}>{surface.workspaceDescription}</p>
         </div>
       </header>
+      {surfaceId === "build" && <BuildSetupAreas />}
       <SurfaceLauncher surfaceId={surfaceId} />
     </section>
   );

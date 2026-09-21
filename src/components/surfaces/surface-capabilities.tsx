@@ -9,6 +9,9 @@ export type { CapabilityField } from "@/lib/surface-canvas/capabilities";
 export type SurfaceCapability = CapabilityDefinition & { Icon: IconComponent };
 
 const icons: Record<string, IconComponent> = {
+  "object-manager": DatabaseIcon,
+  "access-permissions": ShieldIcon,
+  "org-settings": GridIcon,
   "sfdx-project": FolderIcon,
   "react-app": GridIcon,
   "apex": FileIcon,

@@ -1,6 +1,7 @@
 import type { SurfaceId } from "../workspace/surfaces";
 
 export const RESOURCE_TYPES = {
+  "org-feature": { label: "Org feature", plural: "Org features", group: "Settings", surface: "build" },
   "standard-object": { label: "Standard object", plural: "Standard objects", group: "Data", surface: "build" },
   "custom-object": { label: "Custom object", plural: "Custom objects", group: "Data", surface: "build" },
   "custom-field": { label: "Custom field", plural: "Custom fields", group: "Data", surface: "build" },

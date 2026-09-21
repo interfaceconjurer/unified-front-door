@@ -1,5 +1,6 @@
 import type { SurfaceId } from "@/lib/workspace/model";
 import { PROJECT_TEMPLATES } from "../projects/templates";
+import { SETUP_AREAS } from "../org-resources/setup";
 
 export type CapabilityField = {
   id: string;
@@ -14,7 +15,7 @@ export type SurfaceCapability = {
   label: string;
   description: string;
   fields: readonly CapabilityField[];
-  group?: "toolkit";
+  group?: "toolkit" | "setup";
 };
 
 const NAME_FIELD: CapabilityField = { id: "name", label: "Name", placeholder: "Give this draft a name" };
@@ -74,6 +75,7 @@ const CAPABILITIES: Record<SurfaceId, readonly SurfaceCapability[]> = {
     },
   ],
   build: [
+    ...SETUP_AREAS.map(area => ({ id: area.id, label: area.title, description: area.description, group: "setup" as const, fields: [] })),
     {
       id: "data-model", label: "Model your data",
       description: "Define objects, fields, and relationships for your application.",

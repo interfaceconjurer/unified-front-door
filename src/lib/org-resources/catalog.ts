@@ -14,6 +14,16 @@ function resource(resourceType: ResourceType, apiName: string, label: string, su
 }
 
 const CATALOG: readonly Template[] = [
+  resource("org-feature", "ExperienceCloud", "Experience Cloud", "Review the configuration for customer and partner experiences in this org.", {
+    status: "Not enabled", facts: facts(["Scope", "Org-wide"], ["Configuration", "Not started"]),
+    section: { title: "Configuration review", columns: ["Step", "What to review"], rows: [["Define the experience", "Audience, access, and the site you want to create"], ["Check availability", "Confirm availability and requirements in the connected org"], ["Review enablement", "Org-wide configuration needs an explicit review before changes are applied"]] },
+  }),
+  resource("org-feature", "EnhancedNotes", "Enhanced Notes", "Review the notes experience available to teams working with customer records.", {
+    status: "Enabled", facts: facts(["Scope", "Org-wide"], ["Configuration", "Enabled in this demo snapshot"]), related: [ref("standard-object", "Account")],
+  }),
+  resource("org-feature", "DuplicateManagement", "Duplicate Management", "Review how this org identifies and handles duplicate customer records.", {
+    status: "Enabled", facts: facts(["Scope", "Org-wide"], ["Configuration", "Enabled in this demo snapshot"]), related: [ref("standard-object", "Account"), ref("standard-object", "Contact")],
+  }),
   resource("standard-object", "Account", "Account", "Companies and organizations your teams do business with.", {
     facts: facts(["Record name", "Account Name"], ["Sharing model", "Public Read Only"], ["Track activities", "Enabled"]),
     section: fields([["Account name", "Name", "Text"], ["Industry", "Industry", "Picklist"], ["Annual revenue", "AnnualRevenue", "Currency"], ["Customer tier", "Customer_Tier__c", "Picklist"], ["Account owner", "OwnerId", "Lookup · User"]]),

@@ -8,7 +8,26 @@ const { canvasId, canvasTarget, parseCanvasInput, inputFromCanonicalId } = modul
 const { SurfaceCanvasStore } = modules.load('lib/surface-canvas/persistence');
 const { destinationHref, readDestination, resolveDestination } = modules.load('lib/navigation/model');
 const { parseCommand } = modules.load('lib/application/contracts');
+const { SETUP_AREAS, resourceBelongsToArea } = modules.load('lib/org-resources/setup');
+const { isReadOnlyCanvas } = modules.load('lib/surface-canvas/model');
+const { capabilityForCanvas } = modules.load('lib/surface-canvas/capabilities');
 afterEach(() => { delete global.window; });
+
+test('setup browsers preserve captured scope and reject editable draft saves', () => {
+  for (const area of SETUP_AREAS) {
+    assert.equal(capabilityForCanvas('build', area.id).group, 'setup');
+    assert(resourcesForOrg('uat').some(resource => resourceBelongsToArea(area, resource.resourceType)));
+    for (const scope of [{ scope: 'unbound', orgId: 'uat' }, { scope: 'project', projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' }]) {
+      const canvas = { kind: 'capability', title: area.title, params: { ...scope, surface: 'build', capability: area.id } };
+      const target = { projectId: scope.projectId ?? null, worktreeId: scope.worktreeId ?? null, orgId: 'uat' };
+      assert.deepEqual(canvasTarget(canvas, target), target);
+      assert(isReadOnlyCanvas(canvas));
+      assert.equal(readDestination(destinationHref({ version: 1, owner: 'am', surface: 'build', canvas, target })).kind, 'destination');
+      assert.throws(() => parseCommand({ kind: 'canvas.save', commandId: 'setup-write', expectedRevision: 0, surface: 'build', canvas, target, fields: {} }));
+    }
+  }
+  assert(!isReadOnlyCanvas({ kind: 'capability', params: { scope: 'unbound', surface: 'build', capability: 'data-model' } }));
+});
 const resource = (orgId = 'prod', resourceType = 'standard-object', apiName = 'Account') => ({ kind: 'org-resource', title: 'Account', params: { orgId, resourceType, apiName } });
 const destination = (canvas = resource(), surface = RESOURCE_TYPES[canvas.params.resourceType].surface, owner = 'jw') => ({ version: 1, owner, surface, target: canvasTarget(canvas, { projectId: 'ignored-project', worktreeId: 'ignored-branch', orgId: 'ignored-org' }), canvas });
 const access = ['build', 'code', 'govern', 'alm'];

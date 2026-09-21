@@ -25,6 +25,8 @@ import type { AgentSessionStatus, OrgKind } from "@/lib/workspace/model";
 import { allSessionRows, buildProjectTree, STATUS_LABEL } from "@/lib/workspace/selectors";
 import { RESOURCE_TYPES, resourceKey, searchResources, type ResourceType } from "@/lib/org-resources/model";
 import { resourcesForOrg } from "@/lib/org-resources/catalog";
+import { SETUP_AREAS } from "@/lib/org-resources/setup";
+import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
 import { SURFACES } from "@/lib/workspace/surfaces";
 import { matchesPaletteQuery, paletteSearchRank, rankPaletteGroups } from "@/lib/navigation/palette-search";
 import { RESOURCE_ICONS } from "@/components/surfaces/resource-icons";
@@ -136,7 +138,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
   onClose: (action?: () => void) => void;
   onExited: () => void;
 }) {
-  const { navigateSurface, selectProject, selectOrg, openResource, openProjectCreation } = useNavigation();
+  const { navigateSurface, selectProject, selectOrg, openResource, openProjectCreation, openCanvas, capabilityScope } = useNavigation();
   const pathname = usePathname();
   const { profile } = useDemoProfile();
   const currentSurfaceId = surfaceAppForPath(pathname)?.id;
@@ -204,7 +206,14 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       }
 
       if (category === "resources") {
-        return searchResources(resourceInventory, query, tab === "all" ? "all" : resourceType).map(resource => {
+        const areas: PaletteItem[] = resourceOrg && profile && canAccessSurface(profile, "build") && (tab === "all" || resourceType === "all")
+          ? SETUP_AREAS.filter(area => matchesQuery(area.title, area.label, area.description)).map(area => ({
+            id: `setup:${area.id}`, label: area.title, description: `Setup area · ${resourceOrg.label}`,
+            searchNames: [area.label], Icon: capabilityForCanvas("build", area.id)!.Icon, surfaceLabel: "Build & Setup",
+            isCurrent: currentCanvas?.kind === "capability" && currentCanvas.params.surface === "build" && currentCanvas.params.capability === area.id && currentCanvas.params.orgId === resourceOrg.id,
+            select: () => openCanvas("build", { kind: "capability", title: area.title, params: { ...capabilityScope, surface: "build", capability: area.id, orgId: resourceOrg.id } }),
+          })) : [];
+        return [...areas, ...searchResources(resourceInventory, query, tab === "all" ? "all" : resourceType).map(resource => {
           const kind = RESOURCE_TYPES[resource.resourceType];
           return {
             id: resourceKey(resource), label: resource.label,
@@ -214,7 +223,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
             isCurrent: currentCanvas?.kind === "org-resource" && currentCanvas.params.orgId === resource.orgId && resourceKey(currentCanvas.params) === resourceKey(resource),
             select: () => openResource(resource),
           };
-        }).sort(currentFirst);
+        })].sort(currentFirst);
       }
 
       if (!hasProjects) return [];
@@ -328,6 +337,9 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     resourceType,
     currentCanvas,
     openResource,
+    openCanvas,
+    capabilityScope,
+    resourceOrg,
   ]);
 
   // Opening, switching tabs, and clearing search highlight the current item,
@@ -483,7 +495,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
               {Object.entries(RESOURCE_TYPES).filter(([, kind]) => profile && canAccessSurface(profile, kind.surface)).map(([id, kind]) => <option key={id} value={id}>{kind.plural}</option>)}
             </select></label>
           </div>
-          <p className={styles.contextHint} role="status">{resourceOrgId ? `${items.length} ${items.length === 1 ? "resource" : "resources"} · Demo metadata` : "Browse metadata from a connected org"}</p>
+          <p className={styles.contextHint} role="status">{resourceOrgId ? `${items.length} ${items.length === 1 ? "result" : "results"} · Demo metadata` : "Browse metadata from a connected org"}</p>
         </>}
 
         {/* Reset scrolling with the results so the first selection is visible. */}
