@@ -173,13 +173,21 @@ browser registry. Restored behaviors have these checks:
 | --- | --- | --- |
 | Starter cards open scoped canvases and seed without submitting | `starter-canvases.mjs` | `starters.test.mjs` |
 | Assessment scope, captured findings, rescan and retry | `assessment-canvas.mjs` | `assessment-canvas.test.mjs` |
-| Retained project drafts, acknowledged creation and own conversation | `project-creation.mjs` | `project-creation.test.mjs` |
+| Project templates, saved goals/context, retained drafts, acknowledged creation and own conversation | `project-creation.mjs` | `project-creation.test.mjs`, `model-context.test.mjs` (saved intent and scope boundaries) |
 | Planning stays in chat; explicit agent navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (no-tool planning and saved-catalog validation) |
-| Project links reveal the sidebar parent without changing scope | `project-panel.mjs` | Navigation tests |
+| Project links reveal the sidebar parent without changing scope; persistent Start project footer on all profiles; Sessions only lists chats | `project-panel.mjs` | Navigation tests |
+| Default All navigator search, ranked typed results, intact project trees, org pill/category filters, clear search, scope-preserving selection and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs` |
 | Deployed apps open in ALM; legacy URLs and drafts survive | `alm-app-migration.mjs` | `alm-app-migration.test.mjs` |
+| Project preview launch, captured worktree/org, global inspection and explicit entry, sample interactions, responsive viewer, new tab and reload | `project-preview.mjs` | `navigation.test.mjs` (scope, identity, availability and mutation rejection) |
 | Attention cards reach the correct work and retain historical Today | `attention-scenarios.mjs` | Domain and conversation tests |
-| Canvas transitions, interruption and reduced motion | `canvas-motion.mjs` | Navigation tests |
-| Chat/composer alignment, reply presentation and reveal timing | `chat-layout.mjs` | Conversation tests |
+| Work canvases distinguish type, project, worktree and branch; explicit global entry retains the current canvas, captured target, draft and history | `work-project-entry.mjs` | Navigation tests |
+| Global file browsing preserves chat/org and file ownership; only explicit project actions enter a project | `global-home.mjs`, `attention-scenarios.mjs` | Navigation and agent database tests |
+| Inactive Today removes container paint while retaining exact layout and disabled controls | `global-home.mjs` | — |
+| Canvas transitions, frame-by-frame close handoff without outgoing flash, interruption/focus and reduced motion | `canvas-motion.mjs` | Navigation tests |
+| Surface label opens overview; separate chevron opens dropdown; keyboard/dismissal, profile access, scoped canvas restoration | `surface-switcher.mjs` | Navigation tests |
+| Project/worktree-contained work lists and tabs; project-wide app ownership; global navigation | `project-surface-scope.mjs`, `global-home.mjs` | Navigation tests |
+| Chat activity beside Agent, spinner/reduced motion, narrow layout and request recovery | `chat-latency.mjs` | Client reliability tests |
+| Chat/composer alignment, immediate live resize across breakpoints, panel motion, reply presentation and reveal timing | `chat-layout.mjs` | Conversation tests |
 
 Browser files live in `scripts/browser`; pure checks live in `scripts`. For a
 focused check, run `node scripts/browser/<suite>.mjs candidate` against the same

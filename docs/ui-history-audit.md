@@ -26,8 +26,9 @@ Its parents are `fb63e63` and `4a81973`; PR #15 brought that result into main at
 The compact Today summary was a subsequent local change, not another missing
 branch. It is now removed: historical Today uses the same layout with disabled
 controls, static surface tiles, subdued colors, and no repeated entrance reveal.
-Cards retain their borders and shape. This preserves the older layout contract
-while following the latest request to keep the cards recognizable.
+Cards retain their shape. A subsequent September 20 request removes backgrounds,
+shadows, and visible borders from inactive Today while preserving spacing and
+disabled controls. This updates the paint treatment without compacting history.
 
 ## Already restored or retained
 
@@ -39,7 +40,8 @@ while following the latest request to keep the cards recognizable.
 | Canvas-tab recede/land animation | Approved and restored through the current React navigation transitions. Only the canvas body animates; chat, composer, and tabs remain sharp. Project/Home dissolve takes precedence. |
 | Plain agent replies and completion-timed suggestions | Approved and restored. User messages retain bubbles; agent prose is unframed. Suggestions wait for successful run completion, preserving streaming, status/recovery controls, and scroll following. |
 | 1200px chat/composer width and panel-aware alignment | Approved and restored. Both center only when both panels are closed, otherwise align left. Geometry participates in the panel timeline; new turns use the configured scroll inset. |
-| Project-scoped canvas tabs and retained drafts | Restored with captured project identities. Global browsing can display all projects. |
+| Project-scoped canvas tabs and retained drafts | Adapted to project and selected-worktree scope. Project-wide resources retain ownership without changing worktrees. Global browsing can display all projects. |
+| Embedded Code worktree/session rail | Removed at the user's request on 2026-09-20. Worktree selection stays in global navigation. Multiple chats inside a project remain future work; scope is checked by `project-surface-scope.mjs`. |
 | Aligned 56px headers, inset canvas frame, shared canvas gutters | Restored. The main canvas layout and surface-to-surface swap already exist. |
 | Broad top-bar navigator | Restored with the newer resource search, Home selection, and project/branch badge. |
 | Current destination in the command palette; dismissal and panel motion | Retained. The newer project grouping also keeps the selected worktree attached to its parent. |

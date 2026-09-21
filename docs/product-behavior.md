@@ -15,12 +15,24 @@ project closes the surface and appends a fresh Today; existing history and the
 selected org remain. Retrying that request does not duplicate the card.
 
 Global resource browsing shares one conversation and composer draft across orgs.
+Opening a project-owned tab, recent-work item, or attention card keeps this global
+view and its selected org. The canvas still identifies its owning project, and
+edits keep that file's captured project/worktree/org target. Viewing it does not
+overwrite the project's last destination or enter its conversation. Project entry
+is an explicit project/worktree selection in the navigator/sidebar or an **Open
+project** / **Open worktree** action. Work canvases label their item type separately
+from Project, Worktree, and Branch. From global browsing, their prominent entry
+button opens that exact work in its owning project/worktree and captured org,
+retaining edits rather than restoring an unrelated last-visited canvas. The
+button is absent inside a project. Reload and browser Back/Forward preserve this
+distinction.
 Changing the target org appends a context marker without replacing the thread;
 accepted agent work keeps its captured target. Earlier org-specific threads remain
 available under **Earlier conversation** in the global transcript.
 Leaving Today for a surface or canvas keeps its headings, cards, surface tiles,
-and recent-work rows in the same layout. Colors become subdued, controls are
-disabled, surface links become static tiles, and the conversation continues below
+and recent-work rows in the same layout. Colors become subdued, backgrounds,
+shadows, and visible container borders disappear, controls are disabled, surface
+links become static text, and the conversation continues below
 the captured briefing. History stays readable and does not replay the entrance
 animation. Responsive wrapping still follows the chat column width.
 Active Today content reveals in reading order with overlapping 500ms blur/rise
@@ -41,10 +53,73 @@ hidden in the project transcript. An empty project thread gets a one-time
 introduction based on its saved plan or existing work. No GitHub synchronization
 is claimed: project records do not yet include a repository connection.
 
-Canvas tabs in a project include only that project's work, apps, resources, and
-drafts. Selecting or closing a tab cannot switch to another project. Global
-surface browsing can show tabs from multiple projects; selecting one enters its
-captured context. Tabs hidden by project scope and their drafts stay saved.
+Project surface overviews and canvas tabs include work from the selected worktree
+plus project-wide resources. Selecting or closing a tab cannot switch projects
+or worktrees. Project-wide apps retain their saved ownership without clearing
+the selected worktree. Global
+surface browsing can show tabs from multiple projects; selecting one retains the
+global workspace while the file keeps its captured ownership. Tabs hidden by
+project scope and their drafts stay saved.
+
+Code no longer embeds an Agent sessions list that switches worktrees. Project and
+worktree switching stays in the global sidebar and command palette. Multiple
+independent chat sessions within one project are not implemented; worktrees must
+not be presented as if they were those sessions.
+Assessment-created projects also keep their ALM overview on the selected plan;
+the list of other plans is available only in global context.
+
+Click the pinned surface tab's icon or name to return directly to its overview.
+Its separate chevron opens a quick switcher for the profile's accessible surfaces.
+The chevron is independently keyboard accessible; opening or dismissing its menu
+leaves the current canvas selected.
+Choosing another surface restores its last canvas within the current workspace;
+project, worktree, and org selection remain intact. Choosing the current surface
+opens its overview. The menu supports arrows, Home/End, Enter/Space, Escape, Tab,
+and outside-click dismissal. Left/Right navigation within the canvas tabs keeps
+its existing behavior.
+
+## Project previews
+
+Established demo projects expose **Preview** in the project header. It opens a
+preview canvas in Build & Setup beside the agent, preserving the selected project,
+worktree and target org. The captured worktree, branch and org are visible above
+the viewer; Desktop/Mobile changes the viewing width, Reset demo resets only the
+sample interaction, and Open in new tab opens the same scoped canvas in Studio.
+
+From a global work review, **Preview** opens the owning worktree's preview while
+keeping the global chat and org selection. Only its explicit **Open project** or
+**Open worktree** action enters that context. Preview tabs are isolated by project,
+worktree and org; project views hide other worktrees' previews.
+
+This first pass renders interactive sample CRM and storefront experiences,
+identified as **Demo**. It does not run project source, deploy an app, or modify
+org records. Preview tabs retain identity through reload; their sample interactions
+are ephemeral and cannot be saved as editable canvas drafts. Projects without a
+sample preview do not expose the action.
+
+## Navigator search
+
+The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
+surfaces, projects/worktrees, sessions, connected orgs, and resources together.
+Exact names and API names rank ahead of prefixes, partial names, and descriptive
+matches. Project/worktree groups remain connected; a matching worktree can be
+the keyboard selection without moving away from its parent. Result types and
+project/org context distinguish similarly named destinations.
+
+Resource search defaults to the selected org. All shows the resource org in a
+compact pill; clicking it opens Orgs and clears the query to show the available
+connections, without navigating. Resources retains its org filter, which changes
+the search inventory without navigating; the All pill reflects that inventory.
+When no org is selected, the other categories remain searchable and the pill
+prompts the user to choose an org. The catalog remains demo metadata.
+Category tabs keep the query and narrow results; resource-type filtering applies
+only within Resources, not All. The search field's clear button removes the query,
+keeps the current tab and resource filters, and returns focus to the input.
+
+Results reuse their existing navigation: surface/resource selections preserve
+the current project/worktree, project/worktree/session selections explicitly
+enter that context, and org results change the selected org. Dedicated project
+and org selectors still open their respective category tabs.
 
 ## Day zero: org assessment
 
@@ -68,6 +143,14 @@ chat area when either panel is open. Width and alignment animate on the panel
 timeline, preserving the mounted composer and its selection. New turns wait for
 that geometry to settle and scroll to the transcript's configured top inset.
 Narrow layouts remain full width; reduced motion applies layout changes immediately.
+Window resizing applies the responsive geometry immediately, including breakpoint
+changes. It finishes any panel geometry transition in progress; deliberate panel
+toggles continue to animate normally.
+
+Conversation loading/updating feedback appears immediately beside **Agent** in
+the chat header, with an accent-colored spinner and label. The surface badge stays
+at the right edge. Long waits and reconnecting retain their existing messages;
+reduced motion keeps a static indicator and narrow headers truncate the label.
 
 Agent replies render as plain text; user messages keep their bubbles. Suggested
 prompts appear after a successful reply completes, together with all received
@@ -91,6 +174,11 @@ keyboard selection advances from the focused tab. Project/worktree changes take
 precedence and use the conversation dissolve. Reduced motion skips the effect,
 and Back/Forward restores the selected canvas without replaying it.
 
+Closing the active canvas holds its finished blur/fade and disabled interaction
+until the replacement canvas commits. An asynchronous route change must not
+briefly reveal the outgoing content again. Interrupted closes preserve the
+latest selection and focus; reduced motion closes without the exit animation.
+
 Canvas content shares `src/components/canvas/CanvasLayout.tsx`: responsive gutters
 and a left-aligned inner column capped at 72rem. `SurfaceCanvasHost` supplies it
 once for every overview and launched tab, so canvas bodies provide content without
@@ -113,8 +201,9 @@ The top bar provides a wide **Search workspace** launcher on every surface
 (⌘⇧P / Ctrl+Shift+P). When a project is selected, a project badge shows its name
 and branch; clicking it opens the palette's Projects tab. A Home icon to its left
 returns to the global front door, clearing project and branch while retaining the org.
-Existing tabs remain available; switching surfaces keeps the current scope,
-while explicitly selecting an existing tab restores that tab's captured scope.
+Saved tabs remain available within their project/worktree scope; global browsing
+can expose all of them. Surface and tab selection retain project/worktree context,
+while edits continue using each tab's captured ownership.
 On narrow screens,
 the search launcher occupies a second row so project context stays visible.
 
@@ -177,9 +266,9 @@ explicit lazy boundaries with a loading status; retry creates a fresh loader
 instance after a failed load. Saved edits and unsent composer text keep their
 existing separate lifetimes.
 
-Historical Today cards render compact summaries of their captured snapshots without
+Historical Today cards render the same layout from their captured snapshots without
 interactive actions or live assessment, workspace, or agent subscriptions.
-**Explore surfaces** stays with the active card and its live adapter. Canvas
+**Explore surfaces** remains in history as disabled text in the same arrangement. Canvas
 actions have stable identities, and selected surface/draft subscriptions avoid
 unrelated canvas updates.
 
@@ -247,8 +336,10 @@ identity is unambiguous.
 ## Workspace navigation and scope
 
 Workspace context distinguishes loading, no project, planning without a worktree,
-ready, and unavailable resources. An app destination in an established project can
-also have no selected worktree; that does not make the project a planning project.
+ready, and unavailable resources. Legacy app links in an established project can
+have no selected worktree; that does not make the project a planning project.
+Opening a project-wide app from a worktree retains the current worktree and keeps
+the app's captured target separately.
 Saved references to a removed project/worktree
 or expired org remain visible as unavailable; selecting a different context is an
 explicit action. Capabilities that only prepare a draft can work without a Git
@@ -321,6 +412,28 @@ selection screen. Data clearing is available there beside each profile, with a
 confirmation naming the user whose saved data will be removed.
 Session generation changes prevent an older pending operation from silently
 acquiring the new workspace's authority.
+
+## Starting a project
+
+The Projects section in the left sidebar always ends with **Start project**, for
+all four profiles and all project filters. Only the list scrolls, keeping the
+button available. Sessions lists existing chats; its empty state has no creation
+action, including in the command palette.
+
+Project setup offers Standard, React app, Mobile app, Agent, LWC & Apex,
+Analytics, Tableau, and MuleSoft. Selecting a type updates planning guidance and
+the goal prompt without replacing entered goals or context. Optional agent
+context captures audience, success criteria, constraints, and existing systems
+(up to 6,000 characters). These are saved planning choices, not provisioned
+frameworks or repositories.
+
+General setup saves a brief, including an optional repository URL. Sam can also
+start from assessment findings, where type and context remain attached to the
+created project alongside its evidence and work items. Earlier drafts still
+open with Standard as the default. The real agent receives saved planning
+briefs in the matching ALM context and the type/goals/context of a selected
+assessment project. Pending edits are not treated as acknowledged context;
+selecting a template does not itself submit a model request.
 
 ## Saved application data and pending edits
 

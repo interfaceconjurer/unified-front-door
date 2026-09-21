@@ -213,7 +213,36 @@ TypeScript passed; lint passed with the existing stylesheet warning in
 `src/app/layout.tsx`. These were focused development checks; no paid model calls
 or deployment were performed.
 
+## Project preview
+
+As Alex, select Trailblazer CRM's lead-routing worktree and click **Preview** in
+the top bar. Check the branch and target org above the sample CRM. Route a sample
+lead, reset the demo, switch between Desktop/Mobile, and open the preview in a new
+tab. Reload should retain the preview target. Switch to Acme Storefront to try its
+shopping bag and confirm the Trailblazer preview tab is hidden.
+
+From global Today, open the lead-routing approval, then **Preview** in its Work
+context. Home must stay selected and the global org must stay unchanged while the
+preview displays the worktree's captured org. **Open worktree** explicitly enters
+that worktree; Back returns to global inspection. These are sample experiences,
+not live builds or org updates. Automated: `scripts/browser/project-preview.mjs`.
+
 ## Org resources and visible project scope
+
+The search launcher and ⌘⇧P / Ctrl+Shift+P now start on **All**. Type Account,
+lead routing, Code, a project name, or an org name without choosing a category.
+Check that exact names rank first, worktrees remain attached to their projects,
+and each result identifies its type and owning context. Enter on a matching
+worktree should enter that worktree, not its parent branch. Surface/resource
+selection must preserve the current project; project/session selection explicitly
+enters the chosen context. The All org pill opens Orgs with an empty query,
+without closing the navigator or changing workspace context. Resource org
+filtering within Resources must not navigate until a result is opened. Category
+tabs retain the query; All ignores a Resources-only type filter. Clear search
+restores the current tab's results, retains org/type filters, and focuses the
+input. With no org selected, the pill prompts the user to choose an org.
+Automated: `scripts/browser/unified-search.mjs`, `interactions.mjs`,
+`org-resources.mjs`, and `scripts/palette-search.test.mjs`.
 
 September 18, 2026: Added a Resources tab to the command palette with connected-org
 selection, resource-type filtering, and search across 25 metadata types. Resource
@@ -256,10 +285,40 @@ opening the same resource globally and within a project keeps their scopes disti
 
 ## Chat transition latency
 
+- While a conversation loads or updates, its status should appear immediately
+  after **Agent**, with a visible spinner. The surface badge stays right-aligned.
+  Verify long-wait/reconnect feedback, clearing after completion, a narrow header,
+  and a static indicator under reduced motion. Automated: `scripts/browser/chat-latency.mjs`.
+
+- In Trailblazer CRM/main, Code should show the handler and toolkit, with no
+  embedded Agent sessions rail or hotfix files. Select hotfix/W-9821 explicitly
+  in the global navigator: its tests should replace the main work list and tabs.
+  Close/reopen and return to main; each worktree's drafts should remain intact.
+  In ALM, open a deployed app: the selected worktree must remain selected through
+  reload, surface switching, and close. Global Home retains its aggregate view.
+  Automated: `scripts/browser/project-surface-scope.mjs`, `global-home.mjs`.
+
+- With another canvas open, click the pinned surface tab's name: it should open
+  the surface overview without a dropdown and preserve scope and drafts. Tab from
+  the overview tab to the separate chevron; Enter opens the surface menu.
+  Clicking the chevron while another canvas is selected must leave it selected.
+  The dropdown should mark the current surface and offer the profile's accessible
+  surfaces. Switch across
+  Build & Setup, Code, Govern & Observe, and ALM; return to confirm the last canvas
+  and drafts remain. Repeat from global Home and a project/worktree with an org
+  selected: switching surfaces must preserve that scope. Choose the current
+  surface to reach its overview. Escape, Tab, and outside clicks dismiss without
+  navigating; Up/Down and Home/End move within the menu. Check a narrow viewport.
+  Automated: `scripts/browser/surface-switcher.mjs`.
+
 - On a wide screen, close both panels: transcript and composer center with a
   1200px width cap. Open either panel: both left-align in the remaining chat area.
   Width and margin changes animate together; keyboard toggles retain composer
   focus, selection, and draft. Check both panels, mobile width, and reduced motion.
+  With a surface canvas open, continuously resize the window in both directions,
+  including across 900px and with the workspace sidebar open. Chat and composer
+  should follow the available width immediately without lagging or overshooting.
+  Panel toggles should still animate after resizing.
   Automated: `scripts/browser/chat-layout.mjs` and `scripts/browser/session-chat.mjs`.
 - Agent replies should be plain text while user messages retain bubbles.
   Suggested prompts stay hidden during pending/running/streaming replies and
@@ -310,10 +369,19 @@ opening the same resource globally and within a project keeps their scopes disti
   Clicking it on active Today should send no request or navigation. Returning
   from a surface or project should close the surface and append one new Today.
 - In Trailblazer, open Build & Setup and Lead routing assistant. Acme Storefront
-  must not appear among the tabs. Leave a notes draft, visit Home, and open Build
-  & Setup globally: both projects' tabs should be available. Enter Acme, then
-  return to Trailblazer; its notes should remain. Closing its active tab must
+  must not appear among the tabs. Leave a notes draft, visit Home, and open Account
+  from Resources. Select Lead routing assistant: Home stays blue, no project badge
+  appears, the org and global chat stay selected, and the canvas still shows
+  Trailblazer CRM. Editing notes must save to that same project-owned file.
+  In global ALM, open Acme Storefront and Lead routing → UAT: both projects' tabs
+  remain visible, including after reload and Back/Forward. Explicitly select
+  Trailblazer in Projects or the sidebar; its notes and last project view remain.
+  Closing its active tab must
   select a neighbor within Trailblazer.
+- Once Today becomes history, backgrounds, shadows, and visible borders disappear
+  from its cards, tiles, badges, and recent-work list. Text, spacing, and layout
+  remain recognizable; controls remain disabled. A new active Today retains its
+  normal containers.
 - Reload Home and reopen the project to verify the remembered destination. Switch
   worktrees and use browser Back; each line of work should keep its own view.
 - With normal motion, switch projects/worktrees and navigate to/from global Home:
