@@ -150,7 +150,9 @@ try {
   const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', colorScheme: 'light', viewport: { width: 390, height: 844 } });
   const fixture = await installAssessment(context, { profileId: 'sp' }); cleanups.push(fixture.cleanup);
   const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
-  await page.goto(origin + '/');
+  // Exercise the supported no-org destination explicitly; ordinary sign-in now selects an org.
+  await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: null,
+    target: { projectId: null, worktreeId: null, orgId: null } })));
   const dialog = await open(page);
   const input = dialog.getByRole('combobox', { name: 'Search everything…', exact: true });
   await dialog.getByText('Choose an org to include its resources.', { exact: false }).waitFor();

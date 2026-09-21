@@ -44,7 +44,10 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
     // Observe the content, excluding responsive fieldset padding. Subdue only
     // outside the viewport, even if the reader interrupts the outgoing scroll.
     let cancelled = false;
-    const observer = new IntersectionObserver(([entry]) => {
+    const observer = new IntersectionObserver((entries) => {
+      // A fast scroll can deliver visible and offscreen records together.
+      // Use the latest position so an earlier visible record cannot hide exit.
+      const entry = entries.at(-1);
       if (!cancelled && entry && !entry.isIntersecting) setInactiveAppearance(true);
     }, { root: transcript, threshold: 0 });
     observer.observe(content);

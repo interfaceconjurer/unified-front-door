@@ -58,6 +58,8 @@ try {
     assert.equal(commands.filter(command => command.kind === 'submit').length, 0);
     const earlier = page.getByRole('group', { name: 'Earlier Today (read only)', exact: true });
     await earlier.waitFor();
+    assert(await earlier.evaluate(node => node.disabled || !!node.closest('[inert]')), 'Departing Today immediately prevents interaction');
+    await page.locator('fieldset[aria-label="Earlier Today (read only)"]:disabled').waitFor();
     assert.equal(await earlier.getByRole('button', { name: new RegExp(title) }).isDisabled(), true);
     assert.equal(state.agent.conversations.length, 1);
     output.checks.push(motion + ' ' + profileId + ': ' + title + ' opens ' + surface + '/' + capability + ', preserves org/draft/history, and does not submit');

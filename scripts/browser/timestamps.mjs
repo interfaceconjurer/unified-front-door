@@ -9,7 +9,7 @@ const browser = await chromium.launch();
 const out = { label, checks: [], errors: [] };
 const summaries = [
     'Refactoring OpportunityTriggerHandler — 3 files touched; last update at 2026-09-14 14:56 UTC.',
-    'Fix for W-9821 is ready for review; last activity at 2026-09-14 14:35 UTC.',
+    'Fix for W-9821 and its regression coverage are waiting for your code review. Snapshot: 2026-09-14 14:35 UTC.',
 ];
 try {
     const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', viewport: { width: 1440, height: 1100 } });

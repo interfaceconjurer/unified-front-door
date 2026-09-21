@@ -34,6 +34,9 @@ const article = (page, name) => page.getByRole('article', { name: `${name} resou
 try {
   const { context, page, stats } = await setup();
   let dialog = await palette(page);
+  assert.equal(await dialog.getByLabel('Resource org', { exact: true }).inputValue(), 'uat', 'Signed-in profiles start with a connected org');
+  assert(await dialog.getByRole('listbox').getByRole('option').count() > 25);
+  await dialog.getByLabel('Resource org', { exact: true }).selectOption('');
   await dialog.getByText('Choose an org above', { exact: false }).waitFor();
   assert.equal(await dialog.getByRole('listbox').getByRole('option').count(), 0);
   await search(dialog, '', 'all', 'prod');
@@ -152,8 +155,8 @@ try {
   await choose(dialog, 'Build & Setup');
   await scoped.page.waitForURL(url => url.pathname === '/build');
   assert.deepEqual(currentDestination().target, { projectId: null, worktreeId: null, orgId: 'uat' });
-  assert.deepEqual(currentDestination().canvasTarget, scopedTarget, 'Global browsing retains the restored file ownership without entering that project');
-  assert.equal(currentDestination().canvas.params.apiName, 'Account.Customer_Tier__c');
+  assert.equal(currentDestination().canvas, undefined, 'Home opens its own surface overview instead of inheriting the project canvas');
+  assert.equal(await scoped.page.getByRole('tab', { name: 'Customer Tier · UAT Sandbox', exact: true }).count(), 0);
   dialog = await palette(scoped.page); await search(dialog, 'Account', 'standard-object', 'uat');
   await choose(dialog, 'Standard object · Account'); await article(scoped.page, 'Account').waitFor();
   assert.deepEqual(currentDestination().target, { projectId: null, worktreeId: null, orgId: 'uat' });
@@ -161,6 +164,8 @@ try {
   dialog = scoped.page.getByRole('dialog'); await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
   await choose(dialog, 'feature/lead-routing');
   await header.getByRole('button', { name: /current project: Trailblazer CRM, branch: feature\/lead-routing/ }).waitFor();
+  await article(scoped.page, 'Customer Tier').waitFor();
+  assert.equal(currentDestination().canvas.params.apiName, 'Account.Customer_Tier__c', 'The project retains its own selected canvas');
   dialog = await palette(scoped.page); await search(dialog, 'Account', 'standard-object', 'uat');
   await choose(dialog, 'Standard object · Account'); await article(scoped.page, 'Account').waitFor();
   assert.deepEqual(currentDestination().target, scopedTarget, 'Existing global resource tabs must not clear project scope');

@@ -35,6 +35,8 @@ try {
     await page.waitForURL(url => url.pathname === '/');
     await today.getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     const earlier = page.getByRole('group', { name: 'Earlier Today (read only)', exact: true }).first();
+    assert(await earlier.evaluate(node => node.disabled || !!node.closest('[inert]')), 'Earlier Today immediately prevents interaction');
+    await page.waitForFunction(() => document.querySelector('fieldset[aria-label="Earlier Today (read only)"]')?.disabled);
     assert(await earlier.getByRole('button', { name: `Review ${work.title}`, exact: true }).isDisabled());
     assert.deepEqual(global.conversation.messages.find(message => message.id === original.id), original);
     assert.equal(await today.getByRole('button', { name: /^Review / }).count(), 5);

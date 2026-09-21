@@ -195,6 +195,17 @@ browser registry. Restored behaviors have these checks:
 | Chat activity beside Agent, spinner/reduced motion, narrow layout and request recovery | `chat-latency.mjs` | Client reliability tests |
 | Chat/composer alignment, immediate live resize across breakpoints, panel motion, reply presentation and reveal timing | `chat-layout.mjs` | Conversation tests |
 
+Resource browsing checks the connected org selected on entry and explicitly clears
+the filter to exercise empty-state recovery. Unified search uses an explicit
+no-org destination for that case. Resource navigation also verifies that Home
+does not inherit project tabs and that returning to the project restores its
+selected canvas. Cross-tab budget checks modify the current workspace-scoped v3
+preferences; v2 seeds remain in place to cover legacy migration. Starter and
+attention checks assert immediate inertness, then wait for Today to scroll out
+before asserting its disabled historical state. The attention journey returns
+Home immediately after opening a canvas and still requires deactivation when
+batched intersection records place the old Today offscreen.
+
 Browser files live in `scripts/browser`; pure checks live in `scripts`. For a
 focused check, run `node scripts/browser/<suite>.mjs candidate` against the same
 configured preview. Removing or replacing a behavior check during a refactor
