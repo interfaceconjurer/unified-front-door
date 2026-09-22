@@ -117,7 +117,7 @@ try {
     out.checks.push(`${motion}: explicit project/session results enter their context; org results change only the org`);
 
     dialog = await open(page); await input().fill('Release_Checklist__c');
-    assert.equal(await rows().count(), 0);
+    assert.equal(await rows().filter({ hasText: 'Release_Checklist__c' }).count(), 0, 'Production has no matching resource; other categories may match the query');
     await dialog.getByRole('tab', { name: 'Resources', exact: true }).click();
     await dialog.getByLabel('Resource org', { exact: true }).selectOption('uat');
     assert.equal(await rows().count(), 1);
@@ -135,7 +135,7 @@ try {
     await resourceInput.fill('Release_Checklist__c');
     await dialog.getByRole('tab', { name: 'All', exact: true }).click();
     assert(await orgPill().isVisible(), 'All pill reflects the actual resource inventory selected in Resources');
-    assert.equal(await rows().count(), 1, 'All is not restricted by a resource-type filter');
+    assert.equal(await rows().filter({ hasText: 'Release_Checklist__c' }).count(), 1, 'All is not restricted by a resource-type filter');
     await input().press('Enter'); await dialog.waitFor({ state: 'detached' });
     await page.getByRole('article', { name: 'Release Checklist resource', exact: true }).waitFor();
     assert.deepEqual(destination(page).target, { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' });

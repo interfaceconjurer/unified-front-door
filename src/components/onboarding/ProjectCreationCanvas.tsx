@@ -47,7 +47,7 @@ function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) 
     <PersistenceStatus store={store} onlyProblems label="Project draft" />
     <div className={styles.actions}>
       <button type="button" className={styles.primary} onClick={navigateGlobalHome}>Choose opportunities</button>
-      <button type="button" className={styles.secondary} onClick={() => openCanvas("govern", assessmentCanvas(spec.params, state.currentRunId))}>Open org assessment</button>
+      <button type="button" className={styles.secondary} onClick={() => openCanvas("build", assessmentCanvas(spec.params, state.currentRunId))}>Open org assessment</button>
     </div>
   </section></>;
   return <ProjectReview draft={draft} findings={findings} owner={profile?.name ?? "Sam Patel"}

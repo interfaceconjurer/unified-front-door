@@ -6,8 +6,10 @@ projects, and working with a persistent agent across Build & Setup and ALM.
 ## TL;DR
 
 - **Stack:** Next.js 16, React 19, TypeScript, SLDS 2 (Cosmos), and Neon Postgres.
-- **Try it:** sign in as **Sam Patel — Day zero · Org assessment**, review findings,
+- **Try it:** sign in as **Sam Patel — Day zero**, review findings,
   then **Shape a project → Create project** to open its plan in ALM.
+- **Expansion story:** Sam and Karen have Build & Setup + ALM; Jordan adds
+  Govern & Observe; Alex adds Code. [Profile scenarios](docs/product-behavior.md#demo-expansion-scenarios).
 - **Real persistence:** chats, assessments, projects, and saved drafts live in
   Postgres. The web app and a separate worker must both run for agent work to progress.
 - **Demo orgs:** Salesforce connections, assessments, and findings are simulated.

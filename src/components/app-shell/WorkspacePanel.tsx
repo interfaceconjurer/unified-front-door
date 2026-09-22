@@ -227,7 +227,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     <LayersIcon className={styles.rowIcon} width={16} height={16} />
                     <span className={styles.rowCopy}>
                       <span className={styles.rowLabel}>{project.name}</span>
-                      <span className={styles.rowBranch}>{(base?.worktree.label ?? "Planning project")}</span>
+                      <span className={styles.rowBranch}>{(base?.worktree.label ?? project.description)}</span>
                     </span>
                   </button>
 
@@ -298,23 +298,23 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
         ) : (
           <ul className={styles.sessionList}>
             {sessions.map(({ project, worktree, session }) => {
-              const isCurrent = project.id === activeProject?.id && worktree.id === activeWorktree?.id;
+              const isCurrent = project.id === activeProject?.id && worktree?.id === activeWorktree?.id;
               return (
-                <li key={`${project.id}::${worktree.id}`}>
+                <li key={`${project.id}::${worktree?.id}`}>
                   <button
                     type="button"
                     className={`${styles.sessionRow} ${isCurrent ? styles.rowCurrent : ""}`}
                     aria-current={isCurrent}
                     onClick={() => {
-                      selectProject(project.id, worktree.id);
+                      selectProject(project.id, worktree?.id);
                     }}
                   >
                     <StatusDot status={session.status} className={styles.sessionDot} />
                     <span className={styles.sessionCopy}>
                       <span className={styles.sessionHead}>
-                        <GitBranchIcon className={styles.branchIcon} width={12} height={12} />
-                        <span className={styles.worktreeLabel}>{worktree.label}</span>
-                        <span className={styles.sessionProject}>{project.name}</span>
+                        {worktree && <GitBranchIcon className={styles.branchIcon} width={12} height={12} />}
+                        <span className={styles.worktreeLabel}>{worktree?.label ?? project.name}</span>
+                        {worktree && <span className={styles.sessionProject}>{project.name}</span>}
                       </span>
                       <span className={styles.sessionSummary}>{session.summary}</span>
                     </span>

@@ -11,7 +11,7 @@ type Inputs = {
   app: { projectId: string; appId: string };
   preview: { projectId: string; worktreeId: string; orgId?: string };
   capability: { surface: SurfaceId; capability: string; section?: string } & CapabilityScope;
-  work: { workId: string; projectId: string; worktreeId: string };
+  work: { workId: string; projectId: string; worktreeId: string | null };
   "improvement-project": { projectId: string };
   "org-assessment": { runId?: string; findingId?: string } & CapabilityScope;
   "org-resource": ResourceIdentity & { projectId?: string; worktreeId?: string };
@@ -34,7 +34,7 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
     case "app": return nonempty("projectId") && nonempty("appId") ? { kind: "app", title: value.title, params: { projectId: p.projectId as string, appId: p.appId as string } } : null;
     case "preview": return nonempty("projectId") && nonempty("worktreeId") && (p.orgId === undefined || nonempty("orgId"))
       ? { kind: "preview", title: value.title, params: { projectId: p.projectId as string, worktreeId: p.worktreeId as string, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } } : null;
-    case "work": return ["workId", "projectId", "worktreeId"].every(nonempty) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string } } : null;
+    case "work": return ["workId", "projectId"].every(nonempty) && (p.worktreeId === null || nonempty("worktreeId")) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string | null } } : null;
     case "improvement-project": return nonempty("projectId") ? { kind: "improvement-project", title: value.title, params: { projectId: p.projectId as string } } : null;
     case "org-assessment":
     case "capability": {
@@ -49,7 +49,7 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
     }
   }
 }
-export function canvasId(kind: LaunchableCanvasKind, params: Record<string, string | undefined>): string {
+export function canvasId(kind: LaunchableCanvasKind, params: Record<string, string | null | undefined>): string {
   const input = parseCanvasInput({ kind, params, title: "" });
   if (!input) throw new TypeError(`Invalid ${kind} canvas identity`);
   return `canvas:v2:${JSON.stringify([kind, Object.entries(input.params).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}`;
@@ -59,7 +59,7 @@ export function inputFromCanonicalId(id: string): CanvasSpecInput | null {
   if (!id.startsWith("canvas:v2:")) return null;
   try {
     const [kind, pairs] = JSON.parse(id.slice(10));
-    if (!Array.isArray(pairs) || pairs.some((pair: unknown) => !Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== "string" || typeof pair[1] !== "string") || new Set(pairs.map((pair: string[]) => pair[0])).size !== pairs.length) return null;
+    if (!Array.isArray(pairs) || pairs.some((pair: unknown) => !Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== "string" || pair[1] !== null && typeof pair[1] !== "string") || new Set(pairs.map((pair: string[]) => pair[0])).size !== pairs.length) return null;
     const params = Object.fromEntries(pairs), input = parseCanvasInput({ kind, params, title: "Recovered draft" }, true);
     if (!input) return null;
     const canonical = canvasId(input.kind, input.params);

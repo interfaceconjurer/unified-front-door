@@ -7,7 +7,7 @@ export type ReturningWork = {
   title: string;
   surfaceId: SurfaceId;
   projectId: string;
-  worktreeId: string;
+  worktreeId: string | null;
   /** Display context captured for an aggregate Home briefing. */
   projectName?: string;
   branch?: string;
@@ -114,6 +114,142 @@ export const RETURNING_WORK: readonly ReturningWork[] = [
     details: [{ label: "Source", value: "main" }, { label: "Validation", value: "SIT checks passed; ready for UAT Sandbox" }, { label: "Planned scope", value: "Account search, keyboard navigation, and empty states" }],
     activity: ["Agent completed the account search and accessibility updates.", "Automated checks and the SIT smoke test passed.", "Release notes are ready; the UAT rollout is waiting for your approval."],
   },
+  {
+    id: "builder-lead-routing", title: "Lead routing assistant", surfaceId: "build",
+    projectId: "trailblazer-crm", worktreeId: null, kind: "Agent",
+    summary: "Qualification guidance is ready to refine.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Qualification guidance is ready to refine." }],
+    activity: ["Saved the project context and initial configuration.", "Qualification guidance is ready to refine."],
+  },
+  {
+    id: "builder-routing-release", title: "Lead routing → UAT", surfaceId: "alm",
+    projectId: "trailblazer-crm", worktreeId: null, kind: "Release plan",
+    summary: "Review the lead assignment automation before its first release.", updated: "2026-09-14T12:00:00Z",
+    status: "review", statusLabel: "Approval needed", attention: true,
+    details: [{ label: "Next step", value: "Review the lead assignment automation before its first release." }],
+    activity: ["Saved the project context and initial configuration.", "Review the lead assignment automation before its first release."],
+  },
+  {
+    id: "onboarding-welcome", title: "Customer welcome flow", surfaceId: "build",
+    projectId: "customer-onboarding", worktreeId: null, kind: "Flow",
+    summary: "Welcome tasks and follow-up reminders are ready to refine.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Welcome tasks and follow-up reminders are ready to refine." }],
+    activity: ["Saved the project context and initial configuration.", "Welcome tasks and follow-up reminders are ready to refine."],
+  },
+  {
+    id: "onboarding-release", title: "Onboarding first release", surfaceId: "alm",
+    projectId: "customer-onboarding", worktreeId: null, kind: "Release plan",
+    summary: "Plan validation of the welcome flow with the customer success team.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Draft plan",
+    details: [{ label: "Next step", value: "Plan validation of the welcome flow with the customer success team." }],
+    activity: ["Saved the project context and initial configuration.", "Plan validation of the welcome flow with the customer success team."],
+  },
+  {
+    id: "service-routing", title: "Case routing flow", surfaceId: "build",
+    projectId: "service-operations", worktreeId: null, kind: "Flow",
+    summary: "Review priority routing and escalation rules for incoming cases.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Review priority routing and escalation rules for incoming cases." }],
+    activity: ["Saved the project context and initial configuration.", "Review priority routing and escalation rules for incoming cases."],
+  },
+  {
+    id: "service-health", title: "Service response monitor", surfaceId: "govern",
+    projectId: "service-operations", worktreeId: null, kind: "Health monitor",
+    summary: "Response targets and escalation signals are configured for review.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Saved",
+    details: [{ label: "Next step", value: "Response targets and escalation signals are configured for review." }],
+    activity: ["Saved the project context and initial configuration.", "Response targets and escalation signals are configured for review."],
+  },
+  {
+    id: "crm-access-policy", title: "Integration permission policy", surfaceId: "govern",
+    projectId: "trailblazer-crm", worktreeId: "access-review", kind: "Permission set",
+    summary: "Limit integration access to the fields used by lead routing.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to review",
+    details: [{ label: "Next step", value: "Limit integration access to the fields used by lead routing." }],
+    activity: ["Saved the project context and initial configuration.", "Limit integration access to the fields used by lead routing."],
+  },
+  {
+    id: "storefront-search", title: "Account search experience", surfaceId: "build",
+    projectId: "acme-storefront", worktreeId: "search-refresh", kind: "Experience",
+    summary: "Refine the account search layout and empty states.", updated: "2026-09-14T12:00:00Z",
+    status: "working", statusLabel: "Agent working",
+    details: [{ label: "Next step", value: "Refine the account search layout and empty states." }],
+    activity: ["Saved the project context and initial configuration.", "Refine the account search layout and empty states."],
+  },
+  {
+    id: "storefront-rollout", title: "UAT rollout checklist", surfaceId: "alm",
+    projectId: "acme-storefront", worktreeId: "uat-rollout", kind: "Release plan",
+    summary: "Confirm release gates and rollback steps for UAT.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Draft plan",
+    details: [{ label: "Next step", value: "Confirm release gates and rollback steps for UAT." }],
+    activity: ["Saved the project context and initial configuration.", "Confirm release gates and rollback steps for UAT."],
+  },
+  {
+    id: "onboarding-flow-change", title: "Customer welcome flow", surfaceId: "build",
+    projectId: "customer-onboarding", worktreeId: "welcome-flow", kind: "Flow",
+    summary: "Refine welcome tasks and follow-up reminders.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Refine welcome tasks and follow-up reminders." }],
+    activity: ["Saved the project context and initial configuration.", "Refine welcome tasks and follow-up reminders."],
+  },
+  {
+    id: "onboarding-handoff", title: "Customer success handoff", surfaceId: "alm",
+    projectId: "customer-onboarding", worktreeId: "handoff-checklist", kind: "Release plan",
+    summary: "Plan acceptance checks with the customer success team.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Draft plan",
+    details: [{ label: "Next step", value: "Plan acceptance checks with the customer success team." }],
+    activity: ["Saved the project context and initial configuration.", "Plan acceptance checks with the customer success team."],
+  },
+  {
+    id: "service-routing-change", title: "Priority case routing", surfaceId: "build",
+    projectId: "service-operations", worktreeId: "case-routing", kind: "Flow",
+    summary: "Refine priority routing and escalation rules.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Refine priority routing and escalation rules." }],
+    activity: ["Saved the project context and initial configuration.", "Refine priority routing and escalation rules."],
+  },
+  {
+    id: "service-alerts", title: "Service response alerts", surfaceId: "govern",
+    projectId: "service-operations", worktreeId: "sla-alerts", kind: "Health monitor",
+    summary: "Confirm alert thresholds before enabling notifications.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Saved",
+    details: [{ label: "Next step", value: "Confirm alert thresholds before enabling notifications." }],
+    activity: ["Saved the project context and initial configuration.", "Confirm alert thresholds before enabling notifications."],
+  },
+  {
+    id: "revenue-dashboard", title: "Revenue forecast dashboard", surfaceId: "build",
+    projectId: "revenue-insights", worktreeId: "forecast-dashboard", kind: "Dashboard",
+    summary: "Arrange forecast trends and pipeline coverage for sales leaders.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Arrange forecast trends and pipeline coverage for sales leaders." }],
+    activity: ["Saved the project context and initial configuration.", "Arrange forecast trends and pipeline coverage for sales leaders."],
+  },
+  {
+    id: "revenue-quality", title: "Revenue data validation", surfaceId: "code",
+    projectId: "revenue-insights", worktreeId: "data-quality", kind: "Test suite",
+    summary: "Review coverage for duplicate opportunities and missing close dates.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Review coverage for duplicate opportunities and missing close dates." }],
+    activity: ["Saved the project context and initial configuration.", "Review coverage for duplicate opportunities and missing close dates."],
+  },
+  {
+    id: "integration-sync", title: "OrderSyncService.cls", surfaceId: "code",
+    projectId: "integration-hub", worktreeId: "order-sync", kind: "Apex class",
+    summary: "Review the order mapping and idempotency checks.", updated: "2026-09-14T12:00:00Z",
+    status: "ready", statusLabel: "Ready to continue",
+    details: [{ label: "Next step", value: "Review the order mapping and idempotency checks." }],
+    activity: ["Saved the project context and initial configuration.", "Review the order mapping and idempotency checks."],
+  },
+  {
+    id: "integration-retries", title: "Integration retry policy", surfaceId: "govern",
+    projectId: "integration-hub", worktreeId: "retry-policy", kind: "Policy",
+    summary: "Confirm retry limits and failed-message handling.", updated: "2026-09-14T12:00:00Z",
+    status: "saved", statusLabel: "Saved",
+    details: [{ label: "Next step", value: "Confirm retry limits and failed-message handling." }],
+    activity: ["Saved the project context and initial configuration.", "Confirm retry limits and failed-message handling."],
+  },
 ];
 
 export function returningWorkById(id?: string) {
@@ -128,7 +264,7 @@ export function workCanvasInput(work: ReturningWork): CanvasSpecInput {
 }
 
 /** All demo work consumers validate the same captured identity claims. */
-export function workForCanvas(params: { workId: string; projectId: string; worktreeId: string }) {
+export function workForCanvas(params: { workId: string; projectId: string; worktreeId: string | null }) {
   const work = returningWorkById(params.workId);
   return work?.projectId === params.projectId && work.worktreeId === params.worktreeId ? work : undefined;
 }

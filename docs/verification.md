@@ -171,7 +171,10 @@ browser registry. Restored behaviors have these checks:
 
 | Behavior | Registered browser suite | Supporting pure checks |
 | --- | --- | --- |
+| Four expansion scenarios: sample work, Today, palette, resource access, surface switcher and blocked direct routes; old assessment links/tabs and live Today compatibility | `expansion-profiles.mjs`, `assessment-canvas.mjs`, `org-sign-in.mjs` | `demo-profiles.test.mjs`, `assessment-canvas.test.mjs` |
 | All profiles choose a connected org at sign-in; required choice, retry, first agent target, reload, profile switching, matching saved links and mobile layout | `org-sign-in.mjs`, `profile-reset.mjs` | `navigation.test.mjs`, `profile-reset.test.mjs` |
+| Sign-out and profile changes have one navigation owner; session/workspace outages show loading or retry UI; slow reads cannot be starved by polling; stale reads cannot restore or bootstrap an old session | `session-recovery.mjs`, `org-sign-in.mjs`, `profile-reset.mjs` | `profile-reset.test.mjs`, `client-reliability.test.mjs` |
+| Every fresh/cleared profile starts on centered Today with no panels; used profiles restore canvas and panel choices across reload, sign-in and profile switching; explicit links/changed orgs take precedence | `profile-start.mjs`, `org-sign-in.mjs`, `chat-layout.mjs` | `navigation.test.mjs`, `persistence.test.mjs` |
 | Starter cards open scoped canvases and seed without submitting | `starter-canvases.mjs` | `starters.test.mjs` |
 | Assessment scope, captured findings, rescan and retry | `assessment-canvas.mjs` | `assessment-canvas.test.mjs` |
 | Project templates, saved intent, brief-to-project creation on all profiles, visible creation action, explicit scoped planning action with retained composer draft, sidebar/reload/reopen, second project, delayed navigation, retry recovery and assessment creation | `project-creation.mjs`, `project-create-end-to-end.mjs`; `project-create-database.mjs` in the database browser gate | `project-creation.test.mjs`, `database.test.mjs` (atomic creation, ownership, duplicate retries), `model-context.test.mjs` |
@@ -240,3 +243,7 @@ target match, and exercises saved edits, immediate-reload recovery, and profile
 isolation against actual persistence. It uses targeted worker ticks for its owned
 test work and has no automatic database fallback. It does not replace the full
 SQL suites.
+
+Expansion adaptation: unrestricted browser fixtures now use Alex; Jordan covers the governance phase. Legacy newcomer starter-card coverage remains in `starter-canvases.mjs` using captured earlier briefings. Current profile project creation uses the persistent sidebar action. No saved history or user-created project is removed.
+
+- Profile sample depth: `demo-profiles.test.mjs` checks 0/2/4/6 projects, worktree distribution, sample ownership, project-only draft identities, and agent destinations. `expansion-profiles` checks navigator structure and Karen’s project-level canvas, saved notes, and sessions.

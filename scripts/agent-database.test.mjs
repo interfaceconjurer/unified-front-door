@@ -28,7 +28,7 @@ after(async () => {
   namespaces.length = 0; journalNamespaces();
   await databasePool().end(); modules.cleanup();
 });
-async function owner(profileId = "jw") { const boot = await transaction(c => bootstrap(c)); namespaces.push(boot.session.namespaceId); journalNamespaces(); return { token: boot.token, session: await transaction(c => changeSession(c, boot.token, { action: "select", profileId, generation: boot.session.generation, commandId: randomUUID() })) }; }
+async function owner(profileId = "am") { const boot = await transaction(c => bootstrap(c)); namespaces.push(boot.session.namespaceId); journalNamespaces(); return { token: boot.token, session: await transaction(c => changeSession(c, boot.token, { action: "select", profileId, generation: boot.session.generation, commandId: randomUUID() })) }; }
 const context = { target: { projectId: null, worktreeId: null, orgId: null }, surface: "home" };
 const send = (s, command) => transaction(c => executeAgentCommand(c, s.token, s.session.generation, command));
 const snapshot = s => transaction(c => observeAgent(c, s.token, s.session.generation));
@@ -36,6 +36,36 @@ const workspace = s => transaction(async c => readWorkspace(c, await requireSess
 const app = (s, kind, expectedRevision, fields = {}) => transaction(c => executeCommand(c, s.token, s.session.generation, { kind, expectedRevision, commandId: randomUUID(), ...fields }));
 const chat = s => send(s, { kind: "submit", requestId: randomUUID(), context, text: "Build a scoped automation" });
 const fastAdapter = { async step(...args) { const result = await demoAdapter.step(...args); return result.kind === "progress" ? { ...result, delayMs: 0 } : result; } };
+
+test("expansion profiles capture only their scenario work and reject unavailable surfaces on the server", async () => {
+  for (const [profileId, count, restricted] of [["sp", 0, ["govern", "code"]], ["kf", 4, ["govern", "code"]], ["jw", 13, ["code"]], ["am", 21, []]]) {
+    const s = await owner(profileId);
+    const opened = await send(s, { kind: "visit", requestId: randomUUID(), context });
+    const today = opened.conversation.conversation.messages.at(-1).snapshot;
+    assert.equal(today.totalRecent, count);
+    assert.equal(today.recent.length, Math.min(count, 12));
+    for (const surface of restricted) await assert.rejects(send(s, { kind: "visit", requestId: randomUUID(), context: { ...context, surface } }), /unavailable/);
+    if (profileId === "kf" || profileId === "jw") {
+      const work = await send(s, { kind: "visit", requestId: randomUUID(), context: { ...context, surface: "build" }, workId: profileId === "kf" ? "builder-lead-routing" : "lead-routing-agent" });
+      assert.equal(work.conversationId, opened.conversationId);
+      if (profileId === "kf") await assert.rejects(send(s, { kind: "visit", requestId: randomUUID(), context: { ...context, surface: "alm" }, workId: "storefront-release" }), /unavailable/);
+    }
+  }
+});
+
+test("builder project-only work saves and resumes without a fabricated worktree", async () => {
+  const s = await owner("kf");
+  const work = modules.load("lib/workspace/demo-workspace").workForProfile("kf")[0];
+  const canvas = modules.load("lib/workspace/returning-work").workCanvasInput(work);
+  const target = { projectId: work.projectId, worktreeId: null, orgId: "uat" };
+  await app(s, "canvas.save", 0, { canvas, target, surface: work.surfaceId, fields: { notes: "Project-level review" } });
+  const saved = (await workspace(s)).canvases.find(item => item.canvas.params.workId === work.id);
+  assert.deepEqual(saved.target, target);
+  assert.equal(saved.fields.notes, "Project-level review");
+  const opened = await send(s, { kind: "visit", requestId: randomUUID(), context: { target, surface: work.surfaceId }, workId: work.id });
+  assert.equal(opened.conversation.threadKey, JSON.stringify(["project-session", work.projectId, null]));
+  await assert.rejects(send(s, { kind: "visit", requestId: randomUUID(), context: { target: { ...target, worktreeId: "main" }, surface: "build" } }), /unavailable/);
+});
 
 test("navigation returns committed history, keeps receipts compact, and retries without replaying older context", async () => {
   const s = await owner(), command = { kind: "visit", requestId: randomUUID(), context: { ...context, surface: "build" } };
@@ -83,7 +113,7 @@ test("global work visits stay in one conversation and never enter their owning p
   assert.equal((await snapshot(s)).conversations.length, 1);
   assert.equal((await snapshot(s)).runs.length, 0);
   await assert.rejects(send(s, { kind: "visit", requestId: randomUUID(), workId: "storefront-health", context: { surface: "govern", target: { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" } } }), /unavailable/);
-  const empty = await owner("jw");
+  const empty = await owner("sp");
   await assert.rejects(send(empty, { kind: "visit", requestId: randomUUID(), workId: "lead-routing-agent", context: { ...context, surface: "build" } }), /unavailable/);
 });
 
@@ -159,7 +189,7 @@ test("Home aggregates all accessible projects while project visits resume their 
   assert.deepEqual(today.recent.filter(work => work.attention).map(work => work.id).sort(), [
     "hotfix-tests", "integration-access", "lead-routing-release", "storefront-health", "storefront-release",
   ]);
-  assert.equal(today.working, 1);
+  assert.equal(today.working, 2);
   assert(today.recent[0].attention); assert(today.recent.every(work => work.projectName));
   const scoped = { target: { projectId: "trailblazer-crm", worktreeId: "main", orgId: "uat" }, surface: "code" };
   const opened = await visit(scoped);
@@ -172,7 +202,7 @@ test("Home aggregates all accessible projects while project visits resume their 
   const freshProjectHome = await visit({ surface: "home", target: { ...scoped.target, worktreeId: "lead-routing" } });
   assert(freshProjectHome.conversation.conversation.messages.some(message => message.role === "agent"), "the target-org marker must not suppress a project's first introduction");
   assert(freshProjectHome.conversation.conversation.messages.every(message => message.role !== "today"));
-  const empty = await owner("jw");
+  const empty = await owner("sp");
   const other = await send(empty, { kind: "visit", requestId: randomUUID(), context });
   assert.equal(other.conversation.conversation.messages.at(-1).snapshot.recent.length, 0, "empty profiles must not receive another profile's work");
 });

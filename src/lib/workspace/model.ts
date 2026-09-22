@@ -30,7 +30,7 @@ export type Org = {
 
 /** A git worktree: an isolated checkout of the project. The unit of isolation
  *  that lets super users run parallel agents safely (Herdr's model). A simple
- *  project has exactly one; the UI stays simple until a second appears. */
+ *  project can also have no worktrees and work directly at project scope. */
 export type Worktree = {
   id: string;
   label: string;
@@ -61,12 +61,12 @@ export type ProjectFacets = {
 export type AgentSessionStatus = "working" | "waiting" | "idle";
 
 /**
- * A worktree's agent thread — the pairing `sessionKey(projectId, worktreeId)`
- * already encodes. One per worktree; mocked here the same way orgs/facets are,
+ * A project's agent thread, optionally scoped to a worktree. The pairing
+ * `sessionKey(projectId, worktreeId)` uses null for project-only threads. Mocked
  * standing in for a real query against the agent runtime.
  */
 export type AgentSession = {
-  worktreeId: string;
+  worktreeId: string | null;
   status: AgentSessionStatus;
   /** Short, human-scannable description of the most recent activity. */
   summary: string;
@@ -105,7 +105,7 @@ export type Project = {
    *  to any org in the global registry. */
   defaultOrgId: string | null;
   facets: ProjectFacets;
-  /** One session per worktree — nested on the project (like `worktrees`) rather
+  /** One session per worktree, or one project-level session with a null ID —
    *  than a flat global list, since worktree ids are only unique within a
    *  project ("main" exists in more than one project's fixture). */
   agentSessions: readonly AgentSession[];

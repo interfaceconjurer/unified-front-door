@@ -1,4 +1,5 @@
 import { parseCanvasInput, canvasId, canvasTarget, type CanvasSpecInput } from "../surface-canvas/model";
+import { projectsForProfile, workForProfile } from "../workspace/demo-workspace";
 import { workForCanvas } from "../workspace/returning-work";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { sameTarget, parseTarget, type WorkspaceTarget } from "../workspace/context";
@@ -53,7 +54,7 @@ export function readDestination(href: string): DestinationRead {
       || target.projectId !== null && (captured.projectId !== target.projectId || captured.worktreeId !== null))) throw new Error();
     const ownedTarget = captured ?? target;
     if (canvas && (!value.surface || canvas.kind === "capability" && canvas.params.surface !== value.surface || !sameTarget(canvasTarget(canvas, ownedTarget), ownedTarget))) throw new Error();
-    if (canvas?.kind === "org-assessment" && value.surface !== "govern") throw new Error();
+    if (canvas?.kind === "org-assessment" && value.surface !== "govern" && value.surface !== "build") throw new Error();
     if (canvas?.kind === "org-resource" && RESOURCE_TYPES[canvas.params.resourceType].surface !== value.surface) throw new Error();
     return { kind: "destination", value: canonicalDestination({ version: 1, owner: value.owner, surface: value.surface, target, ...(canvas ? { canvas } : {}), ...(captured ? { canvasTarget: captured } : {}) }) };
   } catch { return { kind: "invalid", reason: "This workspace link is invalid or uses an unsupported version." }; }
@@ -124,11 +125,15 @@ export function resolveDestination(href: string, owner: DemoProfileId, access: r
   if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
   if (destination.canvas?.kind === "preview") {
     const { projectId, worktreeId, orgId } = destination.canvas.params;
-    if (demoProfileById(owner).workspaceExperience !== "established" || !previewCanvas(projectId, worktreeId, orgId ?? null)
+    if (!projectsForProfile(owner).some(project => project.id === projectId && project.worktrees.some(tree => tree.id === worktreeId)) || !previewCanvas(projectId, worktreeId, orgId ?? null)
       || orgId && !ORGS.some(org => org.id === orgId && org.connection === "connected"))
       return { kind: "unavailable", reason: "This preview is unavailable for the selected project, worktree, or org." };
   }
-  if (destination.canvas?.kind === "work" && workForCanvas(destination.canvas.params)?.surfaceId !== destination.surface) return { kind: "unavailable", reason: "This work destination is unavailable or does not match its project and surface." };
+  if (destination.canvas?.kind === "work") {
+    const work = workForCanvas(destination.canvas.params);
+    if (!work || work.surfaceId !== destination.surface || !workForProfile(owner).includes(work))
+      return { kind: "unavailable", reason: "This work destination is unavailable or does not match its project and surface." };
+  }
   if (destination.canvas?.kind === "org-assessment" && !demoProfileById(owner).onboarding) return { kind: "unavailable", reason: "Org assessment is unavailable for this demo profile." };
   if (destination.canvas?.kind === "org-resource") {
     const orgs = demoProfileById(owner).onboarding ? ASSESSMENT_ORGS : ORGS;

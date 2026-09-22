@@ -24,7 +24,7 @@ export function ReturningHome({ snapshot, onOpenWork, active }: {
     <header className={styles.hero}>
       <p {...todayRow(0)}>Welcome back, {profile?.firstName}</p>
       <h2 {...todayRow(1)}>Your work, across projects.</h2>
-      <div className={styles.context} {...todayRow(2)}>All projects and worktrees</div>
+      <div className={styles.context} {...todayRow(2)}>{recent.some(work => work.worktreeId !== null) ? "All projects and worktrees" : "All projects"}</div>
       <div className={styles.summary} {...todayRow(3)}><SparklesIcon width={15} height={15} aria-hidden="true" />
         {working} {working === 1 ? "agent" : "agents"} working <span aria-hidden="true">·</span> {attention.length} {attention.length === 1 ? "item needs" : "items need"} your attention
       </div>
@@ -35,7 +35,7 @@ export function ReturningHome({ snapshot, onOpenWork, active }: {
         {attention.map((work, index) => <button key={work.id} {...todayRow(5 + index)} type="button" onClick={() => onOpenWork(work)} className={styles.attentionCard} data-today-container aria-label={`Review ${work.title}`}>
           <span className={styles.attentionLabel}>{work.statusLabel}</span>
           <strong>{work.title}</strong>
-          <span className={styles.workContext}>{work.projectName ?? work.projectId} · {work.branch ?? work.worktreeId}</span>
+          <span className={styles.workContext}>{[work.projectName ?? work.projectId, work.branch ?? work.worktreeId].filter(Boolean).join(" · ")}</span>
           <span className={styles.attentionDescription}>{work.summary}</span>
           <span className={styles.attentionAction}>Review in {SURFACES[work.surfaceId].label}<ChevronRightIcon width={15} height={15} aria-hidden="true" /></span>
         </button>)}

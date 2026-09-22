@@ -4,7 +4,8 @@ import { useRef, useState } from "react";
 import { Modal } from "@/components/interaction/Modal";
 import type { ProfileResetResult } from "@/lib/application/client";
 import { readDestination } from "@/lib/navigation/model";
-import { DEMO_PROFILES, type DemoProfile } from "@/lib/demo-profiles";
+import { DEMO_PROFILES, PROFILE_SCENARIOS, type DemoProfile } from "@/lib/demo-profiles";
+import { SURFACES } from "@/lib/workspace/surfaces";
 import { orgsForProfile } from "@/lib/workspace/orgs";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import styles from "./page.module.css";
@@ -54,6 +55,8 @@ export default function LoginPage() {
         </div>
         <h1 id="login-heading">{selectedProfile ? "Choose an org" : "Sign in"}</h1>
 
+        {!selectedProfile && <p className={styles.intro}>Explore how Builder Central can grow into Platform Studio. Choose a scenario, then connect to an org.</p>}
+
         {!selectedProfile ? <div className={styles.accounts}>
           {DEMO_PROFILES.map((profile) => (
             <div className={styles.accountRow} key={profile.id}>
@@ -70,8 +73,10 @@ export default function LoginPage() {
               <span className={styles.accountCopy}>
                 <strong>{profile.name}</strong>
                 <span>
-                  {profile.onboarding ? "Day zero · Org assessment" : `${profile.experience === "returning" ? "Returning" : "New"} ${profile.role.toLowerCase()}`}
+                  {PROFILE_SCENARIOS[profile.id].label} · {PROFILE_SCENARIOS[profile.id].phase}
                 </span>
+                <span>{PROFILE_SCENARIOS[profile.id].description}</span>
+                <span className={styles.surfaces}>{profile.surfaceAccess.map(surface => <span key={surface} className={styles.surface}>{SURFACES[surface].label}</span>)}</span>
               </span>
             </button>
             <button type="button" className={styles.clear} disabled={!resolved || busy}

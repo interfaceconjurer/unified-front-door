@@ -21,7 +21,9 @@ async function setup(options) {
 try {
   const general = await setup({ profileId: 'jw' });
   await general.page.goto(home('jw'));
-  await general.page.getByRole('group', { name: 'Today', exact: true }).getByRole('button', { name: /Start your first project/ }).click();
+  await general.page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+  if (await general.page.locator('#workspace-panel').getAttribute('data-open') !== 'true') await general.page.locator('#workspace-panel-toggle').click();
+  await general.page.getByRole('button', { name: 'Start project', exact: true }).click();
   await general.page.waitForURL(url => url.pathname === '/alm');
   assert.equal(destination(general.page).canvas.params.capability, 'project');
   assert.deepEqual(destination(general.page).target, target);

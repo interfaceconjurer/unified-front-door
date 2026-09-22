@@ -1,3 +1,4 @@
+import { workForProfile } from "../workspace/demo-workspace";
 import { projectCanvases } from "../surface-canvas/projection";
 import type { DemoProfileId } from "../demo-profiles";
 import { INITIAL } from "../assessment/state-codec";
@@ -6,7 +7,7 @@ import { SurfaceCanvasStore, emptyState, type PersistedCanvases } from "../surfa
 import { preferencesForWorkspace } from "../surface-canvas/workspace-preferences";
 import { canvasId, canvasTarget, inputFromCanonicalId, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
-import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
+import { workCanvasInput } from "../workspace/returning-work";
 import { WorkspaceSelectionStore } from "../workspace/persistence";
 import { conversationKey, UNBOUND_TARGET, type WorkspaceTarget } from "../workspace/context";
 import { connectedOrgForProfile, orgsForProfile } from "../workspace/orgs";
@@ -288,7 +289,7 @@ class RemoteCanvasStore {
   private stopPrefs: () => void;
   constructor(private remote: RemoteWorkspaceStore, workspace: WorkspaceTarget) {
     const initial = emptyState(), session = remote.session;
-    if (session.profileId === "am") for (const work of RETURNING_WORK) { const input = workCanvasInput(work); initial[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) }); }
+    for (const work of workForProfile(session.profileId!)) { const input = workCanvasInput(work); initial[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) }); }
     const owner = `${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`;
     const legacy = new SurfaceCanvasStore(`ufd.canvas-preferences.v2.${owner}`, initial).getSnapshot();
     this.prefs = new SurfaceCanvasStore(`ufd.canvas-preferences.v3.${owner}.${conversationKey(workspace)}`, preferencesForWorkspace(legacy, workspace));

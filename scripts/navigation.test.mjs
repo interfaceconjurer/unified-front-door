@@ -66,8 +66,8 @@ test("explicit sign-in targets override remembered views; mismatched org/profile
   assert.equal(signInDestination('am', 'uat', explicit, saved), explicit);
   assert.equal(readDestination(signInDestination('am', 'sit', null, saved)).value.surface, null);
   assert.equal(readDestination(signInDestination('kf', 'uat', null, saved)).value.surface, null);
-  const oldJordanCode = saved.replace('am', 'kf');
-  assert.equal(readDestination(signInDestination('kf', 'uat', null, oldJordanCode)).value.surface, null);
+  const oldJordanCode = saved.replace('am', 'jw');
+  assert.equal(readDestination(signInDestination('jw', 'uat', null, oldJordanCode)).value.surface, null);
 });
 
 test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {

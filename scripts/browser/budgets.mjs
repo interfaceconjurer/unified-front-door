@@ -62,7 +62,7 @@ try {
         const p = await c.newPage();
         p.setDefaultTimeout(60000);
         p.on('pageerror', e => out.errors.push(e.message));
-        const dest = spec => origin + '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'jw', surface: 'build', target, canvas: spec }));
+        const dest = spec => origin + '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'am', surface: 'build', target, canvas: spec }));
         await p.goto(dest(active.canvas));
         await p.getByRole('textbox', { name: 'Name', exact: true }).waitFor();
         assert.equal(await p.getByRole('tablist', { name: 'Build & Setup canvases', exact: true }).getByRole('tab').count(), total + 1);

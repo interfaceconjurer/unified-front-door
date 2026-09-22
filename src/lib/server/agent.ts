@@ -6,6 +6,7 @@ import { demoPolicy, projectIntroduction } from "../agent/demo";
 import { ApplicationError, conflict, invalid, stableJson, type ApplicationCommand } from "../application/contracts";
 import { updateConversation, type Conversation } from "../chat/conversation";
 import { assessmentBriefing, captureToday } from "../chat/today-snapshot";
+import { workForProfile } from "../workspace/demo-workspace";
 import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { SURFACES } from "../workspace/surfaces";
@@ -112,16 +113,16 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     if (command.kind === "visit") {
       let next: Conversation;
       if (command.workId) {
-        const work = context.profile.workspaceExperience === "established" && visitedWork?.surfaceId === context.surface ? visitedWork : undefined;
+        const work = workForProfile(context.profile.id).some(work => work.id === visitedWork?.id) && visitedWork?.surfaceId === context.surface ? visitedWork : undefined;
         if (!work) invalid("This work destination is unavailable in the captured context.");
         next = saved.conversation.visitKey === `work:${work.id}` ? saved.conversation : {
           ...updateConversation(saved.conversation, { type: "surface", scopeKey: work.surfaceId, label: SURFACES[work.surfaceId].label, reply: policy.workReply(work), force: true }),
           visitKey: `work:${work.id}`,
         };
       } else if (context.surface === "home" && !project) {
-        const recent = RETURNING_WORK.filter(work => projects.some(project => project.id === work.projectId) && context.profile.surfaceAccess.includes(work.surfaceId))
+        const recent = workForProfile(context.profile.id)
           .map(work => { const project = projects.find(project => project.id === work.projectId)!;
-            return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch ?? work.worktreeId }; })
+            return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch ?? work.worktreeId ?? undefined }; })
           .sort((a, b) => Number(!!b.attention) - Number(!!a.attention) || b.updated.localeCompare(a.updated));
         next = updateConversation(saved.conversation, { type: "today", force: command.refreshToday, snapshot: captureToday({ capturedAt: context.capturedAt, profile: context.profile, scope: "global", projectName: "All projects", branch: "", hasProjects: context.hasProjects,
           recent, working: projects.reduce((count, project) => count + project.agentSessions.filter(session => session.status === "working").length, 0), assessment: workspace.assessment }) });

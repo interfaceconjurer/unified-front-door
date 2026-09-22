@@ -2,6 +2,34 @@
 
 [← README](../README.md)
 
+## Demo expansion scenarios
+
+The profiles tell a proposed expansion story from Builder Central’s Build &
+Setup foundation. The first two scenarios include ALM; the next adds Govern &
+Observe, and the last adds Code. These are demo access boundaries, not product
+licensing or a committed Salesforce roadmap.
+
+| Profile | Scenario | Surfaces | Starting work |
+| --- | --- | --- | --- |
+| Sam Patel | Day zero | Build & Setup, ALM | An org assessment; no projects yet |
+| Karen Flores | Platform builder | Build & Setup, ALM | Two projects, no worktrees; lead routing and customer onboarding |
+| Jordan Wright | Platform operations | Build & Setup, ALM, Govern & Observe | Four projects; two worktrees on two projects, plus access and health reviews |
+| Alex Morgan | Returning developer | All four surfaces | Six projects, each with worktrees and sample work |
+
+Sign-in and the profile menu show the scenario framing. Today, project/session
+navigation, seeded tabs, resource access, and agent destinations share these
+profile boundaries. Saved user-created projects and drafts keep their existing
+profile identities. A trailing live Today from an older profile definition is
+updated in place; previous inactive briefings remain historical snapshots.
+
+Day-zero assessment details now open in Build & Setup. Earlier Govern assessment
+links and tab preferences migrate to Build while retaining the exact run, finding,
+and target org. Opening the Govern surface itself is unavailable to Sam or Karen.
+
+### Sample workspaces by expansion phase
+
+Fresh/cleared profiles retain the same centered Today starting view. Sam has no projects. Karen has Trailblazer CRM and Customer Onboarding, both at project scope without worktrees; sample work, chats, and project entry use a null worktree. Jordan has four projects, with two feature/release worktrees on Trailblazer CRM and Acme Storefront, plus project-only Customer Onboarding and Service Operations. Alex has six projects, adding Revenue Insights and Integration Hub, with worktrees on every project. Sample work is filtered by both available surfaces and exact project/worktree membership; user-created projects remain separate.
+
 ## Sign-in and connected orgs
 
 Sign-in first chooses a profile, then a connected org before entering the
@@ -14,6 +42,14 @@ explicit sign-in choice is saved in that profile's workspace preferences and is
 present in the first agent context, status bar, resource browsing and reload.
 Switching profiles from the avatar restores their own selected connected org,
 falling back to UAT when the remembered org is unavailable. Home retains the org.
+
+Fresh or cleared profiles all enter global Today with the project and surface
+panels closed, leaving the chat centered at full width, regardless of seeded
+projects. Once used, each profile remembers its last surface/canvas or project
+view and both panel choices for sign-out/sign-in and profile switching. These
+browser preferences are scoped to its workspace epoch, so Clear data starts a
+fresh layout without affecting other profiles. A matching explicit saved link
+takes precedence over the remembered view; choosing another org starts on Today.
 
 A saved link suggests its org at sign-in and resumes unchanged when its profile
 and org match. Choosing another org or profile opens global Home there instead

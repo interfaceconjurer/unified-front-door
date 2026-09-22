@@ -12,12 +12,12 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
   const { updateConversation } = modules.load('lib/chat/conversation');
   const { captureToday } = modules.load('lib/chat/today-snapshot');
   const profile = modules.load('lib/demo-profiles').demoProfileById(profileId);
-  const { PROJECTS } = modules.load('lib/workspace/fixtures');
-  const { RETURNING_WORK } = modules.load('lib/workspace/returning-work');
-  const recent = profile.workspaceExperience === 'established' ? RETURNING_WORK.map(work => {
-    const project = PROJECTS.find(project => project.id === work.projectId);
+  const { projectsForProfile, workForProfile } = modules.load('lib/workspace/demo-workspace');
+  const projects = projectsForProfile(profileId);
+  const recent = workForProfile(profileId).map(work => {
+    const project = projects.find(project => project.id === work.projectId);
     return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch };
-  }) : [];
+  });
   const { state, stats } = await install(context, { drafts: 0, messages: 0 });
   const current = { ...session, profileId }, commands = [];
   const run = { id: 'captured-original', startedAt: '2026-09-19T11:00:00Z', completedAt: '2026-09-19T11:05:00Z', scopeOrgIds: ['prod', 'uat'], source: { adapter: 'demo-org-assessment', version: '1' },

@@ -49,12 +49,11 @@ try {
         await dialog.waitFor({ state: 'detached' });
         assert(await trigger.evaluate(n => n === document.activeElement));
         out.checks.push(motion + ': caret, tab roving, bidirectional containment, background inert, Escape/tab, focus restoration');
-        for (const kind of ['input', 'result', 'guided']) {
+        for (const kind of ['input', 'result', 'scope']) {
             await trigger.click();
             await dialog.waitFor();
-            if (kind === 'guided') {
-                await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-                await dialog.getByRole('button', { name: 'Start your first project' }).focus();
+            if (kind === 'scope') {
+                await dialog.getByRole('button', { name: /Browse orgs|Choose an org/ }).focus();
             }
             else if (kind === 'result') {
                 await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
@@ -65,7 +64,7 @@ try {
             await dialog.waitFor({ state: 'detached' });
             assert(await trigger.evaluate(n => n === document.activeElement));
         }
-        out.checks.push(motion + ': Escape input/result/guided-action and trigger restore');
+        out.checks.push(motion + ': Escape input/result/org-scope and trigger restore');
         if (motion === 'no-preference') {
             await trigger.click();
             await dialog.waitFor();

@@ -74,7 +74,7 @@ export function buildProjectTree(projects: readonly Project[]): ProjectTreeRow[]
 
 export type SessionRow = {
   project: Project;
-  worktree: Worktree;
+  worktree: Worktree | null;
   session: AgentSession;
 };
 
@@ -86,8 +86,8 @@ export function allSessionRows(projects: readonly Project[]): SessionRow[] {
   const rows: SessionRow[] = [];
   for (const project of projects) {
     for (const session of project.agentSessions) {
-      const worktree = project.worktrees.find((w) => w.id === session.worktreeId);
-      if (!worktree) continue; // defensive: fixtures always pair a session with a worktree
+      const worktree = project.worktrees.find((w) => w.id === session.worktreeId) ?? null;
+      if (!worktree && (session.worktreeId !== null || project.worktrees.length)) continue;
       rows.push({ project, worktree, session });
     }
   }

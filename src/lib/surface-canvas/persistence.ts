@@ -1,3 +1,4 @@
+import { workForProfile } from "../workspace/demo-workspace";
 import { sameTarget, parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { BrowserPersistenceStore, type Decoded } from "../browser-persistence";
 import { RESOURCE_TYPES } from "../org-resources/model";
@@ -20,7 +21,7 @@ import { canonicalCanvasSurface } from "./routing";
  */
 
 import type { DemoProfileId } from "@/lib/demo-profiles";
-import { RETURNING_WORK, workCanvasInput, workForCanvas, returningWorkById } from "../workspace/returning-work";
+import { workCanvasInput, workForCanvas, returningWorkById } from "../workspace/returning-work";
 import type { SurfaceId } from "@/lib/workspace/model";
 import {
   canvasId,
@@ -129,7 +130,7 @@ function parseSlice(value: unknown, surfaceId: SurfaceId): SurfaceCanvasSlice {
   const preserve = (title: string, reason: string, original: unknown) => recovery.push({ id: `recovery-${recovery.length}`, title, reason, original });
   if (Array.isArray(value.canvases)) for (const entry of value.canvases) {
     const input = legacyInput(entry, surfaceId);
-    if (!input || (input.kind === "org-assessment" && surfaceId !== "govern") || (input.kind === "capability" && input.params.surface !== surfaceId) || (input.kind === "org-resource" && RESOURCE_TYPES[input.params.resourceType].surface !== surfaceId) || (input.kind === "work" && returningWorkById(input.params.workId) && workForCanvas(input.params)?.surfaceId !== canonicalCanvasSurface(surfaceId, input))) { preserve("Legacy canvas", "Its target could not be reconstructed.", entry); continue; }
+    if (!input || (input.kind === "org-assessment" && surfaceId !== "govern" && surfaceId !== "build") || (input.kind === "capability" && input.params.surface !== surfaceId) || (input.kind === "org-resource" && RESOURCE_TYPES[input.params.resourceType].surface !== surfaceId) || (input.kind === "work" && returningWorkById(input.params.workId) && workForCanvas(input.params)?.surfaceId !== canonicalCanvasSurface(surfaceId, input))) { preserve("Legacy canvas", "Its target could not be reconstructed.", entry); continue; }
     const id = canvasId(input.kind, input.params), original = entry as Record<string, unknown>;
     if (typeof original.id === "string") aliases.set(original.id, [...(aliases.get(original.id) ?? []), id]);
     const draft = original.draft === undefined ? undefined : sanitizeStringRecord(original.draft);
@@ -257,7 +258,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
   openCanvas = (surfaceId: SurfaceId, input: CanvasSpecInput): boolean => {
     const valid = parseCanvasInput(input);
     if (valid) surfaceId = canonicalCanvasSurface(surfaceId, valid);
-    if (!valid || (valid.kind === "org-assessment" && surfaceId !== "govern") || (valid.kind === "capability" && valid.params.surface !== surfaceId) || (valid.kind === "org-resource" && RESOURCE_TYPES[valid.params.resourceType].surface !== surfaceId) || (valid.kind === "work" && returningWorkById(valid.params.workId) && workForCanvas(valid.params)?.surfaceId !== surfaceId)) throw new TypeError("Invalid canvas input");
+    if (!valid || (valid.kind === "org-assessment" && surfaceId !== "build") || (valid.kind === "capability" && valid.params.surface !== surfaceId) || (valid.kind === "org-resource" && RESOURCE_TYPES[valid.params.resourceType].surface !== surfaceId) || (valid.kind === "work" && returningWorkById(valid.params.workId) && workForCanvas(valid.params)?.surfaceId !== surfaceId)) throw new TypeError("Invalid canvas input");
     if (!this.canOpenCanvas(surfaceId, valid)) return false;
     const id = canvasId(valid.kind, valid.params);
     this.updateSlice(surfaceId, (slice) => {
@@ -356,11 +357,9 @@ export function getSurfaceCanvasStore(profileId: DemoProfileId): SurfaceCanvasSt
   let store = stores.get(profileId);
   if (!store) {
     const initialState = emptyState();
-    if (profileId === "am") {
-      for (const work of RETURNING_WORK) {
-        const input = workCanvasInput(work);
-        initialState[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) });
-      }
+    for (const work of workForProfile(profileId)) {
+      const input = workCanvasInput(work);
+      initialState[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) });
     }
     // Preserve Jordan's existing drafts at the original storage key.
     store = new SurfaceCanvasStore(profileId === "jw" ? STORAGE_KEY : `${STORAGE_KEY}.${profileId}`, initialState);

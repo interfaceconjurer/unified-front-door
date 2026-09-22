@@ -1,6 +1,7 @@
 .bar {
   position: relative;
-  z-index: 30;
+  /* Profile and project menus stay above the open workspace sidebar. */
+  z-index: 50;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 36rem) minmax(0, 1fr);
   gap: 1.25rem;

@@ -37,7 +37,16 @@ export function updateConversation(current: Conversation | undefined, event: Con
     // A Today card remains current until something else is printed after it.
     // Older queued Home visits may carry force, but must not duplicate it.
     const last = thread.messages.at(-1);
-    if (last?.role === "today") return thread.scopeKey === "home" ? thread : { ...thread, scopeKey: "home" };
+    if (last?.role === "today") {
+      // Repurposing a demo profile updates its live briefing without appending
+      // another Today or rewriting earlier, inactive history.
+      const previous = last.snapshot.profile, current = event.snapshot.profile;
+      const profileChanged = (["id", "name", "firstName", "initials", "role", "experience", "workspaceExperience", "onboarding"] as const)
+        .some(key => previous[key] !== current[key]) || previous.surfaceAccess.join() !== current.surfaceAccess.join();
+      if (profileChanged) return { ...thread, scopeKey: "home",
+        messages: [...thread.messages.slice(0, -1), { ...last, snapshot: { ...event.snapshot, capturedAt: last.snapshot.capturedAt } }] };
+      return thread.scopeKey === "home" ? thread : { ...thread, scopeKey: "home" };
+    }
     return { ...target, scopeKey: "home", messages: [...thread.messages, { id, role: "today", snapshot: event.snapshot }] };
   }
   if (event.type === "project") {

@@ -248,7 +248,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
           const projectMatches = matchesQuery(
             project.name,
             project.description,
-            (base?.worktree.label ?? "Planning project"),
+            (base?.worktree.label ?? project.description),
             (base?.worktree.branch ?? ""),
           );
           const matchingChildren = children.filter(
@@ -261,7 +261,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
             id: project.id,
             label: project.name,
             // Subtitle = the primary branch, so the node reads as "project on main".
-            description: (base?.worktree.label ?? "Planning project"),
+            description: (base?.worktree.label ?? project.description),
             searchNames: [base?.worktree.branch ?? ""],
             Icon: LayersIcon,
             // Current only when the project is active AND on its primary worktree —
@@ -297,17 +297,17 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       // global triage — `allSessionRows` already sorts waiting → working → idle.
       return allSessionRows(projects)
         .filter(({ project, worktree, session }) =>
-          matchesQuery(project.name, worktree.label, worktree.branch, session.summary, STATUS_LABEL[session.status]),
+          matchesQuery(project.name, worktree?.label ?? project.name, worktree?.branch ?? "", session.summary, STATUS_LABEL[session.status]),
         )
         .map(({ project, worktree, session }) => ({
-          id: `${project.id}::${worktree.id}`,
-          label: worktree.label,
-          description: `${project.name} · ${worktree.branch} — ${session.summary}`,
-          searchNames: [worktree.branch],
-          isCurrent: project.id === activeProject?.id && worktree.id === activeWorktree?.id,
+          id: `${project.id}::${worktree?.id}`,
+          label: worktree?.label ?? project.name,
+          description: `${project.name}${worktree ? ` · ${worktree.branch}` : ""} — ${session.summary}`,
+          searchNames: [worktree?.branch ?? ""],
+          isCurrent: project.id === activeProject?.id && worktree?.id === activeWorktree?.id,
           status: session.status,
           select: () => {
-            selectProject(project.id, worktree.id);
+            selectProject(project.id, worktree?.id);
           },
         })).sort(currentFirst);
     }

@@ -7,7 +7,8 @@ import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { ChevronRightIcon, BoxIcon } from "@/components/icons";
 import { RecentWorkList, useOpenWork } from "@/components/workspace/RecentWorkList";
 import { useWorkspace, useWorkspacePanel } from "@/components/workspace/workspace-context";
-import { RETURNING_WORK } from "@/lib/workspace/returning-work";
+import { workForProfile } from "@/lib/workspace/demo-workspace";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { APP_STATUS_LABEL } from "@/lib/workspace/selectors";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { useSurfaceCanvasActions } from "./surface-canvas-context";
@@ -32,8 +33,9 @@ export function ReturningSurface({ surfaceId, children }: {
   const { selectOrg } = useNavigation();
   const { openCanvas } = useSurfaceCanvasActions();
   const openWork = useOpenWork();
-  const work = RETURNING_WORK.filter((item) => item.projectId === activeProject?.id
-    && item.worktreeId === activeWorktree?.id && item.surfaceId === surfaceId);
+  const { profile } = useDemoProfile();
+  const work = (profile ? workForProfile(profile.id) : []).filter((item) => item.projectId === activeProject?.id
+    && item.worktreeId === (activeWorktree?.id ?? null) && item.surfaceId === surfaceId);
   const attention = work.filter((item) => item.attention).length;
   const copy = COPY[surfaceId];
   const release = work.find((item) => item.kind === "Release plan");

@@ -14,17 +14,19 @@ const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const output = { label, checks: [], errors: [] };
 try {
   for (const [profileId, title, surface, capability, motion = 'reduce'] of [
-    ['jw', 'Start your first project', 'alm', 'project'],
-    ['jw', 'Build your first agent', 'build', 'agent'],
-    ['jw', 'Build a React app', 'code', 'react-app'],
-    ['jw', 'Set up a release pipeline', 'alm', 'pipeline'],
-    ['jw', 'Bring your project', 'code', 'sfdx-project'],
+    ['am', 'Start your first project', 'alm', 'project'],
+    ['am', 'Build your first agent', 'build', 'agent'],
+    ['am', 'Build a React app', 'code', 'react-app'],
+    ['am', 'Set up a release pipeline', 'alm', 'pipeline'],
+    ['am', 'Bring your project', 'code', 'sfdx-project'],
     ['kf', 'Build an app experience', 'build', 'experience'],
-    ['jw', 'Build your first agent', 'build', 'agent', 'no-preference'],
+    ['am', 'Build your first agent', 'build', 'agent', 'no-preference'],
   ]) {
     const context = await browser.newContext({ httpCredentials, reducedMotion: motion, viewport: { width: 1440, height: 1000 } });
     const { state } = await install(context, { drafts: 0, messages: 0 });
-    const current = { ...session, profileId }, profile = demoProfileById(profileId);
+    const current = { ...session, profileId };
+    // Preserve coverage for starter cards in previously captured newcomer briefings.
+    const profile = { ...demoProfileById(profileId), experience: 'new', workspaceExperience: 'empty' };
     state.snapshot.session = current;
     const today = captureToday({ capturedAt: '2026-09-19T12:00:00Z', profile, scope: 'global', projectName: 'All projects', branch: '', hasProjects: false, recent: [], working: 0, assessment });
     const saved = state.agent.conversations[0]; saved.conversation = { scopeKey: 'home', targetOrgId: 'uat', messages: [{ id: 1, role: 'today', snapshot: today }] };

@@ -179,8 +179,8 @@ test("legacy payloads and original keys survive; edited closed drafts restore an
   assert.equal(restored.getSnapshot().build.closedDrafts[id].name, "Keep this");
   assert.equal(disk.get("ufd.surface-canvas.v1"), legacyRaw);
   restored.openCanvas("build", input);
-  assert.equal(restored.getSnapshot().build.canvases[0].draft.name, "Keep this");
-  assert.equal(getSurfaceCanvasStore("kf").getSnapshot().build.canvases.length, 0);
+  assert.equal(restored.getSnapshot().build.canvases.find(canvas => canvas.id === id).draft.name, "Keep this");
+  assert.equal(getSurfaceCanvasStore("kf").getSnapshot().build.canvases.some(canvas => canvas.id === id), false);
   restored.reset();
   assert.equal(new SurfaceCanvasStore("ufd.surface-canvas.v1").getSnapshot().build.canvases.length, 0);
   const profile = new DemoProfileStore(); profile.setProfile(null);

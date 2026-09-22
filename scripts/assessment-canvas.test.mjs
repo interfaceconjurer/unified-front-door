@@ -18,7 +18,7 @@ const run = id => ({ id, startedAt: "2026-09-19T12:00:00Z", completedAt: "2026-0
   findings: captureFindings(id, ASSESSMENT_FINDINGS, ASSESSMENT_ORGS, "2026-09-19T12:01:00Z"), source: { adapter: "demo-org-assessment", version: "1" } });
 const original = run("original"), latest = run("latest");
 const state = { ...INITIAL, status: "running", currentRunId: latest.id, scopeOrgIds: ["sit"], runs: [original, { ...latest, completedAt: null, findings: [] }] };
-const destination = canvas => ({ version: 1, owner: "sp", surface: "govern", canvas, target: canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null }) });
+const destination = canvas => ({ version: 1, owner: "sp", surface: "build", canvas, target: canvasTarget(canvas, { projectId: null, worktreeId: null, orgId: null }) });
 
 test("assessment canvas identity captures run, finding and scope without mutable evidence", () => {
   const input = assessmentCanvas(scope, original.id, original.findings[0]), id = canvasId(input.kind, input.params);
@@ -44,11 +44,11 @@ test("old-run evidence and scope remain exact after rescan, with no current-run 
   assert.equal(assessmentCanvasView(assessmentCanvas(scope).params, INITIAL).status, "idle");
 });
 
-test("assessment navigation is Govern-only, scoped, and restricted to the onboarding profile", () => {
+test("assessment navigation is Build-only, scoped, and restricted to the onboarding profile", () => {
   const input = assessmentCanvas(scope, original.id), value = destination(input), href = destinationHref(value);
   assert.deepEqual(readDestination(href), { kind: "destination", value });
   assert.equal(resolveDestination(href, "sp", demoProfileById("sp").surfaceAccess, {}).kind, "available");
-  assert.equal(readDestination(destinationHref({ ...value, surface: "build" })).kind, "invalid");
+  assert.equal(readDestination(destinationHref({ ...value, surface: "code" })).kind, "invalid");
   assert.equal(readDestination(destinationHref({ ...value, target: { ...value.target, orgId: "sit" } })).kind, "invalid");
   assert.equal(resolveDestination(destinationHref({ ...value, owner: "am" }), "am", demoProfileById("am").surfaceAccess, {}).kind, "unavailable");
 });
@@ -56,18 +56,18 @@ test("assessment navigation is Govern-only, scoped, and restricted to the onboar
 test("assessment tabs survive reload but cannot persist editable evidence or copy drafts", () => {
   const disk = new Map(); global.window = { localStorage: { getItem: key => disk.get(key) ?? null, setItem: (key, value) => disk.set(key, value), removeItem: key => disk.delete(key) }, addEventListener() {}, removeEventListener() {} };
   const store = new SurfaceCanvasStore("assessment-test"), input = assessmentCanvas(scope, original.id, original.findings[0]), id = canvasId(input.kind, input.params);
-  store.captureTarget("govern", id, destination(input).target); store.openCanvas("govern", input);
+  store.captureTarget("build", id, destination(input).target); store.openCanvas("build", input);
   const restored = new SurfaceCanvasStore("assessment-test");
   assert.deepEqual(restored.getSnapshot(), store.getSnapshot());
-  assert.throws(() => restored.openCanvas("build", input), /Invalid canvas/);
-  assert.equal(restored.copyDraft("govern", id, input), false);
-  const base = { commandId: "attempt-write", expectedRevision: 0, surface: "govern", canvas: input, target: destination(input).target };
+  assert.throws(() => restored.openCanvas("code", input), /Invalid canvas/);
+  assert.equal(restored.copyDraft("build", id, input), false);
+  const base = { commandId: "attempt-write", expectedRevision: 0, surface: "build", canvas: input, target: destination(input).target };
   assert.throws(() => parseCommand({ ...base, kind: "canvas.save", fields: { evidence: "Changed" } }));
   assert.throws(() => parseCommand({ ...base, kind: "canvas.copy", sourceId: id, sourceRevision: 1 }));
 });
 
 test("agent destinations use captured owned assessment references and revalidate against those exact references", () => {
-  const context = { profile: demoProfileById("sp"), target: destination(assessmentCanvas(scope)).target, surface: "govern", improvement: null,
+  const context = { profile: demoProfileById("sp"), target: destination(assessmentCanvas(scope)).target, surface: "build", improvement: null,
     assessmentNavigation: { runId: original.id, findings: [{ id: original.findings[0].id, title: original.findings[0].title }] } };
   const options = navigationOptions(context), finding = options.find(option => option.id === `finding:${original.findings[0].id}`);
   assert.ok(finding); assert.equal(finding.destination.canvas.params.runId, original.id);
