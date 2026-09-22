@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { DEMO_PROFILES, type DemoProfileId } from "@/lib/demo-profiles";
 import { useDemoProfile } from "./ProfileProvider";
 import styles from "./ProfileMenu.module.css";
 
 export function ProfileMenu() {
-  const router = useRouter();
   const { profile, signIn, signOut } = useDemoProfile();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -48,7 +46,6 @@ export function ProfileMenu() {
     try {
       if (!await signIn(profileId)) { setProblem("We couldn’t switch users. Please try again."); return; }
       setOpen(false);
-      router.replace("/");
     } finally { setPending(false); }
   }
 
@@ -58,7 +55,6 @@ export function ProfileMenu() {
     try {
       if (!await signOut()) { setProblem("We couldn’t sign out. Please try again."); return; }
       setOpen(false);
-      router.replace("/login");
     } finally { setPending(false); }
   }
 

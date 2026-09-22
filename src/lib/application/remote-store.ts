@@ -192,7 +192,13 @@ export class RemoteWorkspaceStore implements PersistenceControls {
     }
     this.sending = false;
   }
-  retryPersistence = () => { if (!this.active || this.bufferInvalid) return; this.blocked = false; this.error = ""; this.persist(); void this.load().then((ok) => { if (ok) void this.drain(); }); };
+  retryPersistence = async () => {
+    if (!this.active) return;
+    // Loading the saved workspace is safe even with an unreadable local buffer.
+    // persist/drain still protect its bytes and refuse to replay it.
+    this.blocked = false; this.error = ""; this.persist();
+    if (await this.load()) void this.drain();
+  };
   recoverDiscardedBuffer = (key: string, raw: string) => {
     if (!this.active || this.malformedSource?.key !== key || this.malformedSource.raw !== raw) return;
     try { if (window.localStorage.getItem(key) !== null) return; } catch { return; }

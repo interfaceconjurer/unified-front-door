@@ -59,11 +59,18 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
     const id = destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null;
     setProblem(null);
-    if (source === "restore") return;
+    const previousHref = selection.getSnapshot().lastDestination;
     selection.rememberDestination(destination);
+    if (source === "restore") {
+      // Reload/profile re-entry retains a hidden pane. A different explicit
+      // link or browser-history destination reveals the view being requested.
+      if (previousHref !== destinationHref(destination)) selection.setSurfacePanelOpen(destination.surface !== null);
+      return;
+    }
     if (destination.surface && id) canvases.captureTarget(destination.surface, id, destinationCanvasTarget(destination));
     if (source === "capture") return;
     selection.setTarget(destination.target);
+    selection.setSurfacePanelOpen(destination.surface !== null);
     if (destination.surface) {
       if (destination.canvas) canvases.openCanvas(destination.surface, destination.canvas);
       else canvases.setActiveCanvas(destination.surface, "overview");

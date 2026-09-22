@@ -28,7 +28,7 @@ export function ReturningSurface({ surfaceId, children }: {
 }) {
   const surface = surfaceAppById(surfaceId);
   const { orgs, activeProject, activeOrg, activeWorktree, openProjectPanel } = useWorkspace();
-  const { panelOpen } = useWorkspacePanel(false);
+  const { panelOpen } = useWorkspacePanel();
   const { selectOrg } = useNavigation();
   const { openCanvas } = useSurfaceCanvasActions();
   const openWork = useOpenWork();

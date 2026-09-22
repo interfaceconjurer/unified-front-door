@@ -41,6 +41,35 @@ test("every profile has a connected starting org; unavailable preferences never 
   assert(!orgsForProfile('sp').some(org => org.id === 'acme-devhub'));
 });
 
+test("fresh profile epochs start on Today while existing profiles resume their own last view", () => {
+  browser();
+  for (const owner of ['sp', 'kf', 'jw', 'am']) {
+    const store = new WorkspaceSelectionStore(`profile-${owner}-epoch-one`);
+    const initial = readDestination(signInDestination(owner, 'uat', null, store.getSnapshot().lastDestination)).value;
+    assert.equal(initial.surface, null);
+    assert.deepEqual(initial.target, { ...UNBOUND_TARGET, orgId: 'uat' });
+    assert.equal(store.getSnapshot().panelOpen ?? false, false);
+    const last = { ...initial, surface: 'build', canvas: { kind: 'org-resource', title: 'Account', params: { orgId: 'uat', resourceType: 'standard-object', apiName: 'Account' } } };
+    store.rememberDestination(last); store.setPanelOpen(true); store.setSurfacePanelOpen(false);
+    const restored = new WorkspaceSelectionStore(`profile-${owner}-epoch-one`).getSnapshot();
+    assert.equal(signInDestination(owner, 'uat', null, restored.lastDestination), destinationHref(last));
+    assert.equal(restored.panelOpen, true); assert.equal(restored.surfacePanelOpen, false);
+    const cleared = new WorkspaceSelectionStore(`profile-${owner}-epoch-two`).getSnapshot();
+    assert.equal(cleared.lastDestination, undefined); assert.equal(cleared.panelOpen ?? false, false);
+    assert.equal(readDestination(signInDestination(owner, 'uat', null, cleared.lastDestination)).value.surface, null);
+  }
+});
+
+test("explicit sign-in targets override remembered views; mismatched org/profile and removed access never resume", () => {
+  const saved = destinationHref(destination(capability({ scope: 'unbound', orgId: 'uat' }), { ...UNBOUND_TARGET, orgId: 'uat' }));
+  const explicit = destinationHref({ version: 1, owner: 'am', surface: 'alm', target: { ...UNBOUND_TARGET, orgId: 'uat' } });
+  assert.equal(signInDestination('am', 'uat', explicit, saved), explicit);
+  assert.equal(readDestination(signInDestination('am', 'sit', null, saved)).value.surface, null);
+  assert.equal(readDestination(signInDestination('kf', 'uat', null, saved)).value.surface, null);
+  const oldJordanCode = saved.replace('am', 'kf');
+  assert.equal(readDestination(signInDestination('kf', 'uat', null, oldJordanCode)).value.surface, null);
+});
+
 test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {
   browser(); const legacy = new SurfaceCanvasStore("legacy-tabs");
   const global = capability({ scope: "unbound", orgId: "prod" });

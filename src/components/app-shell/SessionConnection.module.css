@@ -1,0 +1,37 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 2rem;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+.content { width: min(100%, 28rem); }
+.brand { display: block; font-weight: 700; margin-bottom: 2rem; }
+.content h1 { font-size: 1.5rem; margin: 0 0 .75rem; }
+.content p { line-height: 1.6; margin: 0 0 1.5rem; }
+.content button {
+  border: 0;
+  border-radius: .5rem;
+  background: var(--slds-g-color-accent-1, #0176d3);
+  color: var(--slds-g-color-on-accent-1, #fff);
+  padding: .75rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.content button:disabled { cursor: wait; opacity: .7; }
+.content button:focus-visible, .content a:focus-visible { outline: 2px solid var(--slds-g-color-accent-2, #0176d3); outline-offset: 3px; }
+.content a { color: var(--slds-g-color-accent-2, #0176d3); }
+.spinner {
+  display: block;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-bottom: 1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
