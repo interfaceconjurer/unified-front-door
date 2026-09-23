@@ -18,6 +18,18 @@ const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.d
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
 
+test('browsing a project record preserves the selected org while retaining its captured plan environment', () => {
+  const { canvasDestination, destinationCanvasTarget } = modules.load('lib/navigation/model');
+  const canvas = { kind: 'improvement-project', title: 'Saved plan', params: { projectId: 'plan' } };
+  const captured = { projectId: 'plan', worktreeId: null, orgId: 'sit' };
+  for (const workspace of [{ ...captured, orgId: 'uat' }, { projectId: null, worktreeId: null, orgId: 'uat' }]) {
+    const result = canvasDestination('sp', 'alm', canvas, captured, workspace);
+    assert.deepEqual(result.target, workspace);
+    assert.deepEqual(destinationCanvasTarget(result), captured);
+    assert.deepEqual(readDestination(destinationHref(result)).value, result);
+  }
+});
+
 test("sign-in preserves matching deep links without retargeting saved canvases to another org or profile", () => {
   const target = { ...UNBOUND_TARGET, orgId: 'uat' };
   const work = destination(capability({ scope: 'unbound', orgId: 'uat' }), target);

@@ -23,7 +23,8 @@ export function destinationCanvasTarget(destination: Destination): WorkspaceTarg
 }
 export function canvasDestination(owner: DemoProfileId, surface: SurfaceId, canvas: CanvasSpecInput, captured: WorkspaceTarget, workspace: WorkspaceTarget): Destination {
   const retainWorkspace = captured.projectId !== null && (workspace.projectId === null
-    || captured.projectId === workspace.projectId && captured.worktreeId === null && workspace.worktreeId !== null);
+    || captured.projectId === workspace.projectId && captured.worktreeId === null
+      && (workspace.worktreeId !== null || canvas.kind === "improvement-project"));
   return canonicalDestination({ version: 1, owner, surface, canvas,
     target: retainWorkspace ? workspace : captured,
     ...(retainWorkspace ? { canvasTarget: captured } : {}) });

@@ -187,11 +187,17 @@ sample preview do not expose the action.
 ## Navigator search
 
 The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
-surfaces, projects/worktrees, sessions, connected orgs, and resources together.
+surfaces, project records, sessions, connected orgs, and resources together.
 Exact names and API names rank ahead of prefixes, partial names, and descriptive
-matches. Project/worktree groups remain connected; a matching worktree can be
-the keyboard selection without moving away from its parent. Result types and
-project/org context distinguish similarly named destinations.
+matches. In the Projects tab, project/worktree groups remain connected. Result
+types and project/org context distinguish similarly named destinations.
+
+Project results in **All** show **ALM**, not a Current badge, and open the project
+record as an ALM canvas. Created projects open their saved brief or assessment
+plan; seeded projects show a sample project summary. Global browsing stays global,
+and opening the current project's record preserves its selected worktree and org.
+Within a project, these file results are limited to that project. The **Projects**
+tab remains the global selector for explicitly entering another project/worktree.
 
 Resource search defaults to the selected org. All shows the resource org in a
 compact pill; clicking it opens Orgs and clears the query to show the available
@@ -203,10 +209,10 @@ Category tabs keep the query and narrow results; resource-type filtering applies
 only within Resources, not All. The search field's clear button removes the query,
 keeps the current tab and resource filters, and returns focus to the input.
 
-Results reuse their existing navigation: surface/resource selections preserve
-the current project/worktree, project/worktree/session selections explicitly
-enter that context, and org results change the selected org. Dedicated project
-and org selectors still open their respective category tabs.
+Surface/resource and All project-file selections preserve the current workspace.
+Project/worktree selections in Projects and session selections explicitly enter
+that context; org results change the selected org. Dedicated project and org
+selectors still open their respective category tabs.
 
 ## Day zero: org assessment
 

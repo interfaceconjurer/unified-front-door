@@ -88,8 +88,8 @@ const ORG_KIND_LABEL: Record<OrgKind, string> = {
 // rendering don't need to branch on which tab built it — only on which
 // *optional* fields a given row happens to carry. `status` swaps the icon
 // slot for a status dot (and adds a status chip); `indent` nests a worktree
-// under its project. Project/worktree and session selections explicitly resume
-// their context; resource selections use the existing scoped canvas navigation.
+// under its project. Projects-tab and session selections explicitly resume
+// their context; All project records and resources use scoped canvas navigation.
 type PaletteItem = {
   id: string;
   label: string;
@@ -159,7 +159,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
 
   const items = useMemo<PaletteItem[]>(() => {
     const matchesQuery = (...parts: string[]) => matchesPaletteQuery(query, ...parts);
-    // Category filters and All share the same builders and navigation actions.
+    // All opens project records as canvases; Projects explicitly changes workspace.
     function categoryItems(category: Category): PaletteItem[] {
       if (category === "surfaces") {
         const destinations = [
@@ -229,6 +229,14 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       if (!hasProjects) return [];
 
       if (category === "projects") {
+        if (tab === "all") return projects
+          .filter(project => (!activeProject?.id || project.id === activeProject.id)
+            && matchesQuery(project.name, project.description, ...project.worktrees.flatMap(tree => [tree.label, tree.branch])))
+          .map(project => ({
+            id: project.id, label: project.name, description: project.description,
+            Icon: LayersIcon, surfaceLabel: "ALM", isCurrent: false,
+            select: () => openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } }),
+          }));
         const rows: PaletteItem[] = [];
         // Move whole project groups together so their children stay attached.
         const tree = buildProjectTree(projects).sort(
@@ -325,7 +333,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     profile,
     projects,
     hasProjects,
-    activeProject?.id,
+    activeProject,
     activeWorktree?.id,
     navigateSurface,
     selectProject,
