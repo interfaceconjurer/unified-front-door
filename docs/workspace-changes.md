@@ -118,5 +118,17 @@ Database-gate checks cover Account field save/copy/replay, merged-name validatio
 atomic batch transfer, stale-source rejection, project-creation rollback and
 receipt replay. They were not run locally because no isolated test database is
 configured and automatic approval review blocked Docker privilege escalation.
-The PR database shard runs them with disposable PostgreSQL; the full local
-release gate remains unrun.
+The PR database shard passed them with disposable PostgreSQL in run
+`35824342705`; the full local release gate remains unrun.
+
+The initial PR run exposed two browser harness assumptions. Assessment fixtures
+now replay saved command receipts, matching server behavior when navigation
+interrupts a post-commit refresh. The assessment suite forces that interruption
+and checks that pause/resume still targets the one new run. The fault suite
+injects a failure in the canvas's draft projection instead of globally breaking
+string trimming used by the Changes header. Its existing loading, retry,
+buffered-edit, navigation and composer-preservation checks remain registered.
+After those harness corrections, `assessment-canvas`, `faults`,
+`project-creation` and `object-field-changes` passed against the production build
+with isolated browser fixtures (17 check groups). Targeted lint and whitespace
+checks passed. No application behavior or existing test was removed.

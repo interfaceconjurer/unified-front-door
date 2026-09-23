@@ -32,16 +32,38 @@ try {
   assert.equal(await page.getByRole('button', { name: /Pause assessment|Resume assessment/ }).count(), 0);
   out.checks.push('Finding evidence is captured data, survives reload, and has no live-run controls');
   await page.goto(origin + destinationHref(destination(run.id)));
-  const rescanned = page.waitForResponse(response => response.url().includes('/api/application') && response.request().method() === 'POST');
+  let releaseRefresh, refreshBlocked, held = false;
+  const refreshGate = new Promise(resolve => releaseRefresh = resolve);
+  const pendingRefresh = new Promise(resolve => refreshBlocked = resolve);
+  await context.route('**/api/application*', async route => {
+    if (!held && route.request().method() === 'GET' && state.snapshot.assessment.currentRunId !== run.id) {
+      held = true; refreshBlocked(); await refreshGate;
+    }
+    await route.fallback();
+  });
+  const rescanned = page.waitForResponse(response => response.url().includes('/api/application') && response.request().method() === 'POST'
+    && response.request().postDataJSON().command.kind === 'assessment.rescan');
   await page.getByRole('button', { name: 'Analyze selected orgs', exact: true }).click();
-  await rescanned;
+  const rescanResponse = await rescanned;
   const newRunId = state.snapshot.assessment.currentRunId;
   assert.notEqual(newRunId, run.id);
-  await page.goto(oldFindingHref);
+  const commandId = rescanResponse.request().postDataJSON().command.commandId;
+  const replayed = page.waitForResponse(response => response.url().includes('/api/application') && response.request().method() === 'POST'
+    && response.request().postDataJSON().command.commandId === commandId);
+  // Leave after commit but before the confirming read: the buffered rescan must
+  // replay with its original identity, without inventing a second assessment.
+  try { await pendingRefresh; await page.goto(oldFindingHref); }
+  finally { releaseRefresh(); }
+  await replayed;
   await page.getByText(run.findings[0].evidence[0], { exact: true }).waitFor();
+  const rescans = commands.filter(command => command.kind === 'assessment.rescan');
+  assert.equal(rescans.length, 2, 'The interrupted acknowledgement is replayed');
+  assert.equal(rescans[0].commandId, rescans[1].commandId);
+  assert.equal(state.snapshot.assessment.currentRunId, newRunId);
+  assert.equal(state.snapshot.assessment.runs.length, 2, 'Original evidence plus one new assessment');
   assert.equal(await page.getByRole('button', { name: /Pause assessment|Resume assessment/ }).count(), 0);
   assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).canvas.params.runId, run.id);
-  out.checks.push('Rescan creates a new run without changing the old finding canvas or evidence');
+  out.checks.push('Interrupted rescan acknowledgement replays once without creating another run or changing old finding evidence');
   await page.goto(origin + destinationHref(destination(newRunId)));
   await page.getByRole('button', { name: 'Pause assessment', exact: true }).click();
   await page.getByRole('button', { name: 'Resume assessment', exact: true }).waitFor();
