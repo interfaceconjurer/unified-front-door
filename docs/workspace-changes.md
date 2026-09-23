@@ -73,16 +73,12 @@ their prior copy semantics; the global tracking flow uses transfers.
 
 ## Product retention review
 
-Fetched main baseline: `6732e78e9850274864ce2aa14d27a80e3b801e41`.
-The branch's initial content matched that baseline.
-
-During the project-creation navigation follow-up, main advanced to
-`bda0165230fce19a53ea7cf8ab8f1a149fd2cee0` (PR #18, idle workers/browser
-suspension). Those upstream changes are not yet integrated into this worktree.
-The current-main comparison therefore shows missing upstream idle-worker files
-and tests; this UI patch does not remove them or authorize their removal. Retain
-PR #18 through normal integration before publishing the branch. Local UI
-verification below does not establish parity with that newer main.
+Started from main `6732e78e9850274864ce2aa14d27a80e3b801e41` and fetched
+current main `bda0165230fce19a53ea7cf8ab8f1a149fd2cee0` before publication.
+Integrated that revision with an ordinary content merge. The final content diff
+against current main retains PR #18's idle-worker and browser suspension code,
+documentation and tests. No existing test files were removed. The shared browser
+registry includes both new tracking suites and the upstream idle-suspension suite.
 
 | Affected behavior | Disposition and evidence |
 | --- | --- |
@@ -91,58 +87,36 @@ verification below does not establish parity with that newer main.
 | Project creation, saved draft ownership and assignment | Creation entry adapted: Start project explicitly opens global ALM, retaining the org, then enters the newly created project. `project-panel.mjs` and `project-create-end-to-end.mjs` check leaving a project/worktree, Back, preserved global drafts and new-project entry. Existing saved scopes, commands and schema are retained. Global tracking now moves files as explicitly requested, using atomic transfer/new-project commands and checks for global removal, reload, collision and replay. Explicit editor copy actions remain available outside project creation. |
 | Sample repository file contents | Retained; only optional comparison metadata was added. |
 | Org metadata browsing and Account fields | Adapted only for explicit Account field additions. Browsing remains free of draft writes, unrelated metadata stays read-only, and captured org/project/worktree scope is retained. `org-setup.mjs` and `org-resources.mjs` remain registered; `object-field-changes.mjs` covers additions, removal, global review and transfer during creation. Existing arbitrary-metadata-write rejection remains checked. |
+| Idle-worker release and browser suspension | Retained from current main, including worker wake/recovery, inactivity suspension, measurement tooling and registered checks. The application client combines idle handling with browsing that creates no empty metadata draft. |
 | Existing tests | Retained. New browser suite is registered in `scripts/browser/suites.mjs`; pure checks join `test:domain` and the release test discovery. |
 
 The global tracking copy behavior was replaced with moves at the user’s request. The transfer-summary, draft-copy and assessment-promotion panels were removed from project creation on explicit request. Assessment-based creation remains available through Home opportunities and its saved review flow. Existing unrelated behavior and tests are retained; the registered tracking checks now verify transfer semantics.
 
 ## Validation
 
-- Production Next.js/worker build and TypeScript passed on Node 22.23.2.
+After integrating main:
+
+- All 320 non-database tests passed: 220 pure checks and 100 server-condition
+  checks, using the release gate's test discovery and Node 22.23.2. This includes
+  the upstream worker-loop and browser-activity checks.
+- Production Next.js/worker build and TypeScript passed.
 - Lint passed with the existing `src/app/layout.tsx` stylesheet warning.
-- 41 domain checks passed (37 existing checks plus four new changes checks).
-- Registered `workspace-changes` and existing `project-explorer` browser suites
-  passed against the local preview with isolated fixture data and no model calls.
-- Reviewed desktop dark, mobile light and global assignment screenshots in
-  `/home/omarchy/.cache/omarchy-herdr/build-tmp/ufd-browser-results/tracking-changes-*.png`.
-- Final main refresh remained at the baseline above; content review removed no
-  features or tests at the initial changes-indicator handoff. The later main
-  advancement is recorded above. The full database/release gate was not run.
-- Project-creation navigation follow-up: production/worker build, 39 navigation
-  and project-creation pure checks, and registered `project-panel`,
-  `project-create-end-to-end`, and `project-creation` browser suites passed.
-  Lint has only the existing stylesheet warning.
-- Global zero-state follow-up: the registered `workspace-changes` browser suite
-  passed, including hidden-at-zero, first-edit appearance, clearing edits and
-  returning to Home. Centered search, project files and tracking checks also
-  passed. Targeted lint and whitespace checks passed.
-- Account fields follow-up: production/worker build and TypeScript, 63 focused
-  domain/application/navigation checks (including reruns after correction), and
-  registered `object-field-changes`, `workspace-changes`, `org-setup` and
-  `org-resources` browser suites passed. Lint has only the existing stylesheet
-  warning; later edited files pass targeted lint. Desktop dark and mobile light
-  form screenshots were reviewed. Browser data used isolated fixtures.
-- Added a database-gate check for field save/copy/replay and merged-name
-  validation. It was not run locally: no isolated test database is configured,
-  and automatic approval review blocked Docker privilege escalation. The full
-  database/release gate remains outstanding.
-- Refetched current main for the Account follow-up: still
-  `bda0165230fce19a53ea7cf8ab8f1a149fd2cee0`. Reviewed its content/test diff;
-  the upstream idle-worker integration caveat above still applies. This follow-up
-  retains the existing tests and adds registered coverage for Account editing.
-- Transfer and creation-screen follow-up: 67 focused pure/application/navigation
-  checks, the registered changes and Account-field browser suites, and existing
-  project-panel and project-create-end-to-end browser suites passed. The final
-  Account flow recheck confirms both requested panels are absent while transfer
-  selection survives reload. Production/worker build and TypeScript passed;
-  lint has only the pre-existing stylesheet warning. Database-gate checks now
-  include atomic batch transfer, stale-source rejection, creation rollback and
-  receipt replay; they remain unrun locally for the limitation above.
-- Refetched/reviewed main again at `bda0165230fce19a53ea7cf8ab8f1a149fd2cee0`;
-  the upstream integration caveat is unchanged. Global tracking's former copy
-  expectations were replaced with the user-requested move behavior; no unrelated
-  checks were removed.
-- Assessment-promotion panel removal: registered `project-create-end-to-end`
-  and `project-creation` browser suites passed, including all-profile creation
-  without the panel and retained assessment-based creation from Home. Targeted
-  lint and whitespace checks passed. Reviewed the component diff against the
-  recorded main baseline; only the explicitly requested panel is removed.
+- Five registered browser suites passed: `workspace-changes`,
+  `object-field-changes`, `project-create-end-to-end`, `project-creation` and
+  `idle-suspension` (19 check groups, no browser errors). The idle check observed
+  zero refresh reads across ten simulated minutes and immediate resumption.
+- Merge integrity passed; final content review against the fetched main found
+  no removed upstream files or tests.
+
+During implementation, registered `workspace-changes`, `object-field-changes`,
+`project-panel`, `project-explorer`, `project-create-end-to-end`,
+`project-creation`, `org-setup` and `org-resources` browser suites passed with
+isolated fixture data and no model calls. Desktop dark and mobile light layouts
+were inspected; tracking checks cover search centering at 390–1920px.
+
+Database-gate checks cover Account field save/copy/replay, merged-name validation,
+atomic batch transfer, stale-source rejection, project-creation rollback and
+receipt replay. They were not run locally because no isolated test database is
+configured and automatic approval review blocked Docker privilege escalation.
+The PR database shard runs them with disposable PostgreSQL; the full local
+release gate remains unrun.
