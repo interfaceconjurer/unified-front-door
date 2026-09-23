@@ -75,6 +75,17 @@ or schema overrides are rejected. Custom per-connection schemas are unsupported.
 
 ### Readiness and diagnostics
 
+Worker idle/wake configuration and the audit of traffic that prevents database
+suspension are documented in [worker idle behavior](worker-idle.md).
+
+Use authenticated `GET /api/live` for routine process liveness checks. It returns
+`200 {"live":true}` without a database query. It does not assert database, schema,
+worker or provider readiness. `/api/worker/wake` is an authenticated, database-free
+long poll used by workers through the existing `APP_ORIGIN` and Basic Auth.
+Repeated `/api/ready` calls still wake Neon; reserve that probe for deployment or
+explicit diagnosis when database readiness is needed. Existing external monitors
+must be changed separately if they repeatedly query readiness.
+
 `GET /api/ready` requires the same Basic Auth as pages and static assets. It
 returns only `200 {"ready":true}` or `503 {"ready":false}` with `no-store` and a
 generated `X-Request-ID`. Invalid credentials return 401; missing/blank gate

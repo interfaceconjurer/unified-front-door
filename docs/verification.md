@@ -2,6 +2,12 @@
 
 [← README](../README.md)
 
+For idle-worker query counts, wake/recovery latency, lifecycle checks, feature
+retention and the remaining Neon suspension limits, see [worker idle verification](worker-idle.md).
+The scheduler and browser inactivity suites run in the shared pure gate; durable
+queue checks extend the agent database suite. `idle-suspension` is registered in
+the shared browser registry used by PR shards and the full release gate.
+
 Use Node **22.23.2**, as declared in `.nvmrc` and `package.json`:
 
 ```bash
@@ -15,6 +21,7 @@ npm run test:cli
 npm run test:agent
 npm run test:client-reliability
 npm run test:operations
+npm run test:worker-idle
 npm run lint
 npm run build
 ```
@@ -201,6 +208,7 @@ browser registry. Restored behaviors have these checks:
 
 | Behavior | Registered browser suite | Supporting pure checks |
 | --- | --- | --- |
+| Untouched visible/hidden tabs stop background reads; input/focus resumes; active runs retain progress | `idle-suspension.mjs`, `streaming.mjs`, `session-recovery.mjs` | `browser-idle.test.mjs`, `agent.test.mjs` |
 | Four expansion scenarios: sample work, Today, palette, resource access, surface switcher and blocked direct routes; old assessment links/tabs and live Today compatibility | `expansion-profiles.mjs`, `assessment-canvas.mjs`, `org-sign-in.mjs` | `demo-profiles.test.mjs`, `assessment-canvas.test.mjs` |
 | All profiles choose a connected org at sign-in; required choice, retry, first agent target, reload, profile switching, matching saved links and mobile layout | `org-sign-in.mjs`, `profile-reset.mjs` | `navigation.test.mjs`, `profile-reset.test.mjs` |
 | Sign-out and profile changes have one navigation owner; session/workspace outages show loading or retry UI; slow reads cannot be starved by polling; stale reads cannot restore or bootstrap an old session | `session-recovery.mjs`, `org-sign-in.mjs`, `profile-reset.mjs` | `profile-reset.test.mjs`, `client-reliability.test.mjs` |

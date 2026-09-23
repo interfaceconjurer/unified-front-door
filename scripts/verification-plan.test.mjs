@@ -30,6 +30,6 @@ test('full verification retains the complete contract; partial or invalid select
         assert.throws(() => validateVerification({ version: 1, verified: true, releasable: false, checks: plan.checks }, {}), /Complete current release verification/);
     }
     for (const group of ['', 'browser-0', 'browser-5', 'all', 'database,performance']) assert.throws(() => verificationPlan(group));
-    for (const shard of ['', '0/4', '5/4', '1/0', '1/37', '1.5/4', '1/4extra']) assert.throws(() => browserSuites(shard));
+    for (const shard of ['', '0/4', '5/4', '1/0', `1/${BROWSER_SUITES.length + 1}`, '1.5/4', '1/4extra']) assert.throws(() => browserSuites(shard));
     assert.deepEqual(browserSuites(), BROWSER_SUITES);
 });

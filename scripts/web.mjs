@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import next from "next";
 import auth from "../src/lib/server/http-auth.js";
+import { workerActivity } from "./worker-activity.mjs";
 
 // Authenticate the original HTTP request before Next can clone its body. A
 // denied Proxy POST in Next 16.3.5 leaves an unread reconstructed request whose
@@ -19,6 +20,7 @@ const server = createServer({ headersTimeout: 10000, requestTimeout: 15000, keep
   } });
 const app = next({ dev, hostname, port, httpServer: server });
 const handle = app.getRequestHandler(), sockets = new Set(), upgrades = new Set();
+const activity = workerActivity();
 const headers = { "Cache-Control": "private, no-store, max-age=0", Connection: "close" };
 function gate(request) {
   let configured;
@@ -33,6 +35,18 @@ server.on("request", (request, response) => {
   const denied = gate(request);
   if (denied) { request.resume(); response.writeHead(denied.status, denied.headers); response.end(denied.body); return; }
   if (request.headers.upgrade) { request.resume(); response.writeHead(426, headers); response.end("HTTP upgrade unavailable."); return; }
+  const path = request.url?.split("?")[0];
+  if (path === "/api/worker/wake" || path === "/api/live") {
+    if (request.method !== "GET") { request.resume(); response.writeHead(405, { ...headers, Allow: "GET" }); response.end(); return; }
+    if (path === "/api/worker/wake") activity.handle(request, response);
+    else { response.writeHead(200, { ...headers, "Content-Type": "application/json" }); response.end('{"live":true}'); }
+    return;
+  }
+  if (path === "/api/session" || path === "/api/agent" || path?.startsWith("/api/application")) {
+    activity.touch();
+    // A wake before a slow command commits must not be the last hint.
+    response.once("finish", () => activity.touch());
+  }
   void handle(request, response).catch(() => {
     failure("handler_failed");
     if (!response.headersSent) { response.writeHead(500, { "Cache-Control": "no-store" }); response.end("Request unavailable."); }
@@ -42,6 +56,7 @@ server.on("request", (request, response) => {
 let stopping = false;
 async function stop() {
   if (stopping) return; stopping = true;
+  activity.close();
   const deadline = setTimeout(() => { failure("shutdown_timeout"); for (const socket of sockets) socket.destroy(); process.exit(1); }, 20000);
   // server.close() drains HTTP but excludes upgraded connections. HMR carries
   // no application writes, so close its sockets explicitly during shutdown.
