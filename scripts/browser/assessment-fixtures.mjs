@@ -8,6 +8,9 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
   const { captureFindings } = modules.load('lib/assessment/model');
   const { ASSESSMENT_FINDINGS, ASSESSMENT_ORGS } = modules.load('lib/onboarding/assessment');
   const { projectFromBrief, briefSourceId } = modules.load('lib/projects/from-brief');
+  const { briefTransferSources, stableJson } = modules.load('lib/application/contracts');
+  const { planChangeTransfer } = modules.load('lib/workspace/change-transfer');
+  const { primaryWorktree } = modules.load('lib/workspace/model');
   const { applyAssessmentCommand } = modules.load('lib/application/assessment-commands');
   const { updateConversation } = modules.load('lib/chat/conversation');
   const { captureToday } = modules.load('lib/chat/today-snapshot');
@@ -19,7 +22,7 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
     return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch };
   });
   const { state, stats } = await install(context, { drafts: 0, messages: 0 });
-  const current = { ...session, profileId }, commands = [];
+  const current = { ...session, profileId }, commands = [], receipts = new Map();
   const run = { id: 'captured-original', startedAt: '2026-09-19T11:00:00Z', completedAt: '2026-09-19T11:05:00Z', scopeOrgIds: ['prod', 'uat'], source: { adapter: 'demo-org-assessment', version: '1' },
     findings: captureFindings('captured-original', ASSESSMENT_FINDINGS, ASSESSMENT_ORGS, '2026-09-19T11:05:00Z') };
   run.findings[0].evidence = ['Original captured evidence remains readable after later assessments.'];
@@ -56,15 +59,36 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
     if (command.kind.startsWith('canvas.')) return route.fallback();
     commands.push(command);
     await beforeCommand?.(command);
+    // Navigation can interrupt the snapshot refresh after a committed command.
+    // Match server receipts when the client replays those same command bytes.
+    const receipt = receipts.get(command.commandId), encoded = stableJson(command);
+    if (receipt) {
+      if (receipt.command !== encoded) throw new Error('Command identity reused with different bytes');
+      return route.fulfill({ json: { result: receipt.result } });
+    }
+    const acknowledge = result => {
+      receipts.set(command.commandId, { command: encoded, result: structuredClone(result) });
+      return route.fulfill({ json: { result } });
+    };
+    if (command.kind === 'changes.transfer') {
+      const project = projects.find(project => project.id === command.projectId) ?? state.snapshot.assessment.projects.find(project => project.id === command.projectId);
+      if (!project) throw new Error('Transfer project unavailable');
+      const plan = planChangeTransfer(command.sources, state.snapshot.canvases, project.id, project.worktrees ? primaryWorktree(project)?.id ?? null : null);
+      for (const { source, destination } of plan) { state.snapshot.canvases.push(destination); source.fields = {}; source.revision++; }
+      return acknowledge({ revision: 0 });
+    }
     if (command.kind === 'project.createFromBrief') {
       let project = state.snapshot.assessment.projects.find(project => project.sourceDraftId === briefSourceId(command.sourceId, command.sourceRevision));
       if (!project) {
         const source = state.snapshot.canvases.find(canvas => canvas.id === command.sourceId);
         project = projectFromBrief(source, command.sourceRevision, profile.name, command.commandId, new Date().toISOString(), 'project-' + randomUUID());
+        const transfers = briefTransferSources(source.fields.transferSources);
+        const plan = planChangeTransfer(transfers, state.snapshot.canvases, project.id, null);
+        for (const { source, destination } of plan) { state.snapshot.canvases.push(destination); source.fields = {}; source.revision++; }
         state.snapshot.assessment.projects.push(project); state.snapshot.assessmentRevision++;
         source.fields = {}; source.revision++;
       }
-      return route.fulfill({ json: { result: { revision: state.snapshot.assessmentRevision, project } } });
+      return acknowledge({ revision: state.snapshot.assessmentRevision, project });
     }
     const saved = applyAssessmentCommand(state.snapshot.assessment, command, { id: randomUUID, now: new Date().toISOString(), owner: profile.name });
     state.snapshot.assessment = saved; state.snapshot.assessmentRevision++;
@@ -74,7 +98,7 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), assessmentRunId: saved.currentRunId,
         context: { target: { projectId: null, worktreeId: null, orgId: 'uat' }, surface: 'home' }, error: null, result: null, checkpoint: saved.step }];
     }
-    return route.fulfill({ json: { result: { revision: state.snapshot.assessmentRevision, ...(command.kind === 'project.create' ? { project: saved.projects.find(project => project.createCommandId === command.commandId) } : {}) } } });
+    return acknowledge({ revision: state.snapshot.assessmentRevision, ...(command.kind === 'project.create' ? { project: saved.projects.find(project => project.createCommandId === command.commandId) } : {}) });
   });
   return { state, stats, commands, run, profile, cleanup: modules.cleanup };
 }

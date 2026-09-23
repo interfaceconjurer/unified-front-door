@@ -26,6 +26,7 @@ import type { SurfaceId } from "@/lib/workspace/model";
 import {
   canvasId,
   canvasTarget,
+  canCopyCanvasToProject,
   parseCanvasInput,
   inputFromCanonicalId,
   OVERVIEW_CANVAS_ID,
@@ -286,14 +287,13 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
 
   copyDraft = (surfaceId: SurfaceId, sourceId: string, input: CanvasSpecInput): boolean => {
     const valid = parseCanvasInput(input);
-    if (!valid || valid.kind !== "capability" || valid.params.surface !== surfaceId) return false;
+    if (!valid || (valid.kind === "capability" ? valid.params.surface !== surfaceId : valid.kind !== "org-resource" || surfaceId !== "build")) return false;
     if (!this.canOpenCanvas(surfaceId, valid)) return false;
     const id = canvasId(valid.kind, valid.params), slice = this.getSnapshot()[surfaceId];
     const open = slice.canvases.find((canvas) => canvas.id === sourceId);
     const recovered = inputFromCanonicalId(sourceId);
     const source = open ?? (recovered && Object.hasOwn(slice.closedDrafts ?? {}, sourceId) ? { ...recovered, draft: slice.closedDrafts?.[sourceId] } : null);
-    if (!source || source.kind !== "capability" || source.params.scope !== "unbound" || valid.params.scope !== "project"
-      || source.params.capability !== valid.params.capability || source.params.section !== valid.params.section
+    if (!source || source.kind === "overview" || !canCopyCanvasToProject(source, valid)
       || slice.canvases.some((canvas) => canvas.id === id) || Object.hasOwn(slice.closedDrafts ?? {}, id)) return false;
     this.updateSlice(surfaceId, (current) => ({ ...current, canvases: [...current.canvases, { ...valid, id, draft: { ...(source.draft ?? slice.closedDrafts?.[sourceId]) } }], activeCanvasId: id }));
     return true;

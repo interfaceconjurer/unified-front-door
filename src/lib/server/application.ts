@@ -3,8 +3,9 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { demoProfileById } from "../demo-profiles";
 import { applyAssessmentCommand } from "../application/assessment-commands";
-import { aggregateKey, conflict, invalid, parseCommand, stableJson, type ApplicationCommand, type CommandResult, type SavedCanvas } from "../application/contracts";
-import { canvasId } from "../surface-canvas/model";
+import { aggregateKey, briefTransferSources, conflict, invalid, parseCommand, stableJson, type ApplicationCommand, type CommandResult, type SavedCanvas, type TransferSource } from "../application/contracts";
+import { canvasId, canCopyCanvasToProject, inputFromCanonicalId } from "../surface-canvas/model";
+import { parseObjectFields } from "../org-resources/object-fields";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { ORGS } from "../workspace/fixtures";
 import { projectsForProfile, workForProfile } from "../workspace/demo-workspace";
@@ -16,8 +17,35 @@ import { importLegacy } from "./import";
 import { assertAssessmentLimits, assertBytes, assertCanvasCount, assertCanvasLimits, DEMO_LIMITS, lockCanvasQuota } from "./quota";
 import { syncAssessmentExecution } from "./agent";
 import { briefSourceId, projectFromBrief } from "../projects/from-brief";
+import { planChangeTransfer, transferredCanvas } from "../workspace/change-transfer";
+import { primaryWorktree } from "../workspace/model";
 
 async function lockKey(client: PoolClient, value: string): Promise<void> { await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [value]); }
+async function transferChanges(client: PoolClient, session: OwnedSession, sources: TransferSource[], projectId: string, worktreeId: string | null) {
+  const scope = [session.namespaceId, session.profileId], profile = demoProfileById(session.profileId!);
+  const ids = sources.flatMap(source => {
+    const from = inputFromCanonicalId(source.sourceId), to = from && transferredCanvas(from, projectId, worktreeId);
+    if (!to) invalid("This change cannot be transferred into a project.");
+    return [source.sourceId, canvasId(to.kind, to.params)];
+  });
+  // Use the same locks as ordinary draft saves, with a stable order for batches.
+  for (const id of [...new Set(ids)].sort()) await lockKey(client, stableJson([...scope, `canvas:${id}`]));
+  const rows = (await client.query("SELECT id,surface_id,canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 AND id=ANY($3::text[]) ORDER BY id FOR UPDATE", [...scope, ids])).rows;
+  const plan = planChangeTransfer(sources, rows.map(row => ({ ...row, surface: row.surface_id })), projectId, worktreeId);
+  const orgs = profile.onboarding ? ASSESSMENT_ORGS : ORGS;
+  for (const { destination } of plan) {
+    if (!profile.surfaceAccess.includes(destination.surface) || destination.target.orgId && !orgs.some(org => org.id === destination.target.orgId && org.connection === "connected")) invalid("The change's org or surface is unavailable.");
+    if (destination.canvas.kind === "org-resource" && !parseObjectFields(destination.canvas.params, destination.fields)) invalid("The object field changes are not valid.");
+    assertCanvasLimits(destination);
+  }
+  await lockCanvasQuota(client, scope); await assertCanvasCount(client, scope, plan.length);
+  for (const { destination } of plan) {
+    const inserted = await client.query("INSERT INTO canvas_drafts(namespace_id,profile_id,id,surface_id,canvas,target,fields,revision) VALUES($1,$2,$3,$4,$5,$6,$7,1) ON CONFLICT(namespace_id,profile_id,id) DO NOTHING", [...scope, destination.id, destination.surface, destination.canvas, destination.target, destination.fields]);
+    if (inserted.rowCount !== 1) conflict("A destination file changed. Nothing was transferred; review the project before retrying.");
+  }
+  // Empty revisioned source records prevent stale tabs from restoring transferred fields.
+  await client.query("UPDATE canvas_drafts SET fields='{}'::jsonb,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=ANY($3::text[])", [...scope, sources.map(source => source.sourceId)]);
+}
 async function canvasCommand(client: PoolClient, session: OwnedSession, command: Extract<ApplicationCommand, { kind: "canvas.save" | "canvas.copy" }>): Promise<CommandResult> {
   const scope = [session.namespaceId, session.profileId], id = canvasId(command.canvas.kind, command.canvas.params);
   // Keep the original command intact: a retry's receipt hashes its old bytes.
@@ -48,10 +76,10 @@ async function canvasCommand(client: PoolClient, session: OwnedSession, command:
     const source = (await client.query("SELECT canvas,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 AND id=$3 FOR SHARE", [...scope, command.sourceId])).rows[0];
     const from = source?.canvas as SavedCanvas["canvas"] | undefined, to = command.canvas;
     if (!source || source.revision !== command.sourceRevision) conflict("The source draft changed. Review it before assigning a copy.");
-    if (from?.kind !== "capability" || from.params.scope !== "unbound" || to.kind !== "capability" || to.params.scope !== "project"
-      || from.params.capability !== to.params.capability || from.params.section !== to.params.section || from.params.surface !== to.params.surface) invalid("Only an unbound capability draft can be assigned to the same capability in a project.");
+    if (!from || !canCopyCanvasToProject(from, to)) invalid("Only an unassigned draft can be copied to the same capability or org resource in a project.");
     fields = source.fields;
   }
+  if (command.canvas.kind === "org-resource" && !parseObjectFields(command.canvas.params, fields)) invalid("The object field changes are not valid.");
   const revision = (row?.revision ?? 0) + 1;
   assertCanvasLimits({ id, canvas: command.canvas, target: command.target, fields });
   if (row) await client.query("UPDATE canvas_drafts SET fields=$4,revision=$5,surface_id=$6 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, id, fields, revision, surface]);
@@ -71,6 +99,13 @@ export async function executeCommand(client: PoolClient, token: string | undefin
   await lockKey(client, stableJson([...scope, aggregateKey(command)]));
   let result: CommandResult;
   if (command.kind === "canvas.save" || command.kind === "canvas.copy") result = await canvasCommand(client, session, command);
+  else if (command.kind === "changes.transfer") {
+    const fixture = projectsForProfile(session.profileId!).find(project => project.id === command.projectId);
+    const owned = fixture ? null : (await client.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, command.projectId])).rows[0];
+    if (!fixture && !owned) invalid("The project is unavailable in this workspace.");
+    await transferChanges(client, session, command.sources, command.projectId, fixture ? primaryWorktree(fixture)?.id ?? null : null);
+    result = { revision: 0 };
+  }
   else if (command.kind === "work.status") {
     const row = (await client.query("SELECT record,revision FROM improvement_projects WHERE namespace_id=$1 AND profile_id=$2 AND id=$3 FOR UPDATE", [...scope, command.projectId])).rows[0];
     if (!row) invalid("The project is unavailable in your workspace.");
@@ -93,10 +128,13 @@ export async function executeCommand(client: PoolClient, token: string | undefin
         const orgs = profile.onboarding ? ASSESSMENT_ORGS : ORGS;
         if (row.target.orgId && !orgs.some(org => org.id === row.target.orgId && org.connection === "connected")) invalid("The brief’s target org is unavailable.");
         const project = projectFromBrief({ ...row, surface: row.surface_id }, command.sourceRevision, profile.name, command.commandId, new Date().toISOString(), `project-${randomUUID()}`);
+        const transfers = briefTransferSources(row.fields.transferSources);
+        if (transfers.some(source => source.sourceId === command.sourceId)) invalid("The creation brief cannot transfer itself.");
         const after = { ...before.assessment, projects: [...before.assessment.projects, project] };
         assertAssessmentLimits(after);
         const revision = before.assessmentRevision + 1;
         await writeAssessment(client, session, before.assessment, after, revision);
+        if (transfers.length) await transferChanges(client, session, transfers, project.id, null);
         // Reset atomically; the immutable source revision identifies retries.
         await client.query("UPDATE canvas_drafts SET fields='{}'::jsonb,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, command.sourceId]);
         result = { revision, project };

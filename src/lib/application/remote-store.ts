@@ -102,6 +102,7 @@ export class RemoteWorkspaceStore implements PersistenceControls {
     this.projected = next;
   }
   private currentRevision(operation: ApplicationOperation): number {
+    if (operation.kind === "changes.transfer") return 0;
     if (operation.kind === "work.status") return this.saved.assessment.projects.find((p) => p.id === operation.projectId)?.revision ?? 0;
     if (operation.kind === "canvas.save" || operation.kind === "canvas.copy") return this.saved.canvases.find((c) => c.id === canvasId(operation.canvas.kind, operation.canvas.params))?.revision ?? 0;
     return this.saved.assessmentRevision;

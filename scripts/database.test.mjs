@@ -50,6 +50,34 @@ async function createBriefProject(s, name) {
 const canvas={kind:"capability",title:"Automation",params:{scope:"unbound",surface:"build",capability:"automation"}},target={projectId:null,worktreeId:null,orgId:null};
 const save = (fields,expectedRevision=0)=>command("canvas.save",expectedRevision,{canvas,target,surface:"build",fields});
 
+test("Account field changes save, validate merged names, and copy to a project without retargeting or overwriting", async () => {
+  const s = await scope("am");
+  const { canvasTarget } = modules.load("lib/surface-canvas/model");
+  const input = { kind: "org-resource", title: "Account", params: { orgId: "uat", resourceType: "standard-object", apiName: "Account" } };
+  const sourceId = canvasId(input.kind, input.params), field = { label: "Customer region", apiName: "Customer_Region__c", type: "Text" };
+  const fields = { [field.apiName]: JSON.stringify(field) }, sourceTarget = canvasTarget(input, target);
+  await run(s, command("canvas.save", 0, { canvas: input, target: sourceTarget, surface: "build", fields }));
+  await assert.rejects(run(s, command("canvas.save", 1, { canvas: input, target: sourceTarget, surface: "build",
+    fields: { customer_region__c: JSON.stringify({ ...field, apiName: "customer_region__c" }) } })), error => error.code === "invalid");
+  const destination = { ...input, params: { ...input.params, projectId: "acme-storefront", worktreeId: "main" } };
+  const copy = canvas => command("canvas.copy", 0, { sourceId, sourceRevision: 1, surface: "build", canvas, target: canvasTarget(canvas, target) });
+  await assert.rejects(run(s, copy({ ...destination, params: { ...destination.params, orgId: "prod" } })), error => error.code === "invalid");
+  await assert.rejects(run(s, { ...copy(destination), sourceRevision: 2 }), error => error.code === "conflict");
+  const accepted = copy(destination);
+  assert.equal((await run(s, accepted)).revision, 1);
+  assert.equal((await run(s, accepted)).revision, 1, "Receipt replay keeps the same copy");
+  const destinationId = canvasId(destination.kind, destination.params);
+  let snapshot = await read(s);
+  const saved = snapshot.canvases.find(canvas => canvas.id === destinationId);
+  assert.deepEqual(saved.fields, fields); assert.equal(saved.target.orgId, "uat");
+  assert.deepEqual(snapshot.canvases.find(canvas => canvas.id === sourceId).fields, fields);
+  await assert.rejects(run(s, { ...copy(destination), expectedRevision: 1 }), error => error.code === "conflict");
+  await run(s, command("canvas.save", 1, { canvas: destination, target: saved.target, surface: "build", fields: { [field.apiName]: "" } }));
+  snapshot = await read(s);
+  assert.equal(snapshot.canvases.find(canvas => canvas.id === destinationId).fields[field.apiName], "");
+  assert.deepEqual(snapshot.canvases.find(canvas => canvas.id === sourceId).fields, fields);
+});
+
 test("legacy deployed-app rows and receipts remain usable after their ALM surface move", async () => {
   const s = await scope("am");
   const { workCanvasInput, RETURNING_WORK } = modules.load("lib/workspace/returning-work");
@@ -339,4 +367,52 @@ test('create from a saved brief is atomic, owned, idempotent, reopenable, and re
   snapshot = await read(s);
   await assert.rejects(run(s, command('project.createFromBrief', snapshot.assessmentRevision, { sourceId, sourceRevision: 4 })), error => error.code === 'invalid');
   assert.equal((await read(s)).assessment.projects.length, 2);
+});
+
+
+test('global transfers are atomic across files, reject stale sources, preserve orgs and replay only once', async () => {
+  const s = await scope('am');
+  const { canvasTarget } = modules.load('lib/surface-canvas/model');
+  const inputs = [
+    { kind: 'capability', title: 'Automation', params: { scope: 'unbound', surface: 'build', capability: 'automation', orgId: 'uat' } },
+    { kind: 'org-resource', title: 'Account', params: { orgId: 'prod', resourceType: 'standard-object', apiName: 'Account' } },
+  ];
+  const values = [{ name: 'Lead routing' }, { Region__c: JSON.stringify({ label: 'Region', apiName: 'Region__c', type: 'Text' }) }];
+  for (let i = 0; i < inputs.length; i++) await run(s, command('canvas.save', 0, { canvas: inputs[i], target: canvasTarget(inputs[i], target), surface: 'build', fields: values[i] }));
+  const sources = inputs.map(input => ({ sourceId: canvasId(input.kind, input.params), sourceRevision: 1 }));
+  const transfer = command('changes.transfer', 0, { projectId: 'acme-storefront', sources });
+  const before = (await read(s)).canvases;
+  await assert.rejects(run(s, { ...transfer, sources: [sources[0], { ...sources[1], sourceRevision: 2 }] }), error => error.code === 'conflict');
+  assert.deepEqual((await read(s)).canvases, before, 'No partial destination or source clearing');
+  await assert.rejects(run(s, { ...transfer, projectId: 'foreign-project' }), error => error.code === 'invalid');
+  assert.deepEqual(await run(s, transfer), { revision: 0 });
+  assert.deepEqual(await run(s, transfer), { revision: 0 });
+  const snapshot = await read(s);
+  for (const source of sources) { const row = snapshot.canvases.find(item => item.id === source.sourceId); assert.deepEqual(row.fields, {}); assert.equal(row.revision, 2); }
+  const moved = snapshot.canvases.filter(item => item.target.projectId === 'acme-storefront');
+  assert.equal(moved.length, 2); assert.deepEqual(new Set(moved.map(item => item.target.orgId)), new Set(['uat', 'prod']));
+  for (let i = 0; i < inputs.length; i++) assert.deepEqual(moved.find(item => item.canvas.kind === inputs[i].kind).fields, values[i]);
+  await assert.rejects(run(s, command('canvas.save', 1, { canvas: inputs[0], target: canvasTarget(inputs[0], target), surface: 'build', fields: { name: 'Stale tab' } })), error => error.code === 'conflict');
+});
+
+test('new project creation and selected global transfers commit together, including source-version failure and receipt replay', async () => {
+  const s = await scope('sp');
+  const { canvasTarget } = modules.load('lib/surface-canvas/model');
+  const input = { kind: 'org-resource', title: 'Account', params: { orgId: 'uat', resourceType: 'standard-object', apiName: 'Account' } };
+  const changedId = canvasId(input.kind, input.params), fields = { Region__c: JSON.stringify({ label: 'Region', apiName: 'Region__c', type: 'Text' }) };
+  await run(s, command('canvas.save', 0, { canvas: input, target: canvasTarget(input, target), surface: 'build', fields }));
+  const brief = { kind: 'capability', title: 'Start project', params: { scope: 'unbound', surface: 'alm', capability: 'project', orgId: 'uat' } };
+  const sourceId = canvasId(brief.kind, brief.params);
+  await run(s, command('canvas.save', 0, { canvas: brief, target: canvasTarget(brief, target), surface: 'alm', fields: { name: 'Account improvements', goal: 'Track details', transferSources: JSON.stringify([{ sourceId: changedId, sourceRevision: 2 }]) } }));
+  const before = await read(s);
+  await assert.rejects(run(s, command('project.createFromBrief', before.assessmentRevision, { sourceId, sourceRevision: 1 })), error => error.code === 'conflict');
+  assert.deepEqual((await read(s)).canvases, before.canvases); assert.equal((await read(s)).assessment.projects.length, 0);
+  await run(s, command('canvas.save', 1, { canvas: brief, target: canvasTarget(brief, target), surface: 'alm', fields: { transferSources: JSON.stringify([{ sourceId: changedId, sourceRevision: 1 }]) } }));
+  const create = command('project.createFromBrief', before.assessmentRevision, { sourceId, sourceRevision: 2 });
+  const result = await run(s, create); assert.deepEqual(await run(s, create), result);
+  const snapshot = await read(s);
+  assert.equal(snapshot.assessment.projects.length, 1);
+  assert.deepEqual(snapshot.canvases.find(item => item.id === changedId).fields, {});
+  assert.deepEqual(snapshot.canvases.find(item => item.target.projectId === result.project.id).fields, fields);
+  assert.deepEqual(snapshot.canvases.find(item => item.id === sourceId).fields, {});
 });

@@ -2,12 +2,14 @@ import type { AssessmentState } from "../assessment/state";
 import type { DemoProfileId } from "../demo-profiles";
 import type { DraftEdit, ImprovementProject, ProjectDraftFields } from "../projects/model";
 import { isProjectType, PROJECT_CONTEXT_LIMIT } from "../projects/templates";
+import { parseObjectFields } from "../org-resources/object-fields";
 import { parseCanvasInput, canvasId, canvasTarget, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { SURFACE_IDS, type SurfaceId } from "../workspace/surfaces";
 
 export type SessionView = { namespaceId: string; profileId: DemoProfileId | null; generation: string; expiresAt: string; workspaceEpoch?: string };
 export type SavedCanvas = { id: string; surface: SurfaceId; canvas: CanvasSpecInput; target: WorkspaceTarget; fields: Record<string, string>; revision: number };
+export type TransferSource = { sourceId: string; sourceRevision: number };
 /** assessmentRevision guards user commands; autonomous progress uses run events. */
 export type ApplicationSnapshot = { session: SessionView; assessment: AssessmentState; assessmentRevision: number; canvases: SavedCanvas[]; imports: SavedImport[] };
 export type ApplicationOperation =
@@ -21,6 +23,7 @@ export type ApplicationOperation =
   | { kind: "work.status"; projectId: string; itemId: string; status: "todo" | "in-progress" | "done" }
   | { kind: "canvas.save"; surface: SurfaceId; canvas: CanvasSpecInput; target: WorkspaceTarget; fields: Record<string, string> }
   | { kind: "canvas.copy"; sourceId: string; sourceRevision: number; surface: SurfaceId; canvas: CanvasSpecInput; target: WorkspaceTarget }
+  | { kind: "changes.transfer"; projectId: string; sources: TransferSource[] }
   | { kind: "legacy.import"; source: LegacySource };
 export type ApplicationCommand = ApplicationOperation & { commandId: string; expectedRevision: number };
 export type CommandResult = { revision: number; project?: ImprovementProject; imported?: ImportSummary };
@@ -41,6 +44,16 @@ export function exact(v: Record<string, unknown>, keys: string[]) { if (Object.k
 function stringList(v: unknown): v is string[] { return Array.isArray(v) && v.length <= 1000 && v.every((s) => text(s)); }
 function fields(v: unknown): v is Record<string, string> {
   return record(v) && Object.keys(v).length <= 100 && Object.entries(v).every(([k, s]) => /^[a-zA-Z][a-zA-Z0-9_]*$/.test(k) && !["constructor", "prototype", "__proto__"].includes(k) && typeof s === "string" && s.length <= 200000);
+}
+export function parseTransferSources(value: unknown): TransferSource[] | null {
+  return Array.isArray(value) && value.length > 0 && value.length <= 64
+    && value.every(item => record(item) && Object.keys(item).sort().join(",") === "sourceId,sourceRevision" && text(item.sourceId, 5000) && revision(item.sourceRevision) && item.sourceRevision > 0)
+    && new Set(value.map(item => item.sourceId)).size === value.length ? value : null;
+}
+export function briefTransferSources(value: string | undefined): TransferSource[] {
+  if (!value) return [];
+  try { const sources = parseTransferSources(JSON.parse(value)); if (sources) return sources; } catch { /* Invalid saved selection. */ }
+  return invalid("Review the changes selected for this project before creating it.");
 }
 export function parseCommand(value: unknown): ApplicationCommand {
   if (!record(value) || !text(value.commandId, 200) || !revision(value.expectedRevision) || !text(value.kind)) invalid();
@@ -67,6 +80,7 @@ export function parseCommand(value: unknown): ApplicationCommand {
     }
     case "draft.discard": exact(value, [...common, "draftId"]); if (!text(value.draftId)) invalid(); break;
     case "project.createFromBrief": exact(value, [...common, "sourceId", "sourceRevision"]); if (!text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid(); break;
+    case "changes.transfer": exact(value, [...common, "projectId", "sources"]); if (!text(value.projectId) || !parseTransferSources(value.sources) || value.expectedRevision !== 0) invalid(); break;
     case "project.create": exact(value, [...common, "draftId", "draftRevision"]); if (!text(value.draftId) || !revision(value.draftRevision) || value.draftRevision === 0) invalid(); break;
     case "work.status": exact(value, [...common, "projectId", "itemId", "status"]); if (!text(value.projectId) || !text(value.itemId) || !["todo", "in-progress", "done"].includes(value.status as string)) invalid(); break;
     case "canvas.save": case "canvas.copy": {
@@ -75,6 +89,8 @@ export function parseCommand(value: unknown): ApplicationCommand {
       if (!canvas || isReadOnlyCanvas(canvas) || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
         || stableJson(canvasTarget(canvas, target)) !== stableJson(target)) invalid();
       if (value.kind === "canvas.save" ? !fields(value.fields) : !text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid();
+      if (canvas.kind === "org-resource" && (value.surface !== "build" || value.kind === "canvas.save" && !parseObjectFields(canvas.params, value.fields as Record<string, string>))) invalid("The object field changes are not valid.");
+      if (value.kind === "canvas.save" && canvas.kind === "capability" && canvas.params.capability === "project") briefTransferSources((value.fields as Record<string, string>).transferSources);
       // Whitelist runtime canvas data at the server boundary, just as at the URL boundary.
       return { ...value, canvas, target } as ApplicationCommand;
     }
@@ -88,6 +104,7 @@ export function parseCommand(value: unknown): ApplicationCommand {
   return value as ApplicationCommand;
 }
 export function aggregateKey(operation: ApplicationOperation): string {
+  if (operation.kind === "changes.transfer") return `changes:${operation.projectId}`;
   if (operation.kind === "work.status") return `project:${operation.projectId}`;
   if (operation.kind === "canvas.save" || operation.kind === "canvas.copy") return `canvas:${canvasId(operation.canvas.kind, operation.canvas.params)}`;
   return "assessment";

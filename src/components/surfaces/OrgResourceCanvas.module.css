@@ -28,4 +28,26 @@
 .related strong { display: block; font-size: .8125rem; overflow-wrap: anywhere; }
 .related small { display: block; margin-top: .25rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .6875rem; }
 .canvas :focus-visible { outline: 2px solid var(--slds-g-color-accent-1, #0176d3); outline-offset: 3px; }
+.sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .75rem; }
+.sectionHeading h3 { margin: 0; }
+.addField, .formActions button { display: inline-flex; align-items: center; justify-content: center; gap: .35rem; padding: .45rem .75rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: .4rem; background: var(--slds-g-color-surface-1, #fff); color: var(--slds-g-color-on-surface-3, #03234d); font: inherit; font-size: .75rem; cursor: pointer; }
+.addField:hover, .formActions button:hover { background: var(--slds-g-color-surface-2, #f3f3f3); }
+.fieldForm { padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: .75rem; background: var(--slds-g-color-surface-1, #fff); }
+.fieldForm h4 { margin: 0 0 .85rem; font-size: .8125rem; }
+.fieldInputs { display: grid; grid-template-columns: 1fr 1.2fr .8fr; gap: .75rem; }
+.fieldInputs label, .fieldInput { display: grid; align-content: start; gap: .4rem; min-width: 0; font-size: .75rem; font-weight: 600; }
+.fieldInputs input, .fieldInputs select { width: 100%; min-width: 0; min-height: 2.25rem; padding: .45rem .6rem; border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: .375rem; background: var(--slds-g-color-surface-container-1, #fff); color: inherit; font: inherit; font-weight: 400; }
+.fieldInputs small { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .6875rem; font-weight: 400; }
+.formActions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.formActions .primary { background: var(--slds-g-color-accent-1, #0176d3); border-color: transparent; color: #fff; }
+.formActions .primary:hover { filter: brightness(.93); }
+.fieldError { color: light-dark(#ba0517, #ff9eaa); font-size: .75rem; }
+.addedRow { background: light-dark(#f0faf4, #182e26); }
+.fieldChange { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; font-size: .6875rem; color: light-dark(#216e3a, #7edba1); }
+.fieldChange button { border: 0; background: transparent; color: var(--slds-g-color-on-surface-1, #5c5c5c); font: inherit; text-decoration: underline; cursor: pointer; }
+.fieldNote { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .6875rem; }
+.fieldNote p { margin: 0; }
+.fieldNotice { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: .75rem; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 700px) { .fieldInputs { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .header { flex-wrap: wrap; } .heading h2 { font-size: 1.375rem; } }

@@ -38,6 +38,19 @@ try {
     await dialog.waitFor();
     assert.equal(await dialog.getByRole('tab', { name: 'Projects', exact: true }).getAttribute('aria-selected'), 'true');
     out.checks.push(`${motion}: overview reveals/focuses parent and Projects filter without changing worktree; keyboard works and top bar still opens navigator`);
+    await page.keyboard.press('Escape');
+    await panel.getByRole('button', { name: 'Start project', exact: true }).click();
+    await page.waitForURL(url => url.pathname === '/alm' && JSON.parse(url.searchParams.get('destination')).target.projectId === null);
+    await page.getByRole('heading', { name: 'Start a project', exact: true }).waitFor();
+    const creation = JSON.parse(new URL(page.url()).searchParams.get('destination'));
+    assert.deepEqual(creation.target, { projectId: null, worktreeId: null, orgId: 'uat' });
+    assert.deepEqual(creation.canvas.params, { scope: 'unbound', orgId: 'uat', surface: 'alm', capability: 'project' });
+    assert.equal(await page.getByRole('link', { name: 'Global home', exact: true }).getAttribute('aria-current'), 'location');
+    await page.goBack();
+    await page.waitForURL(href);
+    await link.waitFor();
+    assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target);
+    out.checks.push(`${motion}: Start project leaves the current worktree for global ALM, retains the org, and Back restores the original project/branch`);
     await context.close();
   }
   for (const profileId of ['jw', 'kf', 'sp', 'am']) {
@@ -62,6 +75,7 @@ try {
       }
     }
     await start.click(); await page.waitForURL(url => url.pathname === '/alm');
+    assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId, null);
     await page.getByRole('heading', { name: 'Start a project', exact: true }).waitFor();
     assert.equal(await page.getByRole('radio').count(), 8, 'Every profile can choose a project type');
     await page.setViewportSize({ width: 390, height: 844 });

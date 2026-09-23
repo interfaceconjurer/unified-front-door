@@ -64,7 +64,8 @@ try {
             await c.close();
         }
     }
-    // Inject only a named render failure through a test-controlled standard method patch.
+    // Target the canvas's draft projection; patching trim also breaks the
+    // header's change summary, outside the canvas error boundary under test.
     {
         const c = await context();
         const { state } = await install(c, { latency: 5000 });
@@ -75,10 +76,11 @@ try {
             const input = page.getByRole('textbox', { name: 'Name', exact: true });
             await input.waitFor();
             const composer = await remember(page);
-            await page.evaluate(() => { const trim = String.prototype.trim; window.__injectCanvasFault = true; String.prototype.trim = function () { if (window.__injectCanvasFault && String(this).startsWith('P6_RENDER_FAULT'))
-                throw Error('P6 controlled canvas render failure'); return trim.call(this); }; });
+            await page.evaluate(() => { const values = Object.values; window.__injectCanvasFault = true; Object.values = function (value) { if (window.__injectCanvasFault && typeof value?.name === 'string' && value.name.startsWith('P6_RENDER_FAULT'))
+                throw Error('P6 controlled canvas render failure'); return values(value); }; });
             await input.fill('P6_RENDER_FAULT_draft');
             await page.getByRole('alert', { name: 'Canvas unavailable' }).waitFor();
+            await page.getByRole('button', { name: 'Changes, 1 changed file', exact: true }).waitFor();
             await verify(composer);
             assert(await page.evaluate(() => Object.keys(localStorage).some(k => k.startsWith('ufd.pending.') && localStorage.getItem(k)?.includes('P6_RENDER_FAULT_draft'))), 'pending edit not recoverable during failure');
             await page.evaluate(() => window.__injectCanvasFault = false);

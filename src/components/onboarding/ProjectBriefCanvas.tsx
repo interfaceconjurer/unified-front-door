@@ -7,6 +7,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { CapabilityDraftCanvas } from "@/components/surfaces/CapabilityDraftCanvas";
 import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
+import { briefTransferSources } from "@/lib/application/contracts";
 import { useAssessment } from "./use-assessment";
 import styles from "./onboarding.module.css";
 
@@ -14,6 +15,7 @@ export function ProjectBriefCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
   const { store } = useAssessment();
   const { openImprovementProject, captureIntent } = useNavigation();
   const { openProjectPanel } = useWorkspace();
+  const transfers = briefTransferSources(spec.draft?.transferSources);
   const persistence = useSyncExternalStore(store.subscribe, store.getPersistenceSnapshot, store.getServerPersistenceSnapshot);
   const queued = useSyncExternalStore(store.subscribe, () => store.isCreatingFromBrief(spec.id), () => false);
   const inFlight = useRef(false), [creating, setCreating] = useState(false);
@@ -35,7 +37,7 @@ export function ProjectBriefCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
     <div className={styles.selectionBar}>
       <div><strong>Ready to start?</strong><span>{!ready ? "Add a project name and goal to continue." : "Create your project and continue in its own workspace."}</span></div>
       <button type="button" className={styles.primary} disabled={!ready || creating || queued || persistence !== "saved"} onClick={create}>
-        {creating || queued ? "Creating project…" : "Create project"}
+        {creating || queued ? "Creating project…" : transfers.length ? "Create project and transfer changes" : "Create project"}
       </button>
     </div>
   </div>;

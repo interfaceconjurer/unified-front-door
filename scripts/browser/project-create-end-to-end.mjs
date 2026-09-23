@@ -22,6 +22,7 @@ try {
       await page.getByRole('heading', { name: 'Start a project', exact: true }).waitFor();
     };
     await start();
+    assert.equal(await page.getByRole('region', { name: 'Project creation from assessment', exact: true }).count(), 0, 'Project creation omits the assessment promotion panel');
     const name = `${owner} service app`;
     const create = page.getByRole('button', { name: 'Create project', exact: true });
     assert(await create.isDisabled());
@@ -74,15 +75,27 @@ try {
     await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).click();
     await page.getByRole('heading', { name, exact: true }).waitFor();
     assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId, project.id);
-    await page.getByRole('link', { name: 'Global home', exact: true }).click(); await page.waitForURL(url => url.pathname === '/');
+    const originalProjectHref = page.url();
     await start();
+    const creation = JSON.parse(new URL(page.url()).searchParams.get('destination'));
+    assert.deepEqual(creation.target, { projectId: null, worktreeId: null, orgId });
+    assert.equal(creation.surface, 'alm'); assert.equal(creation.canvas.params.scope, 'unbound');
+    assert.equal(creation.canvas.params.projectId, undefined); assert.equal(creation.canvas.params.worktreeId, undefined);
     assert.equal(await page.getByLabel('Project name', { exact: true }).inputValue(), '', 'The previous acknowledged brief was reset for another project');
     await page.getByLabel('Project name', { exact: true }).fill(`${name} two`);
     await page.getByLabel('What should this project achieve?', { exact: true }).fill('Try a second project in the same org.');
+    await page.goBack(); await page.waitForURL(originalProjectHref);
+    await page.getByRole('heading', { name, exact: true }).waitFor();
+    await start();
+    assert.equal(await page.getByLabel('Project name', { exact: true }).inputValue(), `${name} two`, 'The global creation draft survives returning to the original project');
     await create.click();
     await page.getByRole('heading', { name: `${name} two`, exact: true }).waitFor();
     assert.equal(fixture.state.snapshot.assessment.projects.length, 2);
-    out.checks.push(`${owner}: create, sidebar entry, reload, explicit reopen, retained intent, and second project${!orgId ? ' without an org' : ''}`);
+    const second = fixture.state.snapshot.assessment.projects.find(saved => saved.id !== project.id);
+    assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId, second.id);
+    assert.equal(second.targetOrgId, orgId); assert.equal(fixture.state.snapshot.assessment.projects[0].name, name);
+    assert(!fixture.state.snapshot.canvases.some(saved => saved.canvas.kind === 'capability' && saved.canvas.params.capability === 'project' && saved.target.projectId), 'New project briefs are never attached to the previous project');
+    out.checks.push(`${owner}: create, sidebar entry, reload, explicit reopen, retained intent, and second project through global ALM with Back/draft preservation${!orgId ? ' without an org' : ''}`);
     await page.screenshot({ path: outputPath(`${label}-created-${owner}.png`) });
     await context.close();
   }

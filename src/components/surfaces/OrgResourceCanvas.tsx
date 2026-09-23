@@ -7,9 +7,11 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import { findResource } from "@/lib/org-resources/catalog";
 import { RESOURCE_TYPES, resourceKey } from "@/lib/org-resources/model";
+import { isEditableObject } from "@/lib/org-resources/object-fields";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { SURFACES } from "@/lib/workspace/surfaces";
 import { RESOURCE_ICONS } from "./resource-icons";
+import { ObjectFields } from "./ObjectFields";
 import styles from "./OrgResourceCanvas.module.css";
 
 export function OrgResourceCanvas({ spec }: { spec: CanvasOf<"org-resource"> }) {
@@ -39,7 +41,7 @@ export function OrgResourceCanvas({ spec }: { spec: CanvasOf<"org-resource"> }) 
         {[{ label: "Resource type", value: type.label }, { label: "Opens in", value: SURFACES[type.surface].label }, ...resource.facts].map(fact => <div key={fact.label}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
       </dl>
     </section>
-    {resource.section && <section className={styles.section} aria-label={resource.section.title}>
+    {isEditableObject(resource) ? <ObjectFields key={spec.id} resource={resource} spec={spec} /> : resource.section && <section className={styles.section} aria-label={resource.section.title}>
       <h3>{resource.section.title}</h3>
       <div className={styles.tableScroll} tabIndex={0} role="region" aria-label={`${resource.section.title} table`}>
         <table><thead><tr>{resource.section.columns.map(column => <th key={column} scope="col">{column}</th>)}</tr></thead>

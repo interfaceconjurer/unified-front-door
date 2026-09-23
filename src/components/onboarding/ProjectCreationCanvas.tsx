@@ -6,7 +6,6 @@ import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { PersistenceStatus } from "@/components/persistence/PersistenceStatus";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { ProjectBriefCanvas } from "./ProjectBriefCanvas";
-import { assessmentCanvas } from "@/lib/assessment/canvas";
 import type { FindingSnapshot } from "@/lib/assessment/model";
 import type { DraftEdit, ProjectDraft } from "@/lib/projects/model";
 import { projectDraftView } from "@/lib/projects/creation";
@@ -25,7 +24,7 @@ export function ProjectCreationCanvas({ spec }: { spec: CanvasOf<"capability"> }
 function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) {
   const { state, store } = useAssessment();
   const { profile } = useDemoProfile();
-  const { openCanvas, openImprovementProject, navigateGlobalHome, captureIntent } = useNavigation();
+  const { openImprovementProject, navigateGlobalHome, captureIntent } = useNavigation();
   const persistence = useSyncExternalStore(store.subscribe, store.getPersistenceSnapshot, store.getServerPersistenceSnapshot);
   const { draft, run, findings, sourceAvailable } = projectDraftView(state);
   const [creating, setCreating] = useState(false);
@@ -40,16 +39,7 @@ function ImprovementProjectCreation({ spec }: { spec: CanvasOf<"capability"> }) 
       if (project && current()) openImprovementProject(project);
     } finally { inFlight.current = false; setCreating(false); }
   }
-  if (!draft) return <>
-    <ProjectBriefCanvas spec={spec} />
-    <section className={`${styles.projectCanvas} ${styles.review}`} aria-label="Project creation from assessment">
-    <h2>Start from your org assessment</h2><p>Choose opportunities from your org assessment to create a saved project with evidence and planned work items.</p>
-    <PersistenceStatus store={store} onlyProblems label="Project draft" />
-    <div className={styles.actions}>
-      <button type="button" className={styles.primary} onClick={navigateGlobalHome}>Choose opportunities</button>
-      <button type="button" className={styles.secondary} onClick={() => openCanvas("build", assessmentCanvas(spec.params, state.currentRunId))}>Open org assessment</button>
-    </div>
-  </section></>;
+  if (!draft) return <ProjectBriefCanvas spec={spec} />;
   return <ProjectReview draft={draft} findings={findings} owner={profile?.name ?? "Sam Patel"}
     earlier={draft.runId !== state.currentRunId} sourceAvailable={sourceAvailable} creating={creating || queuedCreate} busy={creating || queuedCreate || persistence !== "saved"}
     persistence={<PersistenceStatus store={store} label="Project draft" />}
