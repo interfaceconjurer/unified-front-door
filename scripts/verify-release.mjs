@@ -1,16 +1,21 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { REQUIRED_CHECKS, runVerificationStages } from "./release-contract.mjs";
+import { verificationPlan } from "./verification-plan.mjs";
 import { freePort, startProduction, waitForServer } from "./production-process.mjs";
 import configuration from "../src/lib/server/database-target.js";
 
 const output = resolve(".release");
 await mkdir(output, { recursive: true });
-await Promise.all(["verification.json", "source.tgz", "failure.json"].map(name => rm(join(output, name), { force: true })));
-const args = process.argv.slice(2), workingTree = args.length === 1 && args[0] === "--working-tree";
+await Promise.all(["verification.json", "group-verification.json", "timings.json", "source.tgz", "failure.json"].map(name => rm(join(output, name), { force: true })));
+const args = process.argv.slice(2);
+const groupIndex = args.indexOf("--group");
+const group = groupIndex >= 0 ? args.splice(groupIndex, 2)[1] : undefined;
+const workingTree = args.length === 1 && args[0] === "--working-tree";
 const revision = args.length === 2 && args[0] === "--revision" ? args[1] : null;
+const timings = [];
 let server, activeChild, cancelled = false, failedStage = "preflight";
 for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => {
   cancelled = true;
@@ -42,6 +47,8 @@ function run(command, args, timeoutMs = 600000) {
   });
 }
 try {
+  if (groupIndex >= 0 && !group) throw new Error("--group requires a verification group");
+  const plan = verificationPlan(group);
   if (process.versions.node !== "22.23.2") throw new Error("Use the exact Node version in .nvmrc");
   if (!workingTree && (!revision || !/^[a-f0-9]{40}$/.test(revision))) throw new Error("Use --revision FULL_SHA or --working-tree");
   const head = git("rev-parse", "HEAD"), treeSha = git("rev-parse", "HEAD^{tree}");
@@ -78,7 +85,7 @@ try {
       await waitForServer(origin, server); await node(["scripts/runtime-smoke.mjs"]);
       await node(["node_modules/playwright/cli.js", "install", ...(process.env.CI ? ["--with-deps"] : []), "chromium"]);
     } },
-    { id: "browser-regressions", work: () => node(["scripts/browser/run.mjs", "release"], 1200000) },
+    { id: "browser-regressions", work: () => node(["scripts/browser/run.mjs", "release", ...(plan.shard ? ["--shard", plan.shard] : [])], 1200000) },
     { id: "browser-database", work: async () => {
       for (let repeat = 1; repeat <= 2; repeat++) await node(["--conditions=react-server", "scripts/browser/neon-client.mjs", `release-${repeat}`]);
       await node(["--conditions=react-server", "scripts/browser/project-create-database.mjs", "release"]);
@@ -87,18 +94,38 @@ try {
     { id: "browser-performance", work: () => node(["scripts/browser/performance.mjs", "release"], 1800000) },
   ];
   if (JSON.stringify(stages.map(stage => stage.id)) !== JSON.stringify(REQUIRED_CHECKS)) throw new Error("Release stage definition is incomplete");
-  await runVerificationStages(stages, async stage => { if (cancelled) throw new Error("Verification cancelled"); failedStage = stage.id; console.log(`Verification: ${stage.id}`); await stage.work(); }, async checks => {
+  const selected = plan.checks.map(id => stages.find(stage => stage.id === id));
+  await runVerificationStages(selected, async stage => {
+    if (cancelled) throw new Error("Verification cancelled");
+    failedStage = stage.id;
+    console.log(`${process.env.GITHUB_ACTIONS ? '::group::' : ''}Verification: ${stage.id}`);
+    const start = Date.now();
+    let passed = false;
+    try { await stage.work(); passed = true; }
+    finally {
+      const durationSeconds = Number(((Date.now() - start) / 1000).toFixed(1));
+      timings.push({ stage: stage.id, passed, durationSeconds });
+      console.log(`${stage.id}: ${passed ? 'passed' : 'failed'} in ${durationSeconds}s`);
+      if (process.env.GITHUB_ACTIONS) console.log('::endgroup::');
+    }
+  }, async checks => {
     failedStage = "source-integrity";
     if (cancelled || await sourceFingerprint() !== before || git("rev-parse", "HEAD") !== head) throw new Error("Source changed during verification");
     if (!workingTree && git("status", "--porcelain", "--untracked-files=all")) throw new Error("Checkout changed during verification");
     let sourceSha256 = null;
-    if (!workingTree) { execFileSync("git", ["archive", "--format=tar.gz", "-o", join(output, "source.tgz"), revision]); sourceSha256 = hash(await readFile(join(output, "source.tgz"))); }
-    const result = { version: 1, revision: head, treeSha, sourceTreeSha256: before, lockSha256, sourceSha256, nodeVersion: process.versions.node, verified: true, releasable: !workingTree, completedAt: new Date().toISOString(), buildId: (await readFile(".next/BUILD_ID", "utf8")).trim(), checks };
-    await writeFile(join(output, "verification.json"), JSON.stringify(result, null, 2), { mode: 0o600 });
-    console.log(workingTree ? "Working-tree verification passed. This is not a release attestation." : `Release verified at ${revision}.`);
+    if (!workingTree && !plan.partial) { execFileSync("git", ["archive", "--format=tar.gz", "-o", join(output, "source.tgz"), revision]); sourceSha256 = hash(await readFile(join(output, "source.tgz"))); }
+    const buildId = checks.includes("production-build") ? (await readFile(".next/BUILD_ID", "utf8")).trim() : null;
+    const result = { version: 1, revision: head, treeSha, sourceTreeSha256: before, lockSha256, sourceSha256, nodeVersion: process.versions.node, verified: true, releasable: !workingTree && !plan.partial, completedAt: new Date().toISOString(), buildId, checks, ...(group ? { group, shard: plan.shard } : {}) };
+    await writeFile(join(output, plan.partial ? "group-verification.json" : "verification.json"), JSON.stringify(result, null, 2), { mode: 0o600 });
+    console.log(plan.partial ? `Verification group ${group} passed. This is not a release attestation.` : workingTree ? "Working-tree verification passed. This is not a release attestation." : `Release verified at ${revision}.`);
   });
 } catch {
   await writeFile(join(output, "failure.json"), JSON.stringify({ stage: failedStage, verified: false, at: new Date().toISOString() }), { mode: 0o600 });
   console.error(`Verification failed at ${failedStage}; no release attestation was produced.`);
   process.exitCode = 1;
-} finally { await server?.stop(); }
+} finally {
+  await server?.stop();
+  await writeFile(join(output, "timings.json"), JSON.stringify(timings, null, 2));
+  if (process.env.GITHUB_STEP_SUMMARY) await appendFile(process.env.GITHUB_STEP_SUMMARY,
+    `| Phase | Result | Seconds |\n| --- | --- | ---: |\n${timings.map(row => `| ${row.stage} | ${row.passed ? 'Passed' : 'Failed'} | ${row.durationSeconds} |`).join('\n')}\n`);
+}

@@ -41,10 +41,10 @@ try {
   const id = JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId;
   const row = await transaction(async db => (await db.query("SELECT record FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf' AND id=$2", [namespace, id])).rows[0]);
   assert.equal(row.record.projectType, 'react'); assert.equal(row.record.context, 'Synthetic acceptance data.'); assert.equal(row.record.runId, null);
-  await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).waitFor();
+  await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).waitFor();
   await page.reload(); await page.getByRole('heading', { name, exact: true }).waitFor({ timeout: 45000 });
   await page.getByRole('link', { name: 'Global home', exact: true }).click(); await page.waitForURL(url => url.pathname === '/');
-  await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).click();
+  await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).click();
   await page.getByRole('heading', { name, exact: true }).waitFor();
   out.checks.push('Real database acknowledgement creates a project; sidebar entry, intent, reload, and explicit reopening work without provider calls');
   await page.getByRole('button', { name: 'User menu for Karen Flores', exact: true }).click();
@@ -54,14 +54,14 @@ try {
   await page.getByRole('dialog', { name: 'Clear data for Karen Flores?', exact: true }).getByRole('button', { name: 'Clear data', exact: true }).click();
   await page.getByRole('status').filter({ hasText: 'Clear data completed for Karen Flores.' }).waitFor();
   assert.equal((await transaction(db => db.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id='kf'", [namespace]))).rowCount, 0);
-  await page.getByRole('button', { name: /Karen Flores New platform builder/ }).click();
+  await page.getByRole('button', { name: /Karen Flores Platform builder/ }).click();
   await page.getByRole('radio', { name: /UAT Sandbox/ }).check();
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
   if (await panel.getAttribute('data-open') !== 'true') await page.locator('#workspace-panel-toggle').click();
-  assert.equal(await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).count(), 0);
+  assert.equal(await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).count(), 0);
   await page.reload(); await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
-  assert.equal(await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).count(), 0);
+  assert.equal(await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).count(), 0);
   out.checks.push('Clearing Karen through the login dialog removes her brief-created project from the database and sidebar after sign-in and reload');
   assert.deepEqual(out.errors, []);
 } finally {

@@ -10,7 +10,7 @@ const { canvasId, canvasTarget } = modules.load("lib/surface-canvas/model");
 const { destinationHref, resolveDestination } = modules.load("lib/navigation/model");
 
 test("developer starters resolve to real canvases while retaining captured org and worktree scope", () => {
-  const profile = demoProfileById("jw");
+  const profile = demoProfileById("am");
   const targets = [
     { projectId: null, worktreeId: null, orgId: null },
     { projectId: null, worktreeId: null, orgId: "uat" },

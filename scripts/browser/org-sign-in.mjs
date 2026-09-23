@@ -77,12 +77,22 @@ try {
       await page.reload();
       await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
       if (id === 'kf') {
+        await page.getByRole('group', { name: 'Today', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+        await page.getByRole('tab', { name: 'Build & Setup', exact: true }).waitFor();
+        await page.locator('#workspace-panel-toggle').click();
+        const previousView = destination(page);
         await page.getByRole('button', { name: `User menu for ${profile.name}`, exact: true }).click();
         await page.getByRole('button', { name: /Switch to Jordan Wright/ }).click();
         await page.getByRole('button', { name: 'Switch org, current org: UAT Sandbox', exact: true }).waitFor();
+        await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+        assert.equal(await page.locator('#workspace-panel-toggle').getAttribute('aria-pressed'), 'false');
+        assert.equal(await page.locator('#surface-panel-toggle').getAttribute('aria-pressed'), 'false');
         await page.getByRole('button', { name: 'User menu for Jordan Wright', exact: true }).click();
         await page.getByRole('button', { name: /Switch to Karen Flores/ }).click();
         await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
+        await page.getByRole('tab', { name: 'Build & Setup', exact: true }).waitFor();
+        assert.deepEqual(destination(page), previousView);
+        assert.equal(await page.locator('#workspace-panel-toggle').getAttribute('aria-pressed'), 'true');
       }
       out.checks.push(`${id}: required connected-org choice, global Home, first agent context and reload retain selected org; Back and responsive layout work`);
     } finally { await context.close(); }
@@ -92,7 +102,7 @@ try {
     try {
       const requested = { version: 1, owner: 'jw', surface: 'build', target: { projectId: null, worktreeId: null, orgId: 'uat' }, canvas: { kind: 'org-resource', title: 'Account · UAT Sandbox', params: { orgId: 'uat', resourceType: 'standard-object', apiName: 'Account' } } };
       await page.goto(origin + '/build?destination=' + encodeURIComponent(JSON.stringify(requested)));
-      await page.getByRole('button', { name: /Jordan Wright New developer/ }).click();
+      await page.getByRole('button', { name: /Jordan Wright Platform operations/ }).click();
       assert(await page.getByRole('radio', { name: /UAT Sandbox/ }).isChecked(), 'A valid deep link suggests its captured org');
       await page.getByRole('radio', { name: orgId === 'uat' ? /UAT Sandbox/ : /SIT Sandbox/ }).check();
       await page.getByRole('button', { name: 'Continue', exact: true }).click();

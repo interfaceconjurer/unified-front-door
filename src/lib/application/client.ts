@@ -1,3 +1,4 @@
+import { workForProfile } from "../workspace/demo-workspace";
 import { projectCanvases } from "../surface-canvas/projection";
 import type { DemoProfileId } from "../demo-profiles";
 import { INITIAL } from "../assessment/state-codec";
@@ -6,7 +7,7 @@ import { SurfaceCanvasStore, emptyState, type PersistedCanvases } from "../surfa
 import { preferencesForWorkspace } from "../surface-canvas/workspace-preferences";
 import { canvasId, canvasTarget, inputFromCanonicalId, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
-import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
+import { workCanvasInput } from "../workspace/returning-work";
 import { WorkspaceSelectionStore } from "../workspace/persistence";
 import { conversationKey, UNBOUND_TARGET, type WorkspaceTarget } from "../workspace/context";
 import { connectedOrgForProfile, orgsForProfile } from "../workspace/orgs";
@@ -30,13 +31,14 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
 export type RecoverableBuffer = { key: string; raw: string; label: string; memoryOnly: boolean; variant?: "disk" };
 export type ProfileResetResult = { ok: true } | { ok: false; message: string; retryable: boolean };
 type ProfileResetCommand = { action: "reset-profile"; profileId: DemoProfileId; generation: string; commandId: string };
-type ClientView = { session: SessionView | null; resolved: boolean; message: string; legacy: LegacySource | null; summary: ImportSummary | null; recovery: RecoverableBuffer[] | null };
-const INITIAL_VIEW: ClientView = { session: null, resolved: false, message: "", legacy: null, summary: null, recovery: null };
+type ClientView = { session: SessionView | null; resolved: boolean; sessionUnavailable: boolean; message: string; legacy: LegacySource | null; summary: ImportSummary | null; recovery: RecoverableBuffer[] | null };
+const INITIAL_VIEW: ClientView = { session: null, resolved: false, sessionUnavailable: false, message: "", legacy: null, summary: null, recovery: null };
 class ApplicationClient {
   private view = INITIAL_VIEW;
   private listeners = new Set<() => void>();
   private started = false;
   private request = 0;
+  private sessionRead: { request: number; promise: Promise<void> } | null = null;
   private changing = false;
   private needsSessionAdoption = false;
   private resettingProfile = false;
@@ -52,7 +54,7 @@ class ApplicationClient {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private publish(value: Partial<ClientView>) { this.view = { ...this.view, ...value }; for (const listener of this.listeners) listener(); }
   private adopt(session: SessionView | null) {
-    if (!this.needsSessionAdoption && stableJson(session) === stableJson(this.view.session)) { this.publish({ resolved: true, message: "" }); return; }
+    if (!this.needsSessionAdoption && stableJson(session) === stableJson(this.view.session)) { this.publish({ resolved: true, sessionUnavailable: false, message: "" }); return; }
     this.needsSessionAdoption = false;
     this.archivePending(); this.workspace?.deactivate();
     for (const store of this.canvasStores.values()) store.dispose();
@@ -91,7 +93,7 @@ class ApplicationClient {
       const decisionKey = `ufd.import-decision.v1.${session.namespaceId}.${profileId}`;
       if ((assessment || canvases) && localStorage.getItem(decisionKey) !== stableJson(source)) legacy = source;
     } catch { /* A blocked legacy source is never rewritten or automatically imported. */ }
-    this.publish({ session, resolved: true, message: "", legacy, summary: null, recovery: null });
+    this.publish({ session, resolved: true, sessionUnavailable: false, message: "", legacy, summary: null, recovery: null });
   }
   start = () => {
     if (this.started || typeof window === "undefined") return; this.started = true; void this.reconnect();
@@ -115,15 +117,37 @@ class ApplicationClient {
     if (this.resettingProfile || this.changing) return;
     await this.readSession();
   };
-  private readSession = async () => {
+  private readSession = (): Promise<void> => {
+    // Focus and the five-second poll may coincide, or outpace a slow read.
+    // Share that read so polling cannot continually invalidate its response.
+    // Account mutations increment request, so their reconciliation starts fresh.
+    if (this.sessionRead?.request === this.request) return this.sessionRead.promise;
     const request = ++this.request;
+    const promise = this.loadSession(request).finally(() => {
+      if (this.sessionRead?.request === request) this.sessionRead = null;
+    });
+    this.sessionRead = { request, promise };
+    return promise;
+  };
+  private async loadSession(request: number) {
     try {
       let response = await api<{ session: SessionView | null }>("/api/session");
+      if (request !== this.request) return;
       if (!response.session) response = await api<{ session: SessionView }>("/api/session", { action: "bootstrap" });
       if (request !== this.request) return;
-      const same = stableJson(this.view.session) === stableJson(response.session); this.adopt(response.session);
-      if (same && this.workspace && !this.workspace.hasPending()) await this.workspace.load();
-    } catch (error) { if (request === this.request) this.publish({ resolved: true, message: error instanceof Error ? error.message : "Database connection is unavailable." }); }
+      const reused = !this.needsSessionAdoption && stableJson(this.view.session) === stableJson(response.session);
+      this.adopt(response.session);
+      if (reused && this.workspace && (!this.workspace.isReady() || !this.workspace.hasPending())) {
+        if (this.workspace.isReady()) await this.workspace.load();
+        else await this.workspace.retryPersistence();
+      }
+    } catch (error) { if (request === this.request) this.publish({
+      // An unavailable read cannot confirm either a sign-out or a workspace
+      // handoff. Keep an already loaded workspace, but never reveal a stale one
+      // after an account change whose outcome is still unknown.
+      resolved: this.view.resolved && !this.needsSessionAdoption,
+      sessionUnavailable: true, message: error instanceof Error ? error.message : "Database connection is unavailable.",
+    }); }
   };
   change = async (action: "select" | "signout" | "reset", profileId?: DemoProfileId, orgId?: string): Promise<boolean> => {
     if (this.resettingProfile || this.changing) return false;
@@ -265,7 +289,7 @@ class RemoteCanvasStore {
   private stopPrefs: () => void;
   constructor(private remote: RemoteWorkspaceStore, workspace: WorkspaceTarget) {
     const initial = emptyState(), session = remote.session;
-    if (session.profileId === "am") for (const work of RETURNING_WORK) { const input = workCanvasInput(work); initial[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) }); }
+    for (const work of workForProfile(session.profileId!)) { const input = workCanvasInput(work); initial[work.surfaceId].canvases.push({ ...input, id: canvasId(input.kind, input.params) }); }
     const owner = `${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`;
     const legacy = new SurfaceCanvasStore(`ufd.canvas-preferences.v2.${owner}`, initial).getSnapshot();
     this.prefs = new SurfaceCanvasStore(`ufd.canvas-preferences.v3.${owner}.${conversationKey(workspace)}`, preferencesForWorkspace(legacy, workspace));

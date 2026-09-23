@@ -1,0 +1,11 @@
+.canvas { min-width: 0; padding: 2rem; }
+.canvas h1 { margin: .5rem 0; font-size: 1.5rem; overflow-wrap: anywhere; }
+.context, .path, .meta { font-size: .8rem; color: var(--slds-g-color-on-surface-1); }
+.path { overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; margin: 1.5rem 0 .75rem; }
+.export { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: 1rem; font-size: .8rem; }
+.export p { flex: 1 1 18rem; margin: 0; line-height: 1.6; color: var(--slds-g-color-on-surface-1); }
+.export a { flex-shrink: 0; border: 1px solid var(--slds-g-color-border-1); border-radius: .4rem; padding: .5rem .75rem; color: var(--slds-g-color-accent-2, #0176d3); text-decoration: none; }
+.export a:hover { background: var(--slds-g-color-surface-2); }
+.source { margin: 0; padding: 1.25rem; overflow: auto; max-width: 100%; border: 1px solid var(--slds-g-color-border-1); border-radius: .5rem; background: var(--slds-g-color-surface-2); font-size: .85rem; line-height: 1.7; tab-size: 2; }
+@media (max-width: 640px) { .canvas { padding: 1rem; } }

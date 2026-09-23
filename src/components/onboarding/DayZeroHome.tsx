@@ -32,7 +32,7 @@ function LiveDayZeroHome() {
   const { openImprovementProject, openProjectCreation, openCanvas, capabilityScope } = useNavigation();
   const run = execution.data.runs.filter(run => run.assessmentRunId === state.currentRunId).at(-1);
   return <DayZeroView state={state} profile={profile ?? undefined} store={store} run={run} openProject={openImprovementProject} startProject={startProject} startingProject={startingProject} continueProject={openProjectCreation}
-    openAssessment={finding => openCanvas("govern", assessmentCanvas(capabilityScope, finding?.runId ?? state.currentRunId, finding))}
+    openAssessment={finding => openCanvas("build", assessmentCanvas(capabilityScope, finding?.runId ?? state.currentRunId, finding))}
     retryRun={() => { if (run) void agent.command({ kind: "retry", requestId: crypto.randomUUID(), runId: run.id }); }} />;
 }
 

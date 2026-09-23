@@ -6,7 +6,8 @@ import { applyAssessmentCommand } from "../application/assessment-commands";
 import { aggregateKey, conflict, invalid, parseCommand, stableJson, type ApplicationCommand, type CommandResult, type SavedCanvas } from "../application/contracts";
 import { canvasId } from "../surface-canvas/model";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
-import { PROJECTS, ORGS } from "../workspace/fixtures";
+import { ORGS } from "../workspace/fixtures";
+import { projectsForProfile, workForProfile } from "../workspace/demo-workspace";
 import { ASSESSMENT_ORGS, accessibleScope } from "../onboarding/assessment";
 import { workForCanvas } from "../workspace/returning-work";
 import { hash, requireSession, type OwnedSession } from "./session";
@@ -23,14 +24,17 @@ async function canvasCommand(client: PoolClient, session: OwnedSession, command:
   const surface = canonicalCanvasSurface(command.surface, command.canvas);
   const profile = demoProfileById(session.profileId!);
   if (!profile.surfaceAccess.includes(surface)) invalid("This surface is unavailable for the current demo profile.");
-  if (command.canvas.kind === "work" && workForCanvas(command.canvas.params)?.surfaceId !== surface) invalid("The work destination is unavailable.");
+  if (command.canvas.kind === "work") {
+    const work = workForCanvas(command.canvas.params);
+    if (!work || work.surfaceId !== surface || !workForProfile(profile.id).includes(work)) invalid("The work destination is unavailable.");
+  }
   const row = (await client.query("SELECT canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 AND id=$3 FOR UPDATE", [...scope, id])).rows[0];
   if ((row?.revision ?? 0) !== command.expectedRevision) conflict();
   if (row && stableJson(row.target) !== stableJson(command.target)) conflict("This draft already belongs to a different captured scope.");
   if (!row) {
     await lockCanvasQuota(client, scope); await assertCanvasCount(client, scope, 1);
     const target = command.target;
-    const fixture = profile.workspaceExperience === "established" ? PROJECTS.find((p) => p.id === target.projectId) : undefined;
+    const fixture = projectsForProfile(profile.id).find((p) => p.id === target.projectId);
     const owned = target.projectId ? (await client.query("SELECT id FROM improvement_projects WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [...scope, target.projectId])).rows[0] : null;
     if (target.projectId && !fixture && !owned) invalid("The project is unavailable in this workspace.");
     if (target.worktreeId && !fixture?.worktrees.some((w) => w.id === target.worktreeId)) invalid("The worktree is unavailable in this project.");

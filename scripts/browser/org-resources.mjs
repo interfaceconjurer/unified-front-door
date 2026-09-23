@@ -6,7 +6,7 @@ import { install, session } from './fixtures.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
-async function setup(profileId = 'jw', width = 1440, colorScheme = 'dark') {
+async function setup(profileId = 'am', width = 1440, colorScheme = 'dark') {
   const context = await browser.newContext({ httpCredentials, viewport: { width, height: 1000 }, reducedMotion: 'reduce', colorScheme });
   const { state, stats } = await install(context, { drafts: 0, messages: 1 });
   const current = { ...session, profileId };

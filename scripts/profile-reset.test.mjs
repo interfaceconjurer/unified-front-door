@@ -148,6 +148,8 @@ test("failed session changes restore usable stores once a later reconnect succee
   const h = harness({ profileId: "am" }), client = await h.connect(), fetch = globalThis.fetch, previous = client.workspace;
   globalThis.fetch = async () => { throw Error("Disconnected"); };
   assert.equal(await client.change("signout"), false);
+  assert.equal(client.getSnapshot().resolved, false, "Do not expose a deactivated workspace while the account change is uncertain");
+  assert.equal(client.getSnapshot().sessionUnavailable, true);
   globalThis.fetch = fetch;
   await client.reconnect();
   assert.notEqual(client.workspace, previous, "A deactivated store must not be reused after reconnect");
@@ -155,6 +157,85 @@ test("failed session changes restore usable stores once a later reconnect succee
   assert.equal(client.workspace.isReady(), true);
   assert.equal(client.getSnapshot().session.profileId, "am");
   assert.equal(client.getSnapshot().message, "");
+  assert.equal(client.getSnapshot().sessionUnavailable, false);
+});
+
+test("a failed first session read stays unresolved and never confirms a sign-out", async () => {
+  const h = harness({ profileId: "am" }), fetch = globalThis.fetch;
+  const client = new applicationClient.constructor(); clients.push(client);
+  globalThis.fetch = async () => Response.json({ error: { code: "unavailable", message: "Try again" } }, { status: 503 });
+  await client.reconnect();
+  assert.equal(client.getSnapshot().resolved, false);
+  assert.equal(client.getSnapshot().sessionUnavailable, true);
+  globalThis.fetch = fetch;
+  await client.reconnect();
+  assert.equal(client.getSnapshot().session.profileId, h.state.session.profileId);
+  assert.equal(client.getSnapshot().resolved, true);
+  assert.equal(client.getSnapshot().sessionUnavailable, false);
+});
+
+test("focus and polling share a slow session read instead of starving session resolution", async () => {
+  const h = harness({ profileId: "am" }), fetch = globalThis.fetch;
+  const client = new applicationClient.constructor(); clients.push(client);
+  let release, reads = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  globalThis.fetch = async (path, options) => {
+    if (path === "/api/session") { reads++; await gate; }
+    return fetch(path, options);
+  };
+  const pending = [client.reconnect(), client.reconnect(), client.reconnect()];
+  assert.equal(reads, 1);
+  release(); await Promise.all(pending);
+  assert.equal(client.getSnapshot().resolved, true);
+  assert.equal(client.getSnapshot().session.profileId, h.state.session.profileId);
+});
+
+test("startup recovery loads saved data while preserving pending or unreadable edit buffers", async () => {
+  for (const malformed of [false, true]) {
+    const h = harness({ profileId: "am" }), fetch = globalThis.fetch, session = h.state.session;
+    const key = `ufd.pending.v1.${session.namespaceId}.${session.profileId}.${session.generation}.previous`;
+    const command = { kind: "assessment.pause", commandId: randomUUID(), expectedRevision: 0 };
+    const raw = malformed ? "{unreadable" : JSON.stringify({ session, commands: [command] });
+    h.localDisk.set(key, raw);
+    h.sessionDisk.set(`ufd.pending-pointer.v1.${session.namespaceId}.${session.profileId}.${session.generation}`, "previous");
+    let unavailable = true;
+    globalThis.fetch = (path, options = {}) => {
+      if (String(path).startsWith("/api/application") && (unavailable || options.method === "POST"))
+        return Promise.resolve(Response.json({ error: { code: "unavailable", message: "Try again" } }, { status: 503 }));
+      return fetch(path, options);
+    };
+    const client = new applicationClient.constructor(); clients.push(client);
+    await client.reconnect(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(client.workspace.isReady(), false);
+    unavailable = false;
+    await client.reconnect();
+    assert.equal(client.workspace.isReady(), true);
+    assert.equal(h.localDisk.get(key), raw, "Recovery never erases the source buffer");
+    if (malformed) assert.equal(client.workspace.getPersistenceSnapshot(), "invalid");
+    else assert.deepEqual(client.workspace.getPending(), [command]);
+    client.workspace.deactivate();
+  }
+});
+
+test("a late session read cannot bootstrap or restore the previous account after sign-out", async () => {
+  const h = harness({ profileId: "am" }), client = await h.connect(), fetch = globalThis.fetch;
+  let release, posts = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  globalThis.fetch = async (path, options = {}) => {
+    if (path === "/api/session" && options.method === "GET") { await gate; return Response.json({ session: null }); }
+    if (path === "/api/session" && options.method === "POST") {
+      posts++; assert.equal(JSON.parse(options.body).action, "signout");
+      h.state.session = { ...h.state.session, profileId: null, generation: randomUUID() };
+      return Response.json({ session: h.state.session });
+    }
+    return fetch(path, options);
+  };
+  const pending = client.reconnect();
+  assert.equal(await client.change("signout"), true);
+  release(); await pending;
+  assert.equal(posts, 1);
+  assert.equal(client.getSnapshot().session.profileId, null);
+  assert.equal(client.workspace, null);
 });
 
 test("sign-in chooses an org before workspace entry and remembers each profile's own selection", async () => {

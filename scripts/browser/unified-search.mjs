@@ -36,6 +36,10 @@ try {
     assert.equal(await dialog.getByRole('button', { name: 'Clear search', exact: true }).count(), 0);
     const ids = await rows().evaluateAll(nodes => nodes.map(node => node.id));
     assert.equal(new Set(ids).size, ids.length, 'Mixed worktree/session identities must be unique');
+    const categories = ids.map(id => id.split(':')[0].replace('cmd-all-', ''));
+    assert.deepEqual(categories.filter((category, index) => category !== categories[index - 1]),
+      ['projects', 'resources', 'sessions', 'orgs', 'surfaces'], 'All prioritizes files before sessions and navigation');
+    assert.equal(await rows().first().getAttribute('aria-selected'), 'true', 'All starts at the top instead of scrolling to the current org/surface');
     await input().fill('Account');
     const beforeControls = page.url();
     await dialog.getByRole('button', { name: 'Clear search', exact: true }).click();
@@ -74,16 +78,22 @@ try {
     dialog = await open(page); await input().fill('lead routing');
     const text = await rows().allTextContents();
     const parent = text.findIndex(row => row.startsWith('Trailblazer CRM'));
-    assert(parent >= 0 && text[parent + 1].includes('Worktree · feature/lead-routing'), 'Ranked worktree stays connected to its project');
+    assert.equal(parent, 0, 'Project results remain first during search');
+    assert(await rows().nth(parent).getByText('ALM', { exact: true }).isVisible(), 'All shows the project record as an ALM canvas');
+    assert(text.findIndex(row => row.includes('Flow · Lead_Routing · UAT Sandbox'))
+      < text.findIndex(row => row.includes('Session · Trailblazer CRM')), 'Resources precede sessions during search');
     assert(text.some(row => row.includes('Session · Trailblazer CRM')));
     assert(text.some(row => row.includes('Flow · Lead_Routing · UAT Sandbox')));
+    await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
+    const projectText = await rows().allTextContents();
+    const projectParent = projectText.findIndex(row => row.startsWith('Trailblazer CRM'));
+    assert(projectParent >= 0 && projectText[projectParent + 1].includes('feature/lead-routing'), 'Projects keeps worktrees attached to their parent');
     const highlighted = rows().filter({ has: page.locator('[class*="resultLabel"]', { hasText: /^lead-routing$/ }) });
-    assert.equal(await highlighted.filter({ hasText: 'Worktree ·' }).getAttribute('aria-selected'), 'true');
-    await input().press('Enter'); await dialog.waitFor({ state: 'detached' });
+    await highlighted.getByRole('button').focus(); await highlighted.getByRole('button').press('Enter'); await dialog.waitFor({ state: 'detached' });
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.worktreeId === 'lead-routing');
     assert.equal(destination(page).target.projectId, 'trailblazer-crm');
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
-    out.checks.push(`${motion}: matching project, worktree, session and flow are distinguishable; Enter chooses the matched worktree with its tree intact`);
+    out.checks.push(`${motion}: All identifies project records by ALM; Projects retains keyboard worktree selection and intact project trees`);
 
     dialog = await open(page); await input().fill('Account'); await input().press('Enter');
     await dialog.waitFor({ state: 'detached' });
@@ -96,10 +106,26 @@ try {
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
     out.checks.push(`${motion}: resource and surface selections preserve the active project/worktree`);
 
+    dialog = await open(page); await input().fill('Trailblazer CRM');
+    const projectFile = dialog.locator('[id="cmd-all-projects:trailblazer-crm"]');
+    assert.equal(await projectFile.getByText('Current', { exact: true }).count(), 0);
+    await projectFile.getByRole('button').click(); await dialog.waitFor({ state: 'detached' });
+    await page.getByRole('heading', { name: 'Trailblazer CRM', exact: true }).waitFor();
+    assert.equal(destination(page).surface, 'alm'); assert.equal(destination(page).target.worktreeId, 'lead-routing');
+    assert.equal(destination(page).canvas.kind, 'improvement-project');
+
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/');
     dialog = await open(page); await input().fill('Acme Storefront');
-    await rows().filter({ hasText: 'Project · main' }).getByRole('button').click();
+    await dialog.locator('[id="cmd-all-projects:acme-storefront"]').getByRole('button').click();
+    await dialog.waitFor({ state: 'detached' });
+    await page.getByRole('heading', { name: 'Acme Storefront', exact: true }).waitFor();
+    assert.equal(destination(page).surface, 'alm'); assert.equal(destination(page).target.projectId, null);
+    assert.equal(destination(page).canvas.params.projectId, 'acme-storefront');
+    dialog = await open(page);
+    await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
+    await dialog.getByRole('combobox', { name: 'Search projects…', exact: true }).fill('Acme Storefront');
+    await rows().filter({ has: page.getByText('Acme Storefront', { exact: true }) }).getByRole('button').click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === 'acme-storefront');
     assert.equal(destination(page).target.projectId, 'acme-storefront');
@@ -114,10 +140,10 @@ try {
     await dialog.waitFor({ state: 'detached' });
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.orgId === 'prod');
     assert.deepEqual(destination(page).target, { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'prod' });
-    out.checks.push(`${motion}: explicit project/session results enter their context; org results change only the org`);
+    out.checks.push(`${motion}: All opens sample project canvases while retaining Home/worktrees; Projects/session selections enter context; org results change only the org`);
 
     dialog = await open(page); await input().fill('Release_Checklist__c');
-    assert.equal(await rows().count(), 0);
+    assert.equal(await rows().filter({ hasText: 'Release_Checklist__c' }).count(), 0, 'Production has no matching resource; other categories may match the query');
     await dialog.getByRole('tab', { name: 'Resources', exact: true }).click();
     await dialog.getByLabel('Resource org', { exact: true }).selectOption('uat');
     assert.equal(await rows().count(), 1);
@@ -135,7 +161,7 @@ try {
     await resourceInput.fill('Release_Checklist__c');
     await dialog.getByRole('tab', { name: 'All', exact: true }).click();
     assert(await orgPill().isVisible(), 'All pill reflects the actual resource inventory selected in Resources');
-    assert.equal(await rows().count(), 1, 'All is not restricted by a resource-type filter');
+    assert.equal(await rows().filter({ hasText: 'Release_Checklist__c' }).count(), 1, 'All is not restricted by a resource-type filter');
     await input().press('Enter'); await dialog.waitFor({ state: 'detached' });
     await page.getByRole('article', { name: 'Release Checklist resource', exact: true }).waitFor();
     assert.deepEqual(destination(page).target, { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' });
@@ -145,6 +171,51 @@ try {
     await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
     assert(fixture.commands.every(command => command.kind === 'visit'));
     out.checks.push(`${motion}: Resources filters change inventory without navigation; clear retains org/type; All pill reflects inventory and ignores resource-type filtering; no-match Enter is harmless`);
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', colorScheme: 'dark', viewport: { width: 1440, height: 1000 } });
+    const fixture = await installAssessment(context, { profileId: 'sp' }); cleanups.push(fixture.cleanup);
+    const finding = fixture.run.findings[0];
+    const project = { id: 'palette-plan', name: 'Acme org improvements', goal: 'Reduce unnecessary requests', owner: 'Sam Patel', targetOrgId: 'sit', scopeOrgIds: ['prod', 'sit'], createdAt: '2026-09-22T12:00:00Z', revision: 1, runId: fixture.run.id, sourceDraftId: 'palette-draft', createCommandId: 'palette-command', workItems: [{ id: 'WI-1', title: finding.title, priority: 'High', status: 'todo', findingId: finding.id, finding }] };
+    fixture.state.snapshot.assessment.projects.push(project, { ...project, id: 'other-plan', name: 'Other project', source: 'brief', projectType: 'react', runId: null, workItems: [] });
+    const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
+    const target = { projectId: project.id, worktreeId: null, orgId: 'uat' };
+    await page.goto(origin + '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: 'build', target })));
+    let dialog = await open(page);
+    await dialog.getByRole('combobox').fill(project.name);
+    const row = () => dialog.locator('[id="cmd-all-projects:palette-plan"]');
+    assert.equal(await row().getByText('Current', { exact: true }).count(), 0);
+    assert(await row().getByText('ALM', { exact: true }).isVisible());
+    await page.screenshot({ path: outputPath(`${label}-project-alm-result.png`) });
+    await dialog.getByRole('combobox').press('Enter'); await dialog.waitFor({ state: 'detached' });
+    await page.getByRole('heading', { name: project.name, exact: true }).waitFor();
+    await page.getByLabel(`Status for ${finding.title}`, { exact: true }).waitFor();
+    assert.deepEqual(destination(page).target, target); assert.equal(destination(page).surface, 'alm');
+    assert.equal(destination(page).canvas.params.projectId, project.id);
+    dialog = await open(page); await dialog.getByRole('combobox').fill('Other project');
+    assert.equal(await dialog.locator('[id="cmd-all-projects:other-plan"]').count(), 0, 'Project file results stay scoped inside a project');
+    await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
+    assert(await dialog.getByRole('listbox').getByRole('option').filter({ hasText: 'Other project' }).isVisible(), 'Projects remains a global workspace selector');
+    await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' });
+    await page.getByRole('link', { name: 'Global home', exact: true }).click(); await page.waitForURL(url => url.pathname === '/');
+    dialog = await open(page); await dialog.getByRole('combobox').fill(project.name);
+    await row().getByRole('button').click(); await dialog.waitFor({ state: 'detached' });
+    await page.getByRole('heading', { name: project.name, exact: true }).waitFor();
+    assert.deepEqual(destination(page).target, { projectId: null, worktreeId: null, orgId: 'uat' });
+    assert.equal(destination(page).canvas.params.projectId, project.id);
+    await page.reload(); await page.getByRole('heading', { name: project.name, exact: true }).waitFor();
+    assert.equal(destination(page).target.projectId, null);
+    dialog = await open(page); await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
+    await dialog.getByRole('combobox').fill(project.name);
+    await dialog.getByRole('listbox').getByRole('option').filter({ hasText: project.name }).getByRole('button').click();
+    await dialog.waitFor({ state: 'detached' });
+    await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === project.id);
+    dialog = await open(page); await dialog.getByRole('combobox').fill(project.name);
+    assert.equal(await row().getByText('Current', { exact: true }).count(), 0, 'Even the active project canvas keeps its ALM destination label');
+    assert(await row().getByText('ALM', { exact: true }).isVisible());
+    assert(fixture.commands.every(command => command.kind === 'visit'));
+    out.checks.push('Created project records show ALM instead of Current, open their saved work-item canvas, retain scoped/global context and reload, and keep explicit switching in Projects');
     await context.close();
   }
   const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', colorScheme: 'light', viewport: { width: 390, height: 844 } });

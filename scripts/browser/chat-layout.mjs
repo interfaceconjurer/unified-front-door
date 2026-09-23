@@ -71,6 +71,7 @@ try {
     await page.goto(origin + '/');
     const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
     await composer.waitFor();
+    if (await page.locator("#workspace-panel").getAttribute("data-open") === "true") await page.locator("#workspace-panel-toggle").click();
     await checkLayout(page, true);
     await composer.fill('Keep this draft and selection while panels move.');
     await composer.evaluate(node => { window.__originalComposer = node; node.setSelectionRange(5, 15); });
@@ -106,6 +107,7 @@ try {
     await page.keyboard.press('Control+Shift+b');
     await page.waitForURL('**/build?**');
     await checkLayout(page, false);
+    await page.locator('summary').filter({ hasText: 'Start something new' }).click();
     await page.getByRole('button', { name: 'Build an automation', exact: false }).click();
     await page.getByRole('tab', { name: 'Build an automation', exact: true }).waitFor();
     await checkLiveResize(page, { centered: false, sidebar: false, surface: true });

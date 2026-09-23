@@ -14,7 +14,8 @@ writeFileSync(join(output, "conversation.js"), ts.transpileModule(source, {
 const { ConversationStore, updateConversation } = createRequire(import.meta.url)(join(output, "conversation.js"));
 after(() => rmSync(output, { recursive: true, force: true }));
 
-const first = { capturedAt: "2026-09-14T10:00:00Z", projectName: "CRM", branch: "main", assessment: { status: "running", step: 1 } };
+const profile = { id: "am", name: "Alex Morgan", firstName: "Alex", initials: "AM", role: "Developer", experience: "returning", workspaceExperience: "established", surfaceAccess: ["build", "code", "govern", "alm"] };
+const first = { profile, capturedAt: "2026-09-14T10:00:00Z", projectName: "CRM", branch: "main", assessment: { status: "running", step: 1 } };
 const second = { ...first, capturedAt: "2026-09-14T11:00:00Z" };
 const home = (snapshot = first) => ({ type: "today", snapshot });
 const build = { type: "surface", scopeKey: "build", label: "Build & Setup", reply: "What would you like to build?" };

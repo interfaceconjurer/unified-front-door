@@ -2,7 +2,7 @@ import { origin, outputPath, httpCredentials } from './config.mjs';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { install, href } from './fixtures.mjs';
+import { install, href, target } from './fixtures.mjs';
 const label = process.argv[2] || 'candidate1';
 const browser = await chromium.launch({ headless: true }), out = { label, origin, checks: [], errors: [] };
 try {
@@ -49,12 +49,11 @@ try {
         await dialog.waitFor({ state: 'detached' });
         assert(await trigger.evaluate(n => n === document.activeElement));
         out.checks.push(motion + ': caret, tab roving, bidirectional containment, background inert, Escape/tab, focus restoration');
-        for (const kind of ['input', 'result', 'guided']) {
+        for (const kind of ['input', 'result', 'scope']) {
             await trigger.click();
             await dialog.waitFor();
-            if (kind === 'guided') {
-                await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-                await dialog.getByRole('button', { name: 'Start your first project' }).focus();
+            if (kind === 'scope') {
+                await dialog.getByRole('button', { name: /Browse orgs|Choose an org/ }).focus();
             }
             else if (kind === 'result') {
                 await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
@@ -65,7 +64,7 @@ try {
             await dialog.waitFor({ state: 'detached' });
             assert(await trigger.evaluate(n => n === document.activeElement));
         }
-        out.checks.push(motion + ': Escape input/result/guided-action and trigger restore');
+        out.checks.push(motion + ': Escape input/result/org-scope and trigger restore');
         if (motion === 'no-preference') {
             await trigger.click();
             await dialog.waitFor();
@@ -99,12 +98,14 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('listbox').getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
+        await dialog.getByRole('button', { name: /^Code Surface ·/ }).click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
+        assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Surface selection preserves the workspace');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');
         await page.goBack();
         await page.waitForURL('**/build?**');
+        assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Browser Back preserves the workspace');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');
         out.checks.push(motion + ': palette route + browser Back preserve composer');
         await context.close();

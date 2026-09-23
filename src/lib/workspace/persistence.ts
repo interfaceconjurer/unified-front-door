@@ -22,20 +22,16 @@ import { sessionKey } from "./model";
  */
 
 export type PersistedSelection = {
-  /** `null` = "no selection persisted yet" — the provider falls back to
-   *  `projects[0].id`, the same default the old `useState(projects[0]!.id)` had. */
+  /** `null` is the global workspace. */
   activeProjectId: string | null;
   worktreeByProject: Record<string, string>;
   orgByProject: Record<string, string>;
-  /** Whether the persistent workspace panel (the left navigator, as opposed to
-   *  the ephemeral ⌘⇧P palette) is open — tri-state. `null` means "the user
-   *  has never explicitly toggled it," which lets the consumer (`AppShell`)
-   *  apply a route-dependent default (open on home, closed elsewhere) instead
-   *  of a single fixed one; `true`/`false` means the user explicitly set it
-   *  via ⌘B, and that choice is honored on every route until changed again.
-   *  Starts `null` so the server render and the client's first hydration pass
-   *  agree — same reasoning as the rest of this store. */
+  /** Unset legacy preferences and fresh workspaces both start closed. */
   panelOpen: boolean | null;
+  /** Latest accepted view, including global browsing, for profile re-entry. */
+  lastDestination?: string;
+  /** Manual surface-panel visibility; navigation to a surface reveals it. */
+  surfacePanelOpen?: boolean;
   /** Explicit target, including deliberate unbound, supersedes legacy preferences. */
   target?: WorkspaceTarget;
   /** Last view per project/worktree. Contains navigation only, never draft content. */
@@ -78,6 +74,8 @@ function parseSelection(parsed: unknown): Decoded<PersistedSelection> {
     orgByProject: sanitizeStringRecord(parsed.orgByProject),
     ...(parsed.destinationsBySession === undefined ? {} : { destinationsBySession: sanitizeStringRecord(parsed.destinationsBySession) }),
     panelOpen: typeof parsed.panelOpen === "boolean" ? parsed.panelOpen : null,
+    ...(typeof parsed.lastDestination === "string" ? { lastDestination: parsed.lastDestination } : {}),
+    ...(typeof parsed.surfacePanelOpen === "boolean" ? { surfacePanelOpen: parsed.surfacePanelOpen } : {}),
   } };
 }
 
@@ -99,12 +97,13 @@ export class WorkspaceSelectionStore extends BrowserPersistenceStore<PersistedSe
 
   rememberDestination = (destination: Destination): void => {
     const { projectId, worktreeId } = destination.target;
-    if (!projectId) return;
-    const key = sessionKey(projectId, worktreeId), href = destinationHref(destination);
+    const href = destinationHref(destination);
     this.update(current => {
-      if (current.destinationsBySession?.[key] === href) return current;
+      if (!projectId) return current.lastDestination === href ? current : { ...current, lastDestination: href };
+      const key = sessionKey(projectId, worktreeId);
+      if (current.lastDestination === href && current.destinationsBySession?.[key] === href) return current;
       const entries = Object.entries(current.destinationsBySession ?? {}).filter(([id]) => id !== key);
-      return { ...current, destinationsBySession: Object.fromEntries([...entries.slice(-99), [key, href]]) };
+      return { ...current, lastDestination: href, destinationsBySession: Object.fromEntries([...entries.slice(-99), [key, href]]) };
     });
   };
 
@@ -134,12 +133,12 @@ export class WorkspaceSelectionStore extends BrowserPersistenceStore<PersistedSe
     }));
   };
 
-  /** Always writes an explicit true/false — there's no toggle method here
-   *  because "toggle" needs the *effective* (route-defaulted) open state,
-   *  which this store doesn't know; the caller (`useWorkspacePanel`) resolves
-   *  that and calls this with the concrete result. */
   setPanelOpen = (panelOpen: boolean): void => {
     this.update((current) => ({ ...current, panelOpen }));
+  };
+
+  setSurfacePanelOpen = (surfacePanelOpen: boolean): void => {
+    this.update(current => current.surfacePanelOpen === surfacePanelOpen ? current : { ...current, surfacePanelOpen });
   };
 }
 

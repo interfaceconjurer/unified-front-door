@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { DEMO_PROFILES, type DemoProfileId } from "@/lib/demo-profiles";
+import { DEMO_PROFILES, PROFILE_SCENARIOS, type DemoProfileId } from "@/lib/demo-profiles";
 import { useDemoProfile } from "./ProfileProvider";
 import styles from "./ProfileMenu.module.css";
 
 export function ProfileMenu() {
-  const router = useRouter();
   const { profile, signIn, signOut } = useDemoProfile();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
@@ -40,7 +38,7 @@ export function ProfileMenu() {
   if (!profile) return null;
 
   const alternateProfiles = DEMO_PROFILES.filter((candidate) => candidate.id !== profile.id);
-  const experienceLabel = profile.onboarding ? "Day zero" : profile.experience === "returning" ? "Returning user" : "New user";
+  const scenario = PROFILE_SCENARIOS[profile.id];
 
   async function switchUser(profileId: DemoProfileId) {
     if (pending) return;
@@ -48,7 +46,6 @@ export function ProfileMenu() {
     try {
       if (!await signIn(profileId)) { setProblem("We couldn’t switch users. Please try again."); return; }
       setOpen(false);
-      router.replace("/");
     } finally { setPending(false); }
   }
 
@@ -58,7 +55,6 @@ export function ProfileMenu() {
     try {
       if (!await signOut()) { setProblem("We couldn’t sign out. Please try again."); return; }
       setOpen(false);
-      router.replace("/login");
     } finally { setPending(false); }
   }
 
@@ -83,7 +79,7 @@ export function ProfileMenu() {
             <span className={styles.profileCopy}>
               <strong>{profile.name}</strong>
               <small>
-                {profile.role} · {experienceLabel}
+                {scenario.label} · {scenario.phase}
               </small>
             </span>
           </div>
@@ -93,7 +89,7 @@ export function ProfileMenu() {
               <span className={styles.personCopy}>
                 <strong>Switch to {alternateProfile.name}</strong>
                 <small>
-                  {alternateProfile.role} · {alternateProfile.onboarding ? "Day zero" : alternateProfile.experience === "returning" ? "Returning user" : "New user"}
+                  {PROFILE_SCENARIOS[alternateProfile.id].label} · {PROFILE_SCENARIOS[alternateProfile.id].phase}
                 </small>
               </span>
             </button>)}

@@ -17,6 +17,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   replacement check, or removed with explicit user approval. Approval of an
   architecture or release does not imply approval to remove existing features.
 - An ancestor check or a green branch-local suite is not evidence of feature
-  retention. Register new UI behavior checks in `scripts/browser/run.mjs` so the
-  release gate actually runs them; keep the behavior map in `docs/verification.md`
-  current when replacing tests.
+  retention. Register new UI behavior checks in `scripts/browser/suites.mjs`,
+  the registry used by `scripts/browser/run.mjs`, so both the PR shards and full
+  release gate run them; keep the behavior map in `docs/verification.md` current
+  when replacing tests.

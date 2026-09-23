@@ -10,6 +10,8 @@ import { orgAvailability } from "@/lib/assessment/model";
 import type { ImprovementProject, PlannedWorkItem } from "@/lib/projects/model";
 import { BriefProjectPlan } from "./BriefProjectPlan";
 import { projectTemplate } from "@/lib/projects/templates";
+import { useDemoProfile } from "@/components/profile/ProfileProvider";
+import { projectsForProfile, workForProfile } from "@/lib/workspace/demo-workspace";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { useAssessment } from "./use-assessment";
 import styles from "./onboarding.module.css";
@@ -22,8 +24,25 @@ const STATUS_LABEL: Record<PlannedWorkItem["status"], string> = { todo: "To do",
 
 export function ImprovementProjectCanvas({ spec }: { spec: CanvasOf<"improvement-project"> }) {
   const { state, store } = useAssessment();
+  const { profile } = useDemoProfile();
+  const { orgs } = useWorkspace();
   const project = state.projects.find((project) => project.id === spec.params?.projectId);
-  if (!project) return <div className={styles.projectCanvas}><h2>Project unavailable</h2><p>This project is not saved for the current profile.</p></div>;
+  if (!project) {
+    const sample = profile && projectsForProfile(profile.id).find(project => project.id === spec.params.projectId);
+    if (!sample) return <div className={styles.projectCanvas}><h2>Project unavailable</h2><p>This project is not saved for the current profile.</p></div>;
+    const work = workForProfile(profile!.id).filter(item => item.projectId === sample.id);
+    return <article className={styles.projectCanvas}>
+      <header className={styles.projectHeader}>
+        <p className={styles.kicker}><LayersIcon width={16} height={16} aria-hidden="true" /> ALM · PROJECT</p>
+        <h1>{sample.name}</h1><p>{sample.description}</p>
+        <div className={styles.projectMeta}><span>Work environment · {orgs.find(org => org.id === sample.defaultOrgId)?.label ?? "No target org"}</span><span>Sample project</span></div>
+      </header>
+      <div className={styles.projectStats}><div><strong>{work.length}</strong><span>Work items</span></div><div><strong>{sample.worktrees.filter(tree => !tree.isPrimary).length}</strong><span>Worktrees</span></div><div><strong>{sample.apps.length}</strong><span>Apps</span></div></div>
+      <section className={styles.evidence}><h2>Project work</h2>
+        {work.length ? <ul>{work.map(item => <li key={item.id}><strong>{item.title}</strong><p>{item.summary}</p></li>)}</ul> : <p>No work items yet.</p>}
+      </section>
+    </article>;
+  }
   if (project.source === "brief") return <BriefProjectPlan project={project} />;
   return <ProjectPlan key={project.id} project={project} onStatusChange={(itemId, status) => store.setWorkItemStatus(project.id, itemId, status)} />;
 }

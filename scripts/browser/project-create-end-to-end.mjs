@@ -36,7 +36,7 @@ try {
     assert.equal(project.name, name); assert.equal(project.projectType, 'react'); assert.equal(project.targetOrgId, orgId);
     await page.getByRole('heading', { name, exact: true }).waitFor();
     assert.equal(await panel.getAttribute('data-open'), 'true');
-    await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).waitFor();
+    await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).waitFor();
     assert.equal(fixture.commands.filter(command => command.kind === 'project.createFromBrief').length, 1);
     if (owner === 'kf') {
       let release;
@@ -71,7 +71,7 @@ try {
     await page.reload(); await page.getByRole('heading', { name, exact: true }).waitFor();
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.waitForURL(url => url.pathname === '/');
-    await panel.getByRole('button', { name: `${name} Planning project`, exact: true }).click();
+    await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).click();
     await page.getByRole('heading', { name, exact: true }).waitFor();
     assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId, project.id);
     await page.getByRole('link', { name: 'Global home', exact: true }).click(); await page.waitForURL(url => url.pathname === '/');

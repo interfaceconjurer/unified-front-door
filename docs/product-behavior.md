@@ -2,6 +2,34 @@
 
 [← README](../README.md)
 
+## Demo expansion scenarios
+
+The profiles tell a proposed expansion story from Builder Central’s Build &
+Setup foundation. The first two scenarios include ALM; the next adds Govern &
+Observe, and the last adds Code. These are demo access boundaries, not product
+licensing or a committed Salesforce roadmap.
+
+| Profile | Scenario | Surfaces | Starting work |
+| --- | --- | --- | --- |
+| Sam Patel | Day zero | Build & Setup, ALM | An org assessment; no projects yet |
+| Karen Flores | Platform builder | Build & Setup, ALM | Two projects, no worktrees; lead routing and customer onboarding |
+| Jordan Wright | Platform operations | Build & Setup, ALM, Govern & Observe | Four projects; two worktrees on two projects, plus access and health reviews |
+| Alex Morgan | Returning developer | All four surfaces | Six projects, each with worktrees and sample work |
+
+Sign-in and the profile menu show the scenario framing. Today, project/session
+navigation, seeded tabs, resource access, and agent destinations share these
+profile boundaries. Saved user-created projects and drafts keep their existing
+profile identities. A trailing live Today from an older profile definition is
+updated in place; previous inactive briefings remain historical snapshots.
+
+Day-zero assessment details now open in Build & Setup. Earlier Govern assessment
+links and tab preferences migrate to Build while retaining the exact run, finding,
+and target org. Opening the Govern surface itself is unavailable to Sam or Karen.
+
+### Sample workspaces by expansion phase
+
+Fresh/cleared profiles retain the same centered Today starting view. Sam has no projects. Karen has Trailblazer CRM and Customer Onboarding, both at project scope without worktrees; sample work, chats, and project entry use a null worktree. Jordan has four projects, with two feature/release worktrees on Trailblazer CRM and Acme Storefront, plus project-only Customer Onboarding and Service Operations. Alex has six projects, adding Revenue Insights and Integration Hub, with worktrees on every project. Sample work is filtered by both available surfaces and exact project/worktree membership; user-created projects remain separate.
+
 ## Sign-in and connected orgs
 
 Sign-in first chooses a profile, then a connected org before entering the
@@ -14,6 +42,14 @@ explicit sign-in choice is saved in that profile's workspace preferences and is
 present in the first agent context, status bar, resource browsing and reload.
 Switching profiles from the avatar restores their own selected connected org,
 falling back to UAT when the remembered org is unavailable. Home retains the org.
+
+Fresh or cleared profiles all enter global Today with the project and surface
+panels closed, leaving the chat centered at full width, regardless of seeded
+projects. Once used, each profile remembers its last surface/canvas or project
+view and both panel choices for sign-out/sign-in and profile switching. These
+browser preferences are scoped to its workspace epoch, so Clear data starts a
+fresh layout without affecting other profiles. A matching explicit saved link
+takes precedence over the remembered view; choosing another org starts on Today.
 
 A saved link suggests its org at sign-in and resumes unchanged when its profile
 and org match. Choosing another org or profile opens global Home there instead
@@ -99,6 +135,26 @@ not be presented as if they were those sessions.
 Assessment-created projects also keep their ALM overview on the selected plan;
 the list of other plans is available only in global context.
 
+Double-clicking a project or worktree row selects it and opens its explorer.
+Pressing Right Arrow on a focused row does the same. Single-click and Enter
+continue to select normally; there is no separate Explore files button.
+**All projects** returns to the project list without changing the
+workspace or open canvas. Sessions and Start project remain available. Selecting
+another project/worktree or Home returns the sidebar to its project list.
+Folders expand and collapse, and file search matches paths. Metadata opens in
+Build & Setup, source in Code (where available), and project documents in ALM.
+File tabs retain the selected project/worktree and org and restore on reload.
+Seeded projects use a read-only sample repository: branches inherit base files
+plus their own changes, excluding sibling worktree changes. Saved projects expose
+their actual `.project/project.json` (type, goal, context, owner, repository, orgs)
+and `.project/work-items.json` (work-item status and captured plans/evidence).
+These files are generated from the saved record, so updates appear without a
+second editable copy. Each can be downloaded into the repository's `.project/`
+folder for version control. The agent receives the same saved intent and work-item
+evidence through its existing context capture. GitHub sync, automatic commits,
+and importing edited context files are not implemented. Deleted projects cannot
+continue to expose stale file contents.
+
 Click the pinned surface tab's icon or name to return directly to its overview.
 Its separate chevron opens a quick switcher for the profile's accessible surfaces.
 The chevron is independently keyboard accessible; opening or dismissing its menu
@@ -131,11 +187,18 @@ sample preview do not expose the action.
 ## Navigator search
 
 The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
-surfaces, projects/worktrees, sessions, connected orgs, and resources together.
-Exact names and API names rank ahead of prefixes, partial names, and descriptive
-matches. Project/worktree groups remain connected; a matching worktree can be
-the keyboard selection without moving away from its parent. Result types and
-project/org context distinguish similarly named destinations.
+project records, resources, sessions, connected orgs, and surfaces in that order.
+Within each category, exact names and API names rank ahead of prefixes, partial
+names, and descriptive matches. All initially highlights the first result.
+In the Projects tab, project/worktree groups remain connected. Result
+types and project/org context distinguish similarly named destinations.
+
+Project results in **All** show **ALM**, not a Current badge, and open the project
+record as an ALM canvas. Created projects open their saved brief or assessment
+plan; seeded projects show a sample project summary. Global browsing stays global,
+and opening the current project's record preserves its selected worktree and org.
+Within a project, these file results are limited to that project. The **Projects**
+tab remains the global selector for explicitly entering another project/worktree.
 
 Resource search defaults to the selected org. All shows the resource org in a
 compact pill; clicking it opens Orgs and clears the query to show the available
@@ -147,10 +210,10 @@ Category tabs keep the query and narrow results; resource-type filtering applies
 only within Resources, not All. The search field's clear button removes the query,
 keeps the current tab and resource filters, and returns focus to the input.
 
-Results reuse their existing navigation: surface/resource selections preserve
-the current project/worktree, project/worktree/session selections explicitly
-enter that context, and org results change the selected org. Dedicated project
-and org selectors still open their respective category tabs.
+Surface/resource and All project-file selections preserve the current workspace.
+Project/worktree selections in Projects and session selections explicitly enter
+that context; org results change the selected org. Dedicated project and org
+selectors still open their respective category tabs.
 
 ## Day zero: org assessment
 

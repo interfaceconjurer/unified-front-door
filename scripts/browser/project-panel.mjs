@@ -52,7 +52,7 @@ try {
     const start = projects.getByRole('button', { name: 'Start project', exact: true });
     await start.waitFor();
     assert.equal(await panel.getByRole('button', { name: /Start a conversation/ }).count(), 0);
-    if (profileId !== 'am') await panel.getByText('Your chats will appear here.', { exact: true }).waitFor();
+    if (profileId === 'sp') await panel.getByText('Your chats will appear here.', { exact: true }).waitFor();
     await page.setViewportSize({ width: 900, height: 500 });
     if (profileId === 'am') {
       for (const name of ['Apps', 'Projects', 'All']) {

@@ -26,7 +26,7 @@ export function WorkCanvas({ spec }: { spec: CanvasOf<"work"> }) {
   if (!work || work.projectId !== spec.params.projectId || work.worktreeId !== spec.params.worktreeId) return <div className={styles.canvas}><h1>{spec.title}</h1><p>This work is no longer available.</p></div>;
   const project = projects.find((item) => item.id === work.projectId);
   const worktree = project?.worktrees.find((item) => item.id === work.worktreeId);
-  const preview = profile?.surfaceAccess.includes("build") ? previewCanvas(work.projectId, work.worktreeId,
+  const preview = work.worktreeId && profile?.surfaceAccess.includes("build") ? previewCanvas(work.projectId, work.worktreeId,
     destination.kind === "available" ? destinationCanvasTarget(destination.destination).orgId : project?.defaultOrgId ?? null) : null;
   const save = (fields: Record<string, string>) => updateDraft(work.surfaceId, spec.id, fields);
 
@@ -36,20 +36,20 @@ export function WorkCanvas({ spec }: { spec: CanvasOf<"work"> }) {
       <h1>{work.title}</h1>
       <p className={styles.summary}>{work.summary}</p>
       <div className={styles.meta}><WorkStatusBadge work={work} /><span><SampleTimestamp value={work.updated} /></span></div>
-      {project && worktree && <section className={styles.context} aria-label="Work context">
+      {project && <section className={styles.context} aria-label="Work context">
         <dl className={styles.ownership}>
           <div><dt>Project</dt><dd>{project.name}</dd></div>
-          <div><dt>Worktree</dt><dd>{worktree.label}</dd></div>
-          <div><dt>Branch</dt><dd className={styles.branch}>{worktree.branch}</dd></div>
+          {worktree && <div><dt>Worktree</dt><dd>{worktree.label}</dd></div>}
+          {worktree && <div><dt>Branch</dt><dd className={styles.branch}>{worktree.branch}</dd></div>}
         </dl>
         {target.projectId === null && <div className={styles.contextActions}>
           {preview && <button type="button" className={styles.preview} onClick={() => openCanvas("build", preview)}>
             <EyeIcon width={16} height={16} />Preview
           </button>}
           <button type="button" className={styles.openProject}
-          aria-label={worktree.isPrimary ? `Open project ${project.name}` : `Open worktree ${worktree.label} in ${project.name}`}
+          aria-label={(!worktree || worktree.isPrimary) ? `Open project ${project.name}` : `Open worktree ${worktree.label} in ${project.name}`}
           onClick={() => openCanvasInProject(work.surfaceId, spec)}>
-          {worktree.isPrimary ? "Open project" : "Open worktree"}<ChevronRightIcon width={16} height={16} aria-hidden="true" />
+          {(!worktree || worktree.isPrimary) ? "Open project" : "Open worktree"}<ChevronRightIcon width={16} height={16} aria-hidden="true" />
         </button></div>}
       </section>}
     </header>

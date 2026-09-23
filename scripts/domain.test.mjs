@@ -15,7 +15,8 @@ const { primaryWorktree, sessionKey } = load("lib/workspace/model");
 const { assessmentBriefing, liveAssessmentView, captureToday, BRIEFING_LIMITS } = load("lib/chat/today-snapshot");
 const { SurfaceCanvasStore } = load("lib/surface-canvas/persistence");
 const { canvasId, parseCanvasInput, inputFromCanonicalId } = load("lib/surface-canvas/model");
-const { RETURNING_WORK, workCanvasInput, workForCanvas } = load("lib/workspace/returning-work");
+const { workCanvasInput, workForCanvas } = load("lib/workspace/returning-work");
+const RETURNING_WORK = load("lib/workspace/demo-workspace").workForProfile("am");
 const { DEMO_PROFILES } = load("lib/demo-profiles");
 let disk;
 beforeEach(() => { disk = new Map(); globalThis.window = { localStorage: { getItem: (key) => disk.get(key) ?? null, setItem: (key, value) => disk.set(key, value), removeItem: (key) => disk.delete(key) } }; });
@@ -129,7 +130,10 @@ test("returning review scenarios agree with waiting sessions and route to their 
     const result = resolveDestination(destinationHref({ version: 1, owner: profile.id, surface: work.surfaceId, target, canvas: workCanvasInput(work) }), profile.id, profile.surfaceAccess, {});
     assert.equal(result.kind, "available"); assert.deepEqual(result.destination.target, target); assert.equal(result.destination.canvas.params.workId, id);
   }
-  assert.deepEqual(allSessionRows(PROJECTS).map(row => row.session.status), ["waiting", "waiting", "waiting", "working"]);
+  const statuses = allSessionRows(PROJECTS).map(row => row.session.status);
+  assert.equal(statuses.filter(status => status === "waiting").length, 3);
+  assert.equal(statuses.filter(status => status === "working").length, 2);
+  assert.deepEqual(statuses, [...statuses].sort((a, b) => ["waiting", "working", "idle"].indexOf(a) - ["waiting", "working", "idle"].indexOf(b)));
   assert.equal(RETURNING_WORK.find(work => work.id === "storefront-app").surfaceId, "alm");
 });
 

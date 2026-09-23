@@ -28,7 +28,7 @@ import { resourcesForOrg } from "@/lib/org-resources/catalog";
 import { SETUP_AREAS } from "@/lib/org-resources/setup";
 import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
 import { SURFACES } from "@/lib/workspace/surfaces";
-import { matchesPaletteQuery, paletteSearchRank, rankPaletteGroups } from "@/lib/navigation/palette-search";
+import { matchesPaletteQuery, rankPaletteGroups } from "@/lib/navigation/palette-search";
 import { RESOURCE_ICONS } from "@/components/surfaces/resource-icons";
 import styles from "./CommandPalette.module.css";
 import orgStyles from "@/components/workspace/OrgKind.module.css";
@@ -57,6 +57,7 @@ type Category = Exclude<Tab, "all">;
 
 const CATEGORIES: readonly Category[] = ["surfaces", "projects", "sessions", "orgs", "resources"];
 const TAB_ORDER: readonly Tab[] = ["all", ...CATEGORIES];
+const ALL_RESULT_ORDER: readonly Category[] = ["projects", "resources", "sessions", "orgs", "surfaces"];
 const TAB_LABEL: Record<Tab, string> = {
   all: "All",
   surfaces: "Surfaces",
@@ -88,8 +89,8 @@ const ORG_KIND_LABEL: Record<OrgKind, string> = {
 // rendering don't need to branch on which tab built it — only on which
 // *optional* fields a given row happens to carry. `status` swaps the icon
 // slot for a status dot (and adds a status chip); `indent` nests a worktree
-// under its project. Project/worktree and session selections explicitly resume
-// their context; resource selections use the existing scoped canvas navigation.
+// under its project. Projects-tab and session selections explicitly resume
+// their context; All project records and resources use scoped canvas navigation.
 type PaletteItem = {
   id: string;
   label: string;
@@ -128,8 +129,8 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  *  - Orgs — connections available from login; picking one changes the target
  *    org without navigating or changing the assessment scope.
  *  - Resources — browse a connected org's metadata and open its canvas.
- * Each tab starts with the current destination highlighted, when it matches
- * the search. Type to filter, ↑/↓ to move, ←/→ to switch focused tabs, ↵ to
+ * All puts project files and resources first; category tabs start with their
+ * current destination highlighted. Type to filter, ↑/↓ to move, ←/→ to switch focused tabs, ↵ to
  * select, esc to dismiss.
  */
 export function CommandPalette({ initialTab = "all", open, onClose, onExited }: {
@@ -159,7 +160,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
 
   const items = useMemo<PaletteItem[]>(() => {
     const matchesQuery = (...parts: string[]) => matchesPaletteQuery(query, ...parts);
-    // Category filters and All share the same builders and navigation actions.
+    // All opens project records as canvases; Projects explicitly changes workspace.
     function categoryItems(category: Category): PaletteItem[] {
       if (category === "surfaces") {
         const destinations = [
@@ -229,6 +230,14 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       if (!hasProjects) return [];
 
       if (category === "projects") {
+        if (tab === "all") return projects
+          .filter(project => (!activeProject?.id || project.id === activeProject.id)
+            && matchesQuery(project.name, project.description, ...project.worktrees.flatMap(tree => [tree.label, tree.branch])))
+          .map(project => ({
+            id: project.id, label: project.name, description: project.description,
+            Icon: LayersIcon, surfaceLabel: "ALM", isCurrent: false,
+            select: () => openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } }),
+          }));
         const rows: PaletteItem[] = [];
         // Move whole project groups together so their children stay attached.
         const tree = buildProjectTree(projects).sort(
@@ -248,7 +257,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
           const projectMatches = matchesQuery(
             project.name,
             project.description,
-            (base?.worktree.label ?? "Planning project"),
+            (base?.worktree.label ?? project.description),
             (base?.worktree.branch ?? ""),
           );
           const matchingChildren = children.filter(
@@ -261,7 +270,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
             id: project.id,
             label: project.name,
             // Subtitle = the primary branch, so the node reads as "project on main".
-            description: (base?.worktree.label ?? "Planning project"),
+            description: (base?.worktree.label ?? project.description),
             searchNames: [base?.worktree.branch ?? ""],
             Icon: LayersIcon,
             // Current only when the project is active AND on its primary worktree —
@@ -297,35 +306,35 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       // global triage — `allSessionRows` already sorts waiting → working → idle.
       return allSessionRows(projects)
         .filter(({ project, worktree, session }) =>
-          matchesQuery(project.name, worktree.label, worktree.branch, session.summary, STATUS_LABEL[session.status]),
+          matchesQuery(project.name, worktree?.label ?? project.name, worktree?.branch ?? "", session.summary, STATUS_LABEL[session.status]),
         )
         .map(({ project, worktree, session }) => ({
-          id: `${project.id}::${worktree.id}`,
-          label: worktree.label,
-          description: `${project.name} · ${worktree.branch} — ${session.summary}`,
-          searchNames: [worktree.branch],
-          isCurrent: project.id === activeProject?.id && worktree.id === activeWorktree?.id,
+          id: `${project.id}::${worktree?.id}`,
+          label: worktree?.label ?? project.name,
+          description: `${project.name}${worktree ? ` · ${worktree.branch}` : ""} — ${session.summary}`,
+          searchNames: [worktree?.branch ?? ""],
+          isCurrent: project.id === activeProject?.id && worktree?.id === activeWorktree?.id,
           status: session.status,
           select: () => {
-            selectProject(project.id, worktree.id);
+            selectProject(project.id, worktree?.id);
           },
         })).sort(currentFirst);
     }
     if (tab !== "all") return categoryItems(tab);
-    return rankPaletteGroups(CATEGORIES.flatMap(category => categoryItems(category).map(item => ({
+    return ALL_RESULT_ORDER.flatMap(category => rankPaletteGroups(categoryItems(category), query).map(item => ({
       ...item,
       // Worktree and session IDs overlap; qualify identities in the mixed list.
       id: `${category}:${item.id}`,
       description: category === "resources" ? item.description
         : `${item.indent ? "Worktree" : CATEGORY_LABEL[category]} · ${item.description}`,
-    }))), query);
+    })));
   }, [
     tab,
     query,
     profile,
     projects,
     hasProjects,
-    activeProject?.id,
+    activeProject,
     activeWorktree?.id,
     navigateSurface,
     selectProject,
@@ -342,12 +351,11 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     resourceOrg,
   ]);
 
-  // Opening, switching tabs, and clearing search highlight the current item,
-  // including a worktree nested beneath its project. Search starts at its
-  // first match; explicit keyboard/pointer selection still takes precedence.
-  const defaultActive = query.trim() ? tab === "all"
-    ? items.reduce((best, item, index) => paletteSearchRank(item, query) < paletteSearchRank(items[best]!, query) ? index : best, 0)
-    : 0 : Math.max(0, items.findIndex((item) => item.isCurrent));
+  // All and searches start at the first result. Unfiltered category tabs
+  // highlight the current item, including a nested worktree. Explicit
+  // keyboard/pointer selection still takes precedence.
+  const defaultActive = tab === "all" || query.trim() ? 0
+    : Math.max(0, items.findIndex((item) => item.isCurrent));
   const safeActive = items.length ? Math.min(active ?? defaultActive, items.length - 1) : 0;
   // Keep keyboard selection visible in long org inventories without scrolling
   // the modal header or the page behind it.

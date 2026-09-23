@@ -1,5 +1,7 @@
 "use client";
 
+import { workForProfile } from "@/lib/workspace/demo-workspace";
+
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
@@ -11,7 +13,7 @@ import { NavigationController, canvasTarget, canvasDestination, destinationCanva
 import { conversationKey, homeTarget, sameTarget, UNBOUND_TARGET, type WorkspaceTarget } from "@/lib/workspace/context";
 import { RESOURCE_TYPES, type OrgResource } from "@/lib/org-resources/model";
 import { primaryWorktree, sessionKey } from "@/lib/workspace/model";
-import { RETURNING_WORK, workCanvasInput } from "@/lib/workspace/returning-work";
+import { workCanvasInput } from "@/lib/workspace/returning-work";
 import { isSurfaceId, type SurfaceId } from "@/lib/workspace/surfaces";
 import { projectCreationCanvas } from "@/lib/projects/creation";
 import { canonicalCanvasSurface } from "@/lib/surface-canvas/routing";
@@ -51,7 +53,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const controller = useMemo(() => new NavigationController((destination, source) => {
     applicationClient.workspace?.flushEdits();
     const canvases = getSurfaceCanvasStore(owner, destination.target);
-    const decision = resolveDestination(destinationHref(destination), owner, profile?.surfaceAccess ?? [], canvases.getSnapshot());
+    const decision = resolveDestination(destinationHref(destination), owner, profile?.surfaceAccess ?? [], canvases.getSnapshot(), applicationClient.workspace?.getSnapshot().assessment.projects);
     if (decision.kind === "unavailable") { setProblem(decision.reason); return false; }
     if (source !== "capture" && destination.surface && destination.canvas
       && !(source === "restore" ? canvases.canViewCanvas(destination.surface, destination.canvas) : canvases.canOpenCanvas(destination.surface, destination.canvas))) {
@@ -59,11 +61,18 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
     const id = destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null;
     setProblem(null);
-    if (source === "restore") return;
+    const previousHref = selection.getSnapshot().lastDestination;
     selection.rememberDestination(destination);
+    if (source === "restore") {
+      // Reload/profile re-entry retains a hidden pane. A different explicit
+      // link or browser-history destination reveals the view being requested.
+      if (previousHref !== destinationHref(destination)) selection.setSurfacePanelOpen(destination.surface !== null);
+      return;
+    }
     if (destination.surface && id) canvases.captureTarget(destination.surface, id, destinationCanvasTarget(destination));
     if (source === "capture") return;
     selection.setTarget(destination.target);
+    selection.setSurfacePanelOpen(destination.surface !== null);
     if (destination.surface) {
       if (destination.canvas) canvases.openCanvas(destination.surface, destination.canvas);
       else canvases.setActiveCanvas(destination.surface, "overview");
@@ -152,14 +161,16 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const selectProject = (projectId: string, worktreeId?: string, surface?: SurfaceId | null) => {
     const project = workspace.projects.find((item) => item.id === projectId);
     const stored = selection.getSnapshot();
-    const target: WorkspaceTarget = { projectId, worktreeId: worktreeId ?? stored.worktreeByProject[projectId] ?? (project ? primaryWorktree(project)?.id ?? null : null), orgId: stored.orgByProject[projectId] ?? project?.defaultOrgId ?? null };
+    const requestedTree = worktreeId ?? stored.worktreeByProject[projectId];
+    const selectedTree = project?.worktrees.find(tree => tree.id === requestedTree) ?? (project ? primaryWorktree(project) : null);
+    const target: WorkspaceTarget = { projectId, worktreeId: selectedTree?.id ?? null, orgId: stored.orgByProject[projectId] ?? project?.defaultOrgId ?? null };
     const previous = selection.destinationFor(owner, projectId, target.worktreeId);
-    if (previous && (surface === undefined || previous.surface === surface)) { controller.navigate(previous); return; }
+    if (previous && (!previous.surface || profile!.surfaceAccess.includes(previous.surface)) && (surface === undefined || previous.surface === surface)) { controller.navigate(previous); return; }
     if (surface === undefined && project && applicationClient.workspace?.getSnapshot().assessment.projects.some(saved => saved.id === project.id)) { openImprovementProject({ id: project.id, name: project.name, targetOrgId: project.defaultOrgId }); return; }
     const conversation = applicationClient.agent?.getSnapshot().data.conversations.find(saved => saved.threadKey === sessionKey(projectId, target.worktreeId))?.conversation;
-    const lastWork = RETURNING_WORK.filter(work => work.projectId === projectId && work.worktreeId === target.worktreeId)
+    const lastWork = workForProfile(owner).filter(work => work.projectId === projectId && work.worktreeId === target.worktreeId)
       .sort((a, b) => b.updated.localeCompare(a.updated))[0];
-    const lastSurface = conversation && isSurfaceId(conversation.scopeKey) ? conversation.scopeKey : lastWork?.surfaceId ?? null;
+    const lastSurface = conversation && isSurfaceId(conversation.scopeKey) && profile!.surfaceAccess.includes(conversation.scopeKey) ? conversation.scopeKey : lastWork?.surfaceId ?? null;
     const canvas = !conversation && lastWork && (surface === undefined || surface === lastWork.surfaceId) ? workCanvasInput(lastWork) : undefined;
     controller.navigate({ version: 1, owner, surface: surface === undefined ? lastSurface : surface,
       target: canvas && lastWork ? targetForCanvas(lastWork.surfaceId, canvas) : target, ...(canvas ? { canvas } : {}) });

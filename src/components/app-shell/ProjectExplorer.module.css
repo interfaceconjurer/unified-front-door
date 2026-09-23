@@ -1,0 +1,25 @@
+.explorer { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
+.back { display: flex; align-items: center; gap: .35rem; align-self: flex-start; padding: .35rem .1rem; border: 0; background: transparent; color: var(--slds-g-color-on-surface-1); font: inherit; font-size: .8rem; cursor: pointer; }
+.back:hover { color: var(--slds-g-color-brand-base-50, #0176d3); }
+.header { padding: .7rem .25rem; }
+.header h2 { margin: 0; font-size: .9rem; overflow-wrap: anywhere; }
+.header p { display: flex; align-items: center; gap: .35rem; margin: .35rem 0 0; color: var(--slds-g-color-on-surface-1); font-size: .75rem; overflow-wrap: anywhere; }
+.search { display: flex; align-items: center; gap: .4rem; padding: .4rem .5rem; border: 1px solid var(--slds-g-color-border-1); border-radius: .4rem; background: var(--slds-g-color-surface-2); }
+.search input { flex: 1; width: 0; min-width: 0; background: transparent; border: 0; color: inherit; font: inherit; font-size: .8rem; outline: 0; }
+.search:focus-within { outline: 2px solid var(--slds-g-color-brand-base-50, #0176d3); outline-offset: 1px; }
+.search button { border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.caption { margin: .6rem .25rem; color: var(--slds-g-color-on-surface-1); font-size: .7rem; }
+.scroll { min-height: 0; flex: 1; overflow: auto; }
+.files { padding: 0; margin: 0; list-style: none; }
+.folder > .files { padding-left: .8rem; border-left: 1px solid var(--slds-g-color-border-1); margin-left: .35rem; }
+.folder summary { display: flex; align-items: center; gap: .35rem; padding: .4rem .25rem; cursor: pointer; list-style: none; font-size: .8rem; }
+.folder summary::before { content: "›"; width: .6rem; flex-shrink: 0; text-align: center; }
+.folder[open] > summary::before { transform: rotate(90deg); }
+.folder summary::-webkit-details-marker { display: none; }
+.folder summary span, .file > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file { display: flex; align-items: center; gap: .45rem; width: 100%; padding: .45rem .4rem; border: 0; border-radius: .3rem; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; font-size: .75rem; }
+.file svg, .folder svg { flex-shrink: 0; color: var(--slds-g-color-on-surface-1); }
+.file small { margin-left: auto; color: var(--slds-g-color-palette-yellow-70, #e4b667); }
+.file:hover, .folder summary:hover { background: var(--slds-g-color-surface-2); }
+.file[aria-current] { background: color-mix(in srgb, var(--slds-g-color-brand-base-50, #0176d3) 15%, transparent); color: var(--slds-g-color-accent-2, #0176d3); }
+.empty { font-size: .8rem; line-height: 1.6; color: var(--slds-g-color-on-surface-1); padding: .4rem; }

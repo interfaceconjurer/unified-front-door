@@ -3,15 +3,16 @@ import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { isResourceType, type ResourceIdentity } from "../org-resources/model";
 import { setupAreaForId } from "../org-resources/setup";
 export const OVERVIEW_CANVAS_ID = "overview";
-export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview", "project-file"] as const;
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 export type CanvasKind = "overview" | LaunchableCanvasKind;
 export type CapabilityScope = { scope: "unbound"; orgId?: string } | { scope: "project"; projectId: string; worktreeId?: string; orgId?: string };
 type Inputs = {
   app: { projectId: string; appId: string };
+  "project-file": { projectId: string; worktreeId: string | null; path: string; orgId?: string };
   preview: { projectId: string; worktreeId: string; orgId?: string };
   capability: { surface: SurfaceId; capability: string; section?: string } & CapabilityScope;
-  work: { workId: string; projectId: string; worktreeId: string };
+  work: { workId: string; projectId: string; worktreeId: string | null };
   "improvement-project": { projectId: string };
   "org-assessment": { runId?: string; findingId?: string } & CapabilityScope;
   "org-resource": ResourceIdentity & { projectId?: string; worktreeId?: string };
@@ -31,10 +32,13 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
       && (p.projectId === undefined || nonempty("projectId")) && (p.worktreeId === undefined || nonempty("projectId") && nonempty("worktreeId"))
       ? { kind: "org-resource", title: value.title, params: { orgId: p.orgId as string, resourceType: p.resourceType, apiName: p.apiName as string,
         ...(p.projectId === undefined ? {} : { projectId: p.projectId as string }), ...(p.worktreeId === undefined ? {} : { worktreeId: p.worktreeId as string }) } } : null;
+    case "project-file": return nonempty("projectId") && (p.worktreeId === null || nonempty("worktreeId")) && nonempty("path")
+      && !(p.path as string).split("/").some(part => !part || part === "." || part === "..") && !(p.path as string).includes("\\") && (p.orgId === undefined || nonempty("orgId"))
+      ? { kind: "project-file", title: value.title, params: { projectId: p.projectId as string, worktreeId: p.worktreeId as string | null, path: p.path as string, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } } : null;
     case "app": return nonempty("projectId") && nonempty("appId") ? { kind: "app", title: value.title, params: { projectId: p.projectId as string, appId: p.appId as string } } : null;
     case "preview": return nonempty("projectId") && nonempty("worktreeId") && (p.orgId === undefined || nonempty("orgId"))
       ? { kind: "preview", title: value.title, params: { projectId: p.projectId as string, worktreeId: p.worktreeId as string, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } } : null;
-    case "work": return ["workId", "projectId", "worktreeId"].every(nonempty) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string } } : null;
+    case "work": return ["workId", "projectId"].every(nonempty) && (p.worktreeId === null || nonempty("worktreeId")) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string | null } } : null;
     case "improvement-project": return nonempty("projectId") ? { kind: "improvement-project", title: value.title, params: { projectId: p.projectId as string } } : null;
     case "org-assessment":
     case "capability": {
@@ -49,7 +53,7 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
     }
   }
 }
-export function canvasId(kind: LaunchableCanvasKind, params: Record<string, string | undefined>): string {
+export function canvasId(kind: LaunchableCanvasKind, params: Record<string, string | null | undefined>): string {
   const input = parseCanvasInput({ kind, params, title: "" });
   if (!input) throw new TypeError(`Invalid ${kind} canvas identity`);
   return `canvas:v2:${JSON.stringify([kind, Object.entries(input.params).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}`;
@@ -59,7 +63,7 @@ export function inputFromCanonicalId(id: string): CanvasSpecInput | null {
   if (!id.startsWith("canvas:v2:")) return null;
   try {
     const [kind, pairs] = JSON.parse(id.slice(10));
-    if (!Array.isArray(pairs) || pairs.some((pair: unknown) => !Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== "string" || typeof pair[1] !== "string") || new Set(pairs.map((pair: string[]) => pair[0])).size !== pairs.length) return null;
+    if (!Array.isArray(pairs) || pairs.some((pair: unknown) => !Array.isArray(pair) || pair.length !== 2 || typeof pair[0] !== "string" || pair[1] !== null && typeof pair[1] !== "string") || new Set(pairs.map((pair: string[]) => pair[0])).size !== pairs.length) return null;
     const params = Object.fromEntries(pairs), input = parseCanvasInput({ kind, params, title: "Recovered draft" }, true);
     if (!input) return null;
     const canonical = canvasId(input.kind, input.params);
@@ -75,7 +79,7 @@ export function inputFromCanonicalId(id: string): CanvasSpecInput | null {
 }
 
 export function canvasTarget(input: CanvasSpecInput, fallback: WorkspaceTarget): WorkspaceTarget {
-  if (input.kind === "preview") return { projectId: input.params.projectId, worktreeId: input.params.worktreeId, orgId: input.params.orgId ?? null };
+  if (input.kind === "preview" || input.kind === "project-file") return { projectId: input.params.projectId, worktreeId: input.params.worktreeId, orgId: input.params.orgId ?? null };
   if (input.kind === "org-resource") return { projectId: input.params.projectId ?? null, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId };
   if (input.kind === "capability" || input.kind === "org-assessment") return input.params.scope === "unbound" ? { projectId: null, worktreeId: null, orgId: input.params.orgId ?? null }
     : { projectId: input.params.projectId, worktreeId: input.params.worktreeId ?? null, orgId: input.params.orgId ?? null };
@@ -93,6 +97,6 @@ export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
 
 /** Evidence canvases persist tab identity, never a second editable copy of the evidence. */
 export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean {
-  return canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"
+  return canvas.kind === "project-file" || canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"
     || (canvas.kind === "capability" && canvas.params.surface === "build" && !!setupAreaForId(canvas.params.capability));
 }

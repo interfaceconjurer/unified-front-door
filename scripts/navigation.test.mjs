@@ -18,6 +18,18 @@ const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.d
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
 
+test('browsing a project record preserves the selected org while retaining its captured plan environment', () => {
+  const { canvasDestination, destinationCanvasTarget } = modules.load('lib/navigation/model');
+  const canvas = { kind: 'improvement-project', title: 'Saved plan', params: { projectId: 'plan' } };
+  const captured = { projectId: 'plan', worktreeId: null, orgId: 'sit' };
+  for (const workspace of [{ ...captured, orgId: 'uat' }, { projectId: null, worktreeId: null, orgId: 'uat' }]) {
+    const result = canvasDestination('sp', 'alm', canvas, captured, workspace);
+    assert.deepEqual(result.target, workspace);
+    assert.deepEqual(destinationCanvasTarget(result), captured);
+    assert.deepEqual(readDestination(destinationHref(result)).value, result);
+  }
+});
+
 test("sign-in preserves matching deep links without retargeting saved canvases to another org or profile", () => {
   const target = { ...UNBOUND_TARGET, orgId: 'uat' };
   const work = destination(capability({ scope: 'unbound', orgId: 'uat' }), target);
@@ -39,6 +51,35 @@ test("every profile has a connected starting org; unavailable preferences never 
     assert.equal(connectedOrgForProfile(id, 'sit').id, 'sit');
   }
   assert(!orgsForProfile('sp').some(org => org.id === 'acme-devhub'));
+});
+
+test("fresh profile epochs start on Today while existing profiles resume their own last view", () => {
+  browser();
+  for (const owner of ['sp', 'kf', 'jw', 'am']) {
+    const store = new WorkspaceSelectionStore(`profile-${owner}-epoch-one`);
+    const initial = readDestination(signInDestination(owner, 'uat', null, store.getSnapshot().lastDestination)).value;
+    assert.equal(initial.surface, null);
+    assert.deepEqual(initial.target, { ...UNBOUND_TARGET, orgId: 'uat' });
+    assert.equal(store.getSnapshot().panelOpen ?? false, false);
+    const last = { ...initial, surface: 'build', canvas: { kind: 'org-resource', title: 'Account', params: { orgId: 'uat', resourceType: 'standard-object', apiName: 'Account' } } };
+    store.rememberDestination(last); store.setPanelOpen(true); store.setSurfacePanelOpen(false);
+    const restored = new WorkspaceSelectionStore(`profile-${owner}-epoch-one`).getSnapshot();
+    assert.equal(signInDestination(owner, 'uat', null, restored.lastDestination), destinationHref(last));
+    assert.equal(restored.panelOpen, true); assert.equal(restored.surfacePanelOpen, false);
+    const cleared = new WorkspaceSelectionStore(`profile-${owner}-epoch-two`).getSnapshot();
+    assert.equal(cleared.lastDestination, undefined); assert.equal(cleared.panelOpen ?? false, false);
+    assert.equal(readDestination(signInDestination(owner, 'uat', null, cleared.lastDestination)).value.surface, null);
+  }
+});
+
+test("explicit sign-in targets override remembered views; mismatched org/profile and removed access never resume", () => {
+  const saved = destinationHref(destination(capability({ scope: 'unbound', orgId: 'uat' }), { ...UNBOUND_TARGET, orgId: 'uat' }));
+  const explicit = destinationHref({ version: 1, owner: 'am', surface: 'alm', target: { ...UNBOUND_TARGET, orgId: 'uat' } });
+  assert.equal(signInDestination('am', 'uat', explicit, saved), explicit);
+  assert.equal(readDestination(signInDestination('am', 'sit', null, saved)).value.surface, null);
+  assert.equal(readDestination(signInDestination('kf', 'uat', null, saved)).value.surface, null);
+  const oldJordanCode = saved.replace('am', 'jw');
+  assert.equal(readDestination(signInDestination('jw', 'uat', null, oldJordanCode)).value.surface, null);
 });
 
 test("shared legacy tabs split into independent workspace preferences without losing drafts or changing the original", () => {

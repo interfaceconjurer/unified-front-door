@@ -1,4 +1,4 @@
-name: Verify and deploy to Heroku
+name: Verify PR and deploy main
 
 on:
   pull_request:
@@ -14,10 +14,10 @@ on:
 permissions:
   contents: read
 
-# Serialize this repository's releases; an API timeout is reconciled manually.
+# New PR commits supersede old checks. Never interrupt a production release.
 concurrency:
   group: heroku-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   merge-integrity:
@@ -50,7 +50,63 @@ jobs:
           fi
           node scripts/check-merge-integrity.mjs --base "$BASE_REV" --head "$HEAD_REV"
 
-  verify:
+  pr-checks:
+    name: PR / ${{ matrix.group }}
+    if: github.event_name == 'pull_request'
+    needs: merge-integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.group == 'performance' && 35 || 15 }}
+    strategy:
+      # Report every failure in one run instead of discovering them serially.
+      fail-fast: false
+      matrix:
+        group: ["checks", "database", "browser-1", "browser-2", "browser-3", "browser-4", "performance"]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: verification
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: verification
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U verification -d verification"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Check out the exact PR merge revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Use the locked Node version
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Verify ${{ matrix.group }}
+        env:
+          VERIFICATION_GROUP: ${{ matrix.group }}
+          DATABASE_TEST_URL: postgresql://verification:disposable-ci-only@127.0.0.1:5432/verification
+          DATABASE_TEST_URL_UNPOOLED: postgresql://verification:disposable-ci-only@127.0.0.1:5432/verification
+        run: node scripts/verify-release.mjs --revision "$GITHUB_SHA" --group "$VERIFICATION_GROUP"
+      - name: Preserve phase timings and result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ matrix.group }}-${{ github.sha }}
+          path: |
+            .release/timings.json
+            .release/group-verification.json
+            .release/failure.json
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+
+  release-verify:
+    if: github.event_name != 'pull_request'
     needs: merge-integrity
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -95,10 +151,32 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # Keep one stable required check. A failed, cancelled, or skipped group cannot
+  # turn green just because another group passed or was intentionally skipped.
+  verify:
+    if: always()
+    needs: [merge-integrity, pr-checks, release-verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require all applicable checks
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INTEGRITY_RESULT: ${{ needs.merge-integrity.result }}
+          PR_RESULT: ${{ needs.pr-checks.result }}
+          RELEASE_RESULT: ${{ needs.release-verify.result }}
+        run: |
+          test "$INTEGRITY_RESULT" = success
+          if [ "$EVENT_NAME" = pull_request ]; then
+            test "$PR_RESULT" = success
+          else
+            test "$RELEASE_RESULT" = success
+          fi
+
   deploy:
     needs: [merge-integrity, verify]
     # Pull requests and manual runs from other branches can only verify.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && needs.verify.result == 'success' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:

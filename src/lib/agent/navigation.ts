@@ -1,3 +1,4 @@
+import { workForProfile } from "../workspace/demo-workspace";
 import type { CapturedContext } from "./contracts";
 import { destinationHref, resolveDestination, type Destination } from "../navigation/model";
 import { sameTarget } from "../workspace/context";
@@ -6,7 +7,7 @@ import { capabilitiesForSurface } from "../surface-canvas/capabilities";
 import type { CanvasSpecInput, CapabilityScope } from "../surface-canvas/model";
 import { resourcesForOrg } from "../org-resources/catalog";
 import { RESOURCE_TYPES } from "../org-resources/model";
-import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
+import { workCanvasInput } from "../workspace/returning-work";
 
 export type NavigationOption = { id: string; label: string; destination: Destination };
 export type AgentNavigation = NavigationOption & { toolCallId: string };
@@ -38,14 +39,14 @@ export function navigationOptions(context: CapturedContext): NavigationOption[] 
         ...(target.projectId ? { projectId: target.projectId, ...(target.worktreeId ? { worktreeId: target.worktreeId } : {}) } : {}) },
     });
   }
-  if (profile.workspaceExperience === "established") for (const work of RETURNING_WORK) {
+  for (const work of workForProfile(profile.id)) {
     if (work.projectId === target.projectId && work.worktreeId === target.worktreeId) add(`work:${work.id}`, work.title, work.surfaceId, workCanvasInput(work));
   }
   if (profile.onboarding && context.assessmentNavigation) {
     const assessment = context.assessmentNavigation;
-    add(`assessment:${assessment.runId}`, context.improvement ? "Project source assessment" : "Current org assessment", "govern",
+    add(`assessment:${assessment.runId}`, context.improvement ? "Project source assessment" : "Current org assessment", "build",
       { kind: "org-assessment", title: "Org assessment", params: { ...scope, runId: assessment.runId } });
-    for (const finding of assessment.findings) add(`finding:${finding.id}`, finding.title, "govern",
+    for (const finding of assessment.findings) add(`finding:${finding.id}`, finding.title, "build",
       { kind: "org-assessment", title: finding.title, params: { ...scope, runId: assessment.runId, findingId: finding.id } });
   }
   if (context.improvement) add(`project:${context.improvement.id}`, context.improvement.name, "alm",

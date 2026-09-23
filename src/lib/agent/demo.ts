@@ -13,7 +13,7 @@ export const SURFACE_QUESTIONS: Record<SurfaceId, string> = {
 export function projectIntroduction(context: CapturedContext): string {
   if (context.improvement?.source === "brief") return `“${context.projectName}” was created and is ready.\n\nGoal: ${context.improvement.goal}\n\nWhat would you like to work on first?`;
   if (context.improvement) return `“${context.projectName}” is ready for planning.\n\n${context.greeting}\n\nChoose a work item to review its approach and decide the next step.`;
-  return `“${context.projectName}” · ${context.branch}\n\n${context.greeting ?? "Your project workspace is ready. Tell me what you’d like to work on first."}`;
+  return `“${context.projectName}”${context.branch ? ` · ${context.branch}` : ""}\n\n${context.greeting ?? "Your project workspace is ready. Tell me what you’d like to work on first."}`;
 }
 export function recommendSurface(text: string, context: CapturedContext): SurfaceId | null {
   const requested = requestedSurface(text);

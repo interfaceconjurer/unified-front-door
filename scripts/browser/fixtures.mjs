@@ -1,10 +1,13 @@
-export const session = { namespaceId: '00000000-0000-4000-8000-000000000606', profileId: 'jw', generation: 'phase6-browser-generation', workspaceEpoch: 'phase6-browser-epoch', expiresAt: '2099-01-01T00:00:00.000Z' };
+export const session = { namespaceId: '00000000-0000-4000-8000-000000000606', profileId: 'am', generation: 'phase6-browser-generation', workspaceEpoch: 'phase6-browser-epoch', expiresAt: '2099-01-01T00:00:00.000Z' };
 export const target = { projectId: null, worktreeId: null, orgId: null };
-export const profile = { id: 'jw', name: 'Jordan Wright', firstName: 'Jordan', initials: 'JW', role: 'Developer', experience: 'new', workspaceExperience: 'empty', surfaceAccess: ['build', 'code', 'govern', 'alm'] };
+import { testModules } from '../test-modules.mjs';
+const profileModules = testModules();
+export const profile = profileModules.load('lib/demo-profiles').demoProfileById('am');
+profileModules.cleanup();
 export const assessment = { schemaVersion: 2, status: 'idle', step: 0, scopeOrgIds: ['prod', 'uat', 'sit'], completedAt: null, draft: null, projects: [], runs: [], currentRunId: null };
 export const canvas = { kind: 'capability', title: 'Build an automation', params: { scope: 'unbound', surface: 'build', capability: 'automation' } };
 export const idFor = c => `canvas:v2:${JSON.stringify([c.kind, Object.entries(c.params).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}`;
-export const href = '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'jw', surface: 'build', target, canvas }));
+export const href = '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'am', surface: 'build', target, canvas }));
 const catalog = { build: ['automation', 'data-model', 'agent', 'experience'], code: ['sfdx-project', 'react-app', 'apex', 'query', 'tests', 'agent', 'toolkit'], govern: ['security', 'health', 'policies', 'agent-activity'], alm: ['work', 'pipeline', 'validation', 'release'] };
 export function fixtures(drafts = 1, messages = 20) {
     const inputs = Object.entries(catalog).flatMap(([surface, keys]) => keys.map(capability => ({ kind: 'capability', title: capability, params: { scope: 'unbound', surface, capability } })));
@@ -19,7 +22,8 @@ export function fixtures(drafts = 1, messages = 20) {
 export async function install(context, { drafts = 1, messages = 20, latency = 80 } = {}) {
     const state = fixtures(drafts, messages), stats = { posts: 0, requestBytes: 0, gets: 0, commands: [] };
     await context.addInitScript(({ prefs, session }) => {
-        localStorage.setItem(`ufd.canvas-preferences.v2.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`, JSON.stringify(prefs));
+        // Zero drafts leaves normal profile seed tabs intact in project workspaces.
+        if (Object.values(prefs).some(slice => slice.canvases.length)) localStorage.setItem(`ufd.canvas-preferences.v2.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}`, JSON.stringify(prefs));
         const original = Storage.prototype.setItem;
         window.__metrics = { writes: 0, writeBytes: 0, inputFrames: [], measuring: false };
         Storage.prototype.setItem = function (k, v) { if (window.__metrics.measuring && k.startsWith('ufd.pending.')) {

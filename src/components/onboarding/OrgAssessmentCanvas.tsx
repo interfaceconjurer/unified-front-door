@@ -30,7 +30,7 @@ export function OrgAssessmentCanvas({ spec }: { spec: CanvasOf<"org-assessment">
   const { run, finding, current, scopeOrgIds, status } = view;
   const attempt = current && run ? execution.data.runs.filter(attempt => attempt.assessmentRunId === run.id).at(-1) : undefined;
   const interrupted = attempt?.status === "failed" || attempt?.status === "cancelled";
-  const openRun = (runId?: string | null, finding?: FindingSnapshot) => openCanvas("govern", assessmentCanvas(spec.params, runId, finding));
+  const openRun = (runId?: string | null, finding?: FindingSnapshot) => openCanvas("build", assessmentCanvas(spec.params, runId, finding));
   return <article className={styles.canvas} aria-label="Org assessment canvas" data-assessment-view-run={run?.id}>
     <div className={styles.toolbar}>
       <button type="button" onClick={navigateGlobalHome}><ChevronLeftIcon width={14} height={14} aria-hidden="true" />Back to Today</button>
@@ -39,7 +39,7 @@ export function OrgAssessmentCanvas({ spec }: { spec: CanvasOf<"org-assessment">
     </div>
     <header className={styles.header}>
       <span className={styles.icon}><ShieldIcon width={24} height={24} aria-hidden="true" /></span>
-      <div><p className={styles.eyebrow}>GOVERN & OBSERVE · ORG ASSESSMENT</p><h2>{finding?.title ?? "Org assessment"}</h2>
+      <div><p className={styles.eyebrow}>BUILD & SETUP · ORG ASSESSMENT</p><h2>{finding?.title ?? "Org assessment"}</h2>
         <p>{run?.startedAt ? <>Started <time dateTime={run.startedAt}>{new Date(run.startedAt).toLocaleString()}</time></> : "Choose connected orgs to begin."}</p></div>
       <span className={styles.status}>{attempt?.status === "failed" ? "Could not complete" : attempt?.status === "cancelled" ? "Cancelled" : attempt?.status === "pending" ? "Queued" : status === "complete" ? "Complete" : status === "incomplete" ? "Earlier incomplete run" : status === "running" ? "Analyzing" : status === "paused" ? "Paused" : "Ready to start"}</span>
     </header>

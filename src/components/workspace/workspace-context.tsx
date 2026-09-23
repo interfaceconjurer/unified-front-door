@@ -6,7 +6,7 @@ import { readDestination, resolveDestination, type DestinationDecision } from "@
 import { createContext, useContext, useMemo, useState, useSyncExternalStore } from "react";
 import { primaryWorktree, type AgentSession, type Org, type Project, type Worktree } from "@/lib/workspace/model";
 import { homeTarget, resolveWorkspace, UNBOUND_TARGET, type WorkspaceResolution, type WorkspaceTarget } from "@/lib/workspace/context";
-import { PROJECTS } from "@/lib/workspace/fixtures";
+import { projectsForProfile } from "@/lib/workspace/demo-workspace";
 import { orgsForProfile } from "@/lib/workspace/orgs";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
@@ -43,7 +43,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const assessment = useAssessmentRunner();
   const pathname = usePathname(), search = useSearchParams();
   const route = `${pathname}?${search.toString()}`;
-  const projects = useMemo(() => [...(profile?.workspaceExperience === "established" ? PROJECTS : []), ...assessment.projects.map(workspaceProject)], [assessment.projects, profile?.workspaceExperience]);
+  const projects = useMemo(() => [...(profile ? projectsForProfile(profile.id) : []), ...assessment.projects.map(workspaceProject)], [assessment.projects, profile]);
   const orgs = orgsForProfile(profile?.id ?? "jw");
   const store = getWorkspaceSelectionStore(profile?.id ?? "jw");
   const selection = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
@@ -51,10 +51,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const canvasStore = getSurfaceCanvasStore(profile?.id ?? "jw", decoded.kind === "destination" ? decoded.value.target
     : pathname === "/" ? UNBOUND_TARGET : selection.target ?? UNBOUND_TARGET);
   const destinationReader = useMemo(() => {
-    const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases);
+    const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases, assessment.projects);
     const equal = (a: DestinationDecision, b: DestinationDecision) => JSON.stringify(a) === JSON.stringify(b);
     return { get: selectedSnapshot(canvasStore.getSnapshot, select, equal), server: selectedSnapshot(canvasStore.getServerSnapshot, select, equal) };
-  }, [canvasStore, route, profile]);
+  }, [canvasStore, route, profile, assessment.projects]);
   const destination = useSyncExternalStore(canvasStore.subscribe, destinationReader.get, destinationReader.server);
   const value = useMemo<WorkspaceContextValue>(() => {
     // A missing old preference may use that project's declared default. A saved
@@ -94,17 +94,10 @@ export function useWorkspace(): WorkspaceContextValue {
  * SSR-safe (fixed closed default on the server and first hydration pass) the
  * same way the provider's own selection read is.
  *
- * The persisted value is tri-state (`boolean | null`, see `PersistedSelection`):
- * `null` means the user has never explicitly toggled the panel, so this hook
- * resolves a route-dependent default — open on the home route (that's where
- * you browse projects/apps/sessions), closed elsewhere — via `isHome`. Once
- * the user explicitly toggles (⌘B or the close button), the stored value
- * becomes `true`/`false` and that choice wins on every route, home included,
- * until they toggle again. This is what "defaults open on home without
- * breaking the persisted toggle" comes down to: default only fills the gap
- * left by "unset," it never overrides an explicit choice.
+ * Fresh profiles start closed regardless of their seeded projects. Once the
+ * user toggles the panel, that preference survives routes and profile changes.
  */
-export function useWorkspacePanel(isHome: boolean): {
+export function useWorkspacePanel(): {
   panelOpen: boolean;
   togglePanel: () => void;
 } {
@@ -115,7 +108,7 @@ export function useWorkspacePanel(isHome: boolean): {
     workspaceSelectionStore.getSnapshot,
     workspaceSelectionStore.getServerSnapshot,
   );
-  const panelOpen = selection.panelOpen ?? isHome;
+  const panelOpen = selection.panelOpen ?? false;
   return {
     panelOpen,
     togglePanel: () => workspaceSelectionStore.setPanelOpen(!panelOpen),

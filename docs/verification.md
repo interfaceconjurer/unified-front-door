@@ -95,6 +95,36 @@ negative runtime smoke, browser regression/fault checks, two live-database brows
 journeys, worker crash/restart recovery, and the performance protocol. Tests that
 need server-only module conditions run separately from browser/SSR tests.
 
+Pull requests run these same stage implementations in seven parallel jobs:
+code checks, database/browser persistence plus worker recovery, four browser
+regression shards, and performance. Each runtime job owns its production build
+and disposable Postgres service, so browser timing measurements do not compete
+with other suites on the same runner. `scripts/browser/suites.mjs` is the shared
+suite registry; `scripts/verification-plan.test.mjs` checks that the workflow
+matrix covers every release stage and every browser suite exactly once across
+the browser shards. Browser suites still exercise their existing motion modes.
+
+Each job reports phase durations in its summary and prints individual browser
+suite timings. The jobs finish independently even if one fails, revealing all
+failures in one run. New commits cancel superseded PR runs. The required `verify`
+check succeeds only when merge integrity and every applicable job succeed.
+Main/manual release verification still runs the complete gate and produces the
+exact-source deployment attestation; partial PR groups cannot produce one.
+Production deployments remain serialized and are never cancelled by a PR push.
+
+To reproduce one PR group locally against the isolated test database:
+
+```bash
+npm run verify:release -- --working-tree --group database
+npm run verify:release -- --working-tree --group browser-1
+```
+
+Group results and phase timings are saved in `.release/group-verification.json`
+and `.release/timings.json`. CI preserves those and the failing phase record,
+including on failure, without uploading raw server logs or credentials.
+The live-database browser journey builds its navigation URLs from the signed-in
+profile; cross-profile URLs are intentionally rejected by the app.
+
 Configure `DATABASE_TEST_URL` for an explicitly disposable, isolated target and
 `DATABASE_TEST_URL_UNPOOLED` for the same remote database's direct endpoint. The
 runner overrides both runtime URLs together, chooses a local port, and generates
@@ -171,14 +201,18 @@ browser registry. Restored behaviors have these checks:
 
 | Behavior | Registered browser suite | Supporting pure checks |
 | --- | --- | --- |
+| Four expansion scenarios: sample work, Today, palette, resource access, surface switcher and blocked direct routes; old assessment links/tabs and live Today compatibility | `expansion-profiles.mjs`, `assessment-canvas.mjs`, `org-sign-in.mjs` | `demo-profiles.test.mjs`, `assessment-canvas.test.mjs` |
 | All profiles choose a connected org at sign-in; required choice, retry, first agent target, reload, profile switching, matching saved links and mobile layout | `org-sign-in.mjs`, `profile-reset.mjs` | `navigation.test.mjs`, `profile-reset.test.mjs` |
+| Sign-out and profile changes have one navigation owner; session/workspace outages show loading or retry UI; slow reads cannot be starved by polling; stale reads cannot restore or bootstrap an old session | `session-recovery.mjs`, `org-sign-in.mjs`, `profile-reset.mjs` | `profile-reset.test.mjs`, `client-reliability.test.mjs` |
+| Every fresh/cleared profile starts on centered Today with no panels; used profiles restore canvas and panel choices across reload, sign-in and profile switching; explicit links/changed orgs take precedence | `profile-start.mjs`, `org-sign-in.mjs`, `chat-layout.mjs` | `navigation.test.mjs`, `persistence.test.mjs` |
 | Starter cards open scoped canvases and seed without submitting | `starter-canvases.mjs` | `starters.test.mjs` |
 | Assessment scope, captured findings, rescan and retry | `assessment-canvas.mjs` | `assessment-canvas.test.mjs` |
 | Project templates, saved intent, brief-to-project creation on all profiles, visible creation action, explicit scoped planning action with retained composer draft, sidebar/reload/reopen, second project, delayed navigation, retry recovery and assessment creation | `project-creation.mjs`, `project-create-end-to-end.mjs`; `project-create-database.mjs` in the database browser gate | `project-creation.test.mjs`, `database.test.mjs` (atomic creation, ownership, duplicate retries), `model-context.test.mjs` |
 | Clear data deletes brief-created projects without assessment runs, including after sign-in/reload; other profiles/namespaces and projects created after an acknowledged reset survive retry | `profile-reset.mjs`; `project-create-database.mjs` in the database browser gate | `database.test.mjs` (direct workspace ownership, scoped reset, rollback, receipt replay and all-profile reset) |
 | Planning stays in chat; explicit agent navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (no-tool planning and saved-catalog validation) |
 | Project links reveal the sidebar parent without changing scope; persistent Start project footer on all profiles; Sessions only lists chats | `project-panel.mjs` | Navigation tests |
-| Default All navigator search, ranked typed results, intact project trees, org pill/category filters, clear search, scope-preserving selection and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs` |
+| Project/worktree explorer drill-down and double-click, folders/search, keyboard file opening in scoped surfaces, return focus, saved `.project` context and work items, downloads, reload, deletion, narrow layout and no file writes | `project-explorer.mjs` | `project-explorer.test.mjs` (profile/branch isolation, inherited base files, portable context, identity, availability and mutation rejection); `model-context.test.mjs` (agent intent/evidence) |
+| Default All navigator search, projects/resources/sessions/orgs/surfaces ordering with ranked matches within each category, ALM project-file results with preserved global/workspace scope, explicit Projects-tab entry with intact worktree trees, org pill/category filters, clear search and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs`, `navigation.test.mjs` |
 | Build & Setup org browsers: objects, permissions and features; explicit org, captured tabs, global/project scope, no draft writes, all profiles and narrow/light layout | `org-setup.mjs`, `org-resources.mjs` | `org-resources.test.mjs` |
 | Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |
 | Deployed apps open in ALM; legacy URLs and drafts survive | `alm-app-migration.mjs` | `alm-app-migration.test.mjs` |
@@ -240,3 +274,7 @@ target match, and exercises saved edits, immediate-reload recovery, and profile
 isolation against actual persistence. It uses targeted worker ticks for its owned
 test work and has no automatic database fallback. It does not replace the full
 SQL suites.
+
+Expansion adaptation: unrestricted browser fixtures now use Alex; Jordan covers the governance phase. Legacy newcomer starter-card coverage remains in `starter-canvases.mjs` using captured earlier briefings. Current profile project creation uses the persistent sidebar action. No saved history or user-created project is removed.
+
+- Profile sample depth: `demo-profiles.test.mjs` checks 0/2/4/6 projects, worktree distribution, sample ownership, project-only draft identities, and agent destinations. `expansion-profiles` checks navigator structure and Karen’s project-level canvas, saved notes, and sessions.
