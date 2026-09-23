@@ -51,10 +51,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const canvasStore = getSurfaceCanvasStore(profile?.id ?? "jw", decoded.kind === "destination" ? decoded.value.target
     : pathname === "/" ? UNBOUND_TARGET : selection.target ?? UNBOUND_TARGET);
   const destinationReader = useMemo(() => {
-    const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases);
+    const select = (canvases: ReturnType<typeof canvasStore.getSnapshot>) => resolveDestination(route, profile?.id ?? "jw", profile?.surfaceAccess ?? [], canvases, assessment.projects);
     const equal = (a: DestinationDecision, b: DestinationDecision) => JSON.stringify(a) === JSON.stringify(b);
     return { get: selectedSnapshot(canvasStore.getSnapshot, select, equal), server: selectedSnapshot(canvasStore.getServerSnapshot, select, equal) };
-  }, [canvasStore, route, profile]);
+  }, [canvasStore, route, profile, assessment.projects]);
   const destination = useSyncExternalStore(canvasStore.subscribe, destinationReader.get, destinationReader.server);
   const value = useMemo<WorkspaceContextValue>(() => {
     // A missing old preference may use that project's declared default. A saved

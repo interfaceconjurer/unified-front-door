@@ -9,6 +9,8 @@ import { findResource } from "../org-resources/catalog";
 import { ORGS } from "../workspace/fixtures";
 import { ASSESSMENT_ORGS } from "../onboarding/assessment";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
+import { fileForCanvas } from "../workspace/project-files";
+import type { SavedProject } from "../projects/model";
 import { previewCanvas } from "../preview/model";
 
 export { canvasTarget } from "../surface-canvas/model";
@@ -113,7 +115,7 @@ export class NavigationController {
 
 export type DestinationDecision = { kind: "absent" } | { kind: "unavailable"; reason: string } | { kind: "available"; destination: Destination };
 /** One validation decision feeds workspace, canvas and controller projections. */
-export function resolveDestination(href: string, owner: DemoProfileId, access: readonly SurfaceId[], targets: Partial<Record<SurfaceId, { targets?: Record<string, WorkspaceTarget> }>>): DestinationDecision {
+export function resolveDestination(href: string, owner: DemoProfileId, access: readonly SurfaceId[], targets: Partial<Record<SurfaceId, { targets?: Record<string, WorkspaceTarget> }>>, savedProjects: readonly SavedProject[] = []): DestinationDecision {
   const decoded = readDestination(href);
   if (decoded.kind === "absent") {
     const path = new URL(href, "http://workspace.local").pathname.slice(1);
@@ -123,6 +125,10 @@ export function resolveDestination(href: string, owner: DemoProfileId, access: r
   const destination = decoded.value;
   if (destination.owner !== owner) return { kind: "unavailable", reason: "This link belongs to another demo profile. Choose a destination in your current workspace." };
   if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
+  if (destination.canvas?.kind === "project-file") {
+    const file = fileForCanvas(owner, destination.canvas.params, savedProjects), orgId = destination.canvas.params.orgId;
+    if (!file || file.surfaceId !== destination.surface || orgId && !ORGS.some(org => org.id === orgId && org.connection === "connected")) return { kind: "unavailable", reason: "This file is unavailable in the selected project or worktree." };
+  }
   if (destination.canvas?.kind === "preview") {
     const { projectId, worktreeId, orgId } = destination.canvas.params;
     if (!projectsForProfile(owner).some(project => project.id === projectId && project.worktrees.some(tree => tree.id === worktreeId)) || !previewCanvas(projectId, worktreeId, orgId ?? null)

@@ -53,7 +53,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
   const controller = useMemo(() => new NavigationController((destination, source) => {
     applicationClient.workspace?.flushEdits();
     const canvases = getSurfaceCanvasStore(owner, destination.target);
-    const decision = resolveDestination(destinationHref(destination), owner, profile?.surfaceAccess ?? [], canvases.getSnapshot());
+    const decision = resolveDestination(destinationHref(destination), owner, profile?.surfaceAccess ?? [], canvases.getSnapshot(), applicationClient.workspace?.getSnapshot().assessment.projects);
     if (decision.kind === "unavailable") { setProblem(decision.reason); return false; }
     if (source !== "capture" && destination.surface && destination.canvas
       && !(source === "restore" ? canvases.canViewCanvas(destination.surface, destination.canvas) : canvases.canOpenCanvas(destination.surface, destination.canvas))) {

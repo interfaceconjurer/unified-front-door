@@ -135,6 +135,26 @@ not be presented as if they were those sessions.
 Assessment-created projects also keep their ALM overview on the selected plan;
 the list of other plans is available only in global context.
 
+Double-clicking a project or worktree row selects it and opens its explorer.
+Pressing Right Arrow on a focused row does the same. Single-click and Enter
+continue to select normally; there is no separate Explore files button.
+**All projects** returns to the project list without changing the
+workspace or open canvas. Sessions and Start project remain available. Selecting
+another project/worktree or Home returns the sidebar to its project list.
+Folders expand and collapse, and file search matches paths. Metadata opens in
+Build & Setup, source in Code (where available), and project documents in ALM.
+File tabs retain the selected project/worktree and org and restore on reload.
+Seeded projects use a read-only sample repository: branches inherit base files
+plus their own changes, excluding sibling worktree changes. Saved projects expose
+their actual `.project/project.json` (type, goal, context, owner, repository, orgs)
+and `.project/work-items.json` (work-item status and captured plans/evidence).
+These files are generated from the saved record, so updates appear without a
+second editable copy. Each can be downloaded into the repository's `.project/`
+folder for version control. The agent receives the same saved intent and work-item
+evidence through its existing context capture. GitHub sync, automatic commits,
+and importing edited context files are not implemented. Deleted projects cannot
+continue to expose stale file contents.
+
 Click the pinned surface tab's icon or name to return directly to its overview.
 Its separate chevron opens a quick switcher for the profile's accessible surfaces.
 The chevron is independently keyboard accessible; opening or dismissing its menu

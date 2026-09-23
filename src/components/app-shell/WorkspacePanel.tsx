@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BoxIcon,
   GitBranchIcon,
@@ -20,6 +20,8 @@ import {
   buildProjectTree,
   STATUS_LABEL,
 } from "@/lib/workspace/selectors";
+import { ProjectExplorer } from "./ProjectExplorer";
+import { conversationKey } from "@/lib/workspace/context";
 import styles from "./WorkspacePanel.module.css";
 
 const FILTER_LABEL: Record<WorkspacePanelFilter, string> = {
@@ -105,10 +107,14 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const { selectProject, openProjectCreation } = useNavigation();
   const { profile } = useDemoProfile();
   const { openCanvas } = useSurfaceCanvases("alm");
-  const { projects, activeProject, activeWorktree, hasProjects,
+  const { projects, activeProject, activeWorktree, hasProjects, target,
     panelFilter: filter, setPanelFilter: setFilter, projectPanelRequest } =
     useWorkspace();
+  const [explorer, setExplorer] = useState<{ key: string; request: number } | null>(null);
+  const workspaceKey = conversationKey(target);
+  const exploring = !!activeProject && explorer?.key === workspaceKey && explorer.request === projectPanelRequest;
   const activeProjectRow = useRef<HTMLButtonElement>(null);
+  const activeWorktreeRow = useRef<HTMLButtonElement>(null);
   const projectsFilter = useRef<HTMLButtonElement>(null);
   const projectsHeading = useRef<HTMLHeadingElement>(null);
   const projectsList = useRef<HTMLDivElement>(null);
@@ -140,6 +146,10 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
     openProjectCreation();
   }
 
+  function exploreProject(projectId: string, worktreeId: string | null) {
+    setExplorer({ key: conversationKey({ projectId, worktreeId, orgId: null }), request: projectPanelRequest });
+  }
+
   if (!profile) return null;
 
   // Deployed app operations live in ALM.
@@ -154,7 +164,11 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   return (
     <aside className={styles.panel} aria-label="Workspace">
 
-      <section className={styles.section} aria-label="Projects">
+      <section className={styles.section} aria-label={exploring ? "Project explorer" : "Projects"}>
+        {exploring ? <ProjectExplorer key={workspaceKey} onBack={() => {
+          setExplorer(null);
+          requestAnimationFrame(() => (activeWorktreeRow.current ?? activeProjectRow.current ?? projectsHeading.current)?.focus());
+        }} /> : <>
         <h2 ref={projectsHeading} tabIndex={-1} className={styles.heading}>Projects</h2>
 
         {/* Segmented filter — governs this section only, the Sessions section
@@ -220,8 +234,17 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                     ref={isProjectCurrent ? activeProjectRow : undefined}
                     className={`${styles.row} ${isProjectCurrent ? styles.rowCurrent : ""}`}
                     aria-current={isBaseCurrent}
-                    onClick={() => {
+                    title="Double-click or press Right Arrow to explore files"
+                    aria-keyshortcuts="ArrowRight"
+                    onClick={(event) => {
+                      if (event.detail < 2) selectProject(project.id, base?.worktree.id);
+                    }}
+                    onDoubleClick={() => exploreProject(project.id, base?.worktree.id ?? null)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "ArrowRight") return;
+                      event.preventDefault();
                       selectProject(project.id, base?.worktree.id);
+                      exploreProject(project.id, base?.worktree.id ?? null);
                     }}
                   >
                     <LayersIcon className={styles.rowIcon} width={16} height={16} />
@@ -239,12 +262,22 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
                           <li key={worktree.id}>
                             <button
                               type="button"
+                              ref={isCurrent ? activeWorktreeRow : undefined}
                               className={`${styles.worktreeRow} ${
                                 lastChild ? styles.worktreeRowLast : ""
                               } ${isCurrent ? styles.rowCurrent : ""}`}
                               aria-current={isCurrent}
-                              onClick={() => {
+                              title="Double-click or press Right Arrow to explore files"
+                              aria-keyshortcuts="ArrowRight"
+                              onClick={(event) => {
+                                if (event.detail < 2) selectProject(project.id, worktree.id);
+                              }}
+                              onDoubleClick={() => exploreProject(project.id, worktree.id)}
+                              onKeyDown={(event) => {
+                                if (event.key !== "ArrowRight") return;
+                                event.preventDefault();
                                 selectProject(project.id, worktree.id);
+                                exploreProject(project.id, worktree.id);
                               }}
                             >
                               <StatusDot status={status} />
@@ -283,6 +316,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
           </ul>
         )}
         </div>
+        </>}
         <div className={styles.projectFooter}>
           <button type="button" className={styles.startProject} onClick={startProject}>
             <PlusIcon width={16} height={16} aria-hidden="true" />

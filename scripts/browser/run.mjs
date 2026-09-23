@@ -6,7 +6,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(label))
 for (const suite of [
     'expansion-profiles', 'modal-working', 'profile-reset', 'org-sign-in', 'session-recovery', 'profile-start', 'assessment-startup', 'org-resources', 'org-setup', 'unified-search', 'global-home', 'workspace-tabs', 'today-departure',
     'starter-canvases', 'assessment-canvas', 'project-creation', 'project-create-end-to-end', 'agent-navigation',
-    'project-panel', 'project-surface-scope', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
+    'project-panel', 'project-explorer', 'project-surface-scope', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
     'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps',
 ]) {
     const result = spawnSync(process.execPath, [fileURLToPath(new URL(`./${suite}.mjs`, import.meta.url)), label], { stdio: 'inherit', env: process.env });
