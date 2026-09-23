@@ -44,13 +44,21 @@ try {
   assert.equal((await upgrade()).status, 401);
   assert.equal((await upgrade(basic)).status, 426);
   result.checks.push("Upgrades authenticate before the first Next request; unsupported upgrades receive 426.");
-  for (const path of ["/", "/api/session", "/_next/static/missing.js", "/unknown"]) {
+  for (const path of ["/", "/api/session", "/api/live", "/api/worker/wake", "/_next/static/missing.js", "/unknown"]) {
     for (const method of ["GET", "POST", "OPTIONS"]) {
       const response = await fetch(origin + path, { method, ...(method === "POST" ? { body: "invalid" } : {}) });
       assert.equal(response.status, 401); assert.match(response.headers.get("cache-control"), /no-store/); await response.text();
     }
   }
   result.checks.push("Pages, static files, API, unknown routes and non-GET methods all require Basic Auth.");
+  const live = await fetch(origin + "/api/live", { headers: { authorization: basic } });
+  assert.equal(live.status, 200); assert.deepEqual(await live.json(), { live: true });
+  const idleWake = await fetch(origin + "/api/worker/wake", { headers: { authorization: basic }, signal: AbortSignal.timeout(25000) });
+  assert.equal(idleWake.status, 200); assert.deepEqual(await idleWake.json(), { active: false });
+  for (const path of ["/api/live", "/api/worker/wake"]) {
+    assert.equal((await fetch(origin + path, { method: "POST", headers: { authorization: basic } })).status, 405);
+  }
+  result.checks.push("Liveness and idle wake polling work with an unavailable database, require auth and reject writes; neither creates activity hints.");
   context = await playwrightRequest.newContext({ httpCredentials: { username: "guest", password } });
   for (let i = 0; i < 10; i++) {
     // Default send=unauthorized intentionally exercises the former clone bug.

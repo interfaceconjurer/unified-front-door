@@ -37,6 +37,21 @@ const app = (s, kind, expectedRevision, fields = {}) => transaction(c => execute
 const chat = s => send(s, { kind: "submit", requestId: randomUUID(), context, text: "Build a scoped automation" });
 const fastAdapter = { async step(...args) { const result = await demoAdapter.step(...args); return result.kind === "progress" ? { ...result, delayMs: 0 } : result; } };
 
+test("idle scheduler sees future work and active leases until cancellation or completion", async () => {
+  const { workerHasWork } = modules.load("lib/server/agent-worker");
+  assert.equal(await workerHasWork(), false);
+  const s = await owner(), accepted = await chat(s);
+  await transaction(c => c.query("UPDATE agent_runs SET ready_at=clock_timestamp()+interval '60 seconds' WHERE id=$1", [accepted.runId]));
+  assert.equal(await workerTick({ runId: accepted.runId }), false);
+  assert.equal(await workerHasWork(), true, "future-ready work must prevent hibernation");
+  await transaction(c => c.query("UPDATE agent_runs SET ready_at=clock_timestamp() WHERE id=$1", [accepted.runId]));
+  const claims = await Promise.all([transaction(c => claimRun(c, accepted.runId)), transaction(c => claimRun(c, accepted.runId))]);
+  assert.equal(claims.filter(Boolean).length, 1);
+  assert.equal(await workerHasWork(), true, "a live lease on another worker remains recoverable");
+  await send(s, { kind: "cancel", requestId: randomUUID(), runId: accepted.runId });
+  assert.equal(await workerHasWork(), false);
+});
+
 test("expansion profiles capture only their scenario work and reject unavailable surfaces on the server", async () => {
   for (const [profileId, count, restricted] of [["sp", 0, ["govern", "code"]], ["kf", 4, ["govern", "code"]], ["jw", 13, ["code"]], ["am", 21, []]]) {
     const s = await owner(profileId);

@@ -36,6 +36,7 @@
     "db:status": "node --env-file-if-exists=.env.local scripts/database.mjs status",
     "test:operations": "node --conditions=react-server --test scripts/operations.test.mjs",
     "test:worker-recovery": "node --env-file-if-exists=.env.local --conditions=react-server scripts/worker-recovery.mjs",
+    "test:worker-idle": "node --conditions=react-server --test scripts/worker-loop.test.mjs",
     "verify:release": "node --env-file-if-exists=.env.local scripts/verify-release.mjs",
     "test:runtime": "node scripts/runtime-smoke.mjs"
   },

@@ -2,6 +2,9 @@
 
 [← README](../README.md)
 
+See [worker idle behavior](worker-idle.md) for HTTP activity hints, hourly durable
+recovery, browser inactivity, measurements and Neon suspension tradeoffs.
+
 The default agent uses fixture-backed demo behavior. Typed contracts in
 `src/lib/agent/contracts.ts` separate submission, observation, cancellation, and
 retry from React rendering. `demo.ts` owns reply/recommendation policy, assessment
