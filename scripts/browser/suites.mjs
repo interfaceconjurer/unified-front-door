@@ -2,7 +2,7 @@
 export const BROWSER_SUITES = Object.freeze([
     'expansion-profiles', 'modal-working', 'profile-reset', 'org-sign-in', 'session-recovery', 'profile-start', 'assessment-startup', 'org-resources', 'org-setup', 'unified-search', 'global-home', 'workspace-tabs', 'today-departure',
     'starter-canvases', 'assessment-canvas', 'project-creation', 'project-create-end-to-end', 'agent-navigation',
-    'project-panel', 'project-explorer', 'project-surface-scope', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
+    'project-panel', 'project-explorer', 'workspace-changes', 'object-field-changes', 'project-surface-scope', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
     'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps',
 ]);
 

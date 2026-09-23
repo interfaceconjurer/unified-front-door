@@ -6,12 +6,15 @@ import { projectsForProfile, workForProfile } from "./demo-workspace";
 import type { SurfaceId } from "./model";
 import type { SavedProject } from "../projects/model";
 import { projectContextFiles } from "../projects/context-files";
+import type { ReturningWork } from "./returning-work";
 
 export type ProjectFile = {
   path: string;
   surfaceId: SurfaceId;
   language: string;
   content: string;
+  /** Explicit sample comparison when its prior revision is not a listed file. */
+  baseContent?: string;
   modified?: boolean;
   source?: "saved-project";
 };
@@ -24,6 +27,14 @@ const projectMetadata: Record<string, { object: string; flow: string; permission
   "revenue-insights": { object: "Opportunity", flow: "Forecast_Refresh", permission: "Revenue_Analyst" },
   "integration-hub": { object: "Order", flow: "Order_Sync", permission: "Integration_User" },
 };
+
+export function workFilePath(work: ReturningWork): string {
+  const filename = work.title.replace(/[^\w.-]+/g, "-").replace(/-+/g, "-");
+  return work.kind === "Apex class" ? `${metadataRoot}/classes/${filename}`
+    : work.kind === "Agent" ? `agents/${work.id}/instructions.md`
+    : work.kind === "Release plan" ? `releases/${work.id}.md`
+    : work.surfaceId === "code" ? `tests/${filename}.md` : `docs/${work.id}.md`;
+}
 
 /** A bounded sample repository, separate from the org-wide resource inventory.
  * A branch inherits base files; only its own work adds changed files. This is
@@ -48,16 +59,13 @@ export function projectFiles(profileId: DemoProfileId, target: WorkspaceTarget, 
   if (project.id === "acme-storefront" && profile.surfaceAccess.includes("code")) files.push(
     { path: "package.json", surfaceId: "code", language: "JSON", content: JSON.stringify({ name: "acme-storefront", private: true, scripts: { dev: "vite", build: "vite build" }, dependencies: { react: "^19.0.0", "react-dom": "^19.0.0" } }, null, 2) },
     { path: "src/App.tsx", surfaceId: "code", language: "TSX", content: 'export default function App() {\n  return <main><h1>Acme Storefront</h1><p>Browse your accounts and orders.</p></main>;\n}\n' },
-    { path: "src/components/AccountSearch.tsx", surfaceId: "code", language: "TSX", modified: target.worktreeId === "search-refresh", content: 'export function AccountSearch() {\n  return <input type="search" aria-label="Search accounts" placeholder="Find an account…" />;\n}\n' },
+    { path: "src/components/AccountSearch.tsx", surfaceId: "code", language: "TSX", modified: target.worktreeId === "search-refresh", content: 'export function AccountSearch() {\n  return <input type="search" aria-label="Search accounts" placeholder="Find an account…" />;\n}\n',
+      baseContent: 'export function AccountSearch() {\n  return <input type="search" aria-label="Search accounts" />;\n}\n' },
   );
   for (const work of workForProfile(profileId).filter(work => work.projectId === project.id && (work.worktreeId === target.worktreeId || work.worktreeId === baseTree))) {
     const filename = work.title.replace(/[^\w.-]+/g, "-").replace(/-+/g, "-");
     const isApex = work.kind === "Apex class";
-    const path = isApex ? `${metadataRoot}/classes/${filename}`
-      : work.kind === "Agent" ? `agents/${work.id}/instructions.md`
-      : work.kind === "Release plan" ? `releases/${work.id}.md`
-      : work.surfaceId === "code" ? `tests/${filename}.md`
-      : `docs/${work.id}.md`;
+    const path = workFilePath(work);
     const content = isApex ? `public with sharing class ${filename.replace(/\.cls$/, "")} {\n    // Sample implementation for ${project.name}.\n}\n`
       : work.source ?? `# ${work.title}\n\n${work.summary}\n\n${work.details.map(detail => `- ${detail.label}: ${detail.value}`).join("\n")}\n`;
     files.push({ path, surfaceId: work.surfaceId, language: isApex ? "Apex" : "Markdown", content, modified: work.worktreeId === target.worktreeId && target.worktreeId !== baseTree });

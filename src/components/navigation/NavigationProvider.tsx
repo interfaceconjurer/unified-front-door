@@ -17,6 +17,7 @@ import { workCanvasInput } from "@/lib/workspace/returning-work";
 import { isSurfaceId, type SurfaceId } from "@/lib/workspace/surfaces";
 import { projectCreationCanvas } from "@/lib/projects/creation";
 import { canonicalCanvasSurface } from "@/lib/surface-canvas/routing";
+import type { TransferSource } from "@/lib/application/contracts";
 
 type PlanDestination = Pick<import("@/lib/projects/model").ImprovementProject, "id" | "name" | "targetOrgId">;
 
@@ -30,6 +31,7 @@ type Navigation = {
   openAgentDestination: (destination: Destination) => void;
   openImprovementProject: (project: PlanDestination) => void;
   openProjectCreation: () => void;
+  openProjectCreationForChanges: (sources: TransferSource[]) => void;
   openCanvas: (surface: SurfaceId, input: CanvasSpecInput) => void;
   openCanvasInProject: (surface: SurfaceId, input: CanvasSpecInput) => void;
   selectCanvas: (surface: SurfaceId, id: string) => void;
@@ -158,6 +160,28 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const captured = canvases.getSnapshot().alm.targets?.[id];
     controller.navigate(improvementProjectDestination(owner, project, captured));
   };
+  const openProjectCreation = () => {
+    // Creating a project is global work, even when launched from a project.
+    // Navigate once so the new brief and global conversation arrive together.
+    const target = homeTarget(workspace.target);
+    const canvas = projectCreationCanvas({ scope: "unbound", ...(target.orgId ? { orgId: target.orgId } : {}) });
+    const id = canvasId(canvas.kind, canvas.params);
+    if (applicationClient.workspace?.getSnapshot().canvases.find(item => item.id === id)?.fields.transferSources) {
+      getSurfaceCanvasStore(owner, target).updateDraft("alm", id, { transferSources: "" });
+    }
+    controller.navigate(canvasDestination(owner, "alm", canvas, target, target));
+  };
+  const openProjectCreationForChanges = (sources: TransferSource[]) => {
+    const target = homeTarget(workspace.target);
+    const canvas = projectCreationCanvas({ scope: "unbound", ...(target.orgId ? { orgId: target.orgId } : {}) });
+    const id = canvasId(canvas.kind, canvas.params), store = getSurfaceCanvasStore(owner, target);
+    const selected = sources.filter(source => source.sourceId !== id);
+    if (!selected.length) { openProjectCreation(); return; }
+    if (!store.canOpenCanvas("alm", canvas)) { setProblem("Close an ALM tab before starting a project."); return; }
+    store.captureTarget("alm", id, target); store.openCanvas("alm", canvas);
+    store.updateDraft("alm", id, { transferSources: JSON.stringify(selected) });
+    controller.navigate(canvasDestination(owner, "alm", canvas, target, target));
+  };
   const selectProject = (projectId: string, worktreeId?: string, surface?: SurfaceId | null) => {
     const project = workspace.projects.find((item) => item.id === projectId);
     const stored = selection.getSnapshot();
@@ -206,7 +230,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         ...(workspace.target.projectId ? { projectId: workspace.target.projectId, ...(workspace.target.worktreeId ? { worktreeId: workspace.target.worktreeId } : {}) } : {}) },
     }),
     hrefForSurface: (surface) => destinationHref(surface === null ? globalHome : currentDestination(surface)),
-    openCanvas, openCanvasInProject, openImprovementProject, openProjectCreation: () => openCanvas("alm", projectCreationCanvas(capabilityScope)), selectProject, capabilityScope,
+    openCanvas, openCanvasInProject, openImprovementProject, openProjectCreation, openProjectCreationForChanges, selectProject, capabilityScope,
     selectCanvas: (surface, id) => {
       const slice = canvases.getSnapshot()[surface];
       const canvas = slice.canvases.find((item) => item.id === id);
@@ -241,6 +265,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     openResource: (...args) => currentActions.current.openResource(...args),
     openImprovementProject: (...args) => currentActions.current.openImprovementProject(...args),
     openProjectCreation: () => currentActions.current.openProjectCreation(),
+    openProjectCreationForChanges: (...args) => currentActions.current.openProjectCreationForChanges(...args),
     openCanvas: (...args) => currentActions.current.openCanvas(...args),
     openCanvasInProject: (...args) => currentActions.current.openCanvasInProject(...args),
     selectCanvas: (...args) => currentActions.current.selectCanvas(...args),

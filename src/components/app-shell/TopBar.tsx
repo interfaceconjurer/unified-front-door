@@ -6,6 +6,7 @@ import { ChevronRightIcon, EyeIcon, HomeIcon, LayersIcon, PanelIcon, SearchIcon 
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { previewCanvas } from "@/lib/preview/model";
+import { WorkspaceChanges } from "./WorkspaceChanges";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -63,6 +64,7 @@ export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel
             <ChevronRightIcon className={styles.projectChevron} width={13} height={13} aria-hidden="true" />
           </button>
         </>}
+        <WorkspaceChanges key={`${profile?.id}:${target.projectId}:${target.worktreeId}:${target.orgId}`} />
       </div>
         <button
           type="button"

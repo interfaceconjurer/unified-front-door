@@ -327,9 +327,9 @@ class RemoteCanvasStore {
     if (canvas) surface = canonicalCanvasSurface(surface, canvas);
     const previous = this.snapshot[surface].targets?.[id]; if (previous && stableJson(previous) !== stableJson(target)) return false;
     if (!this.prefs.captureTarget(surface, id, target)) return false;
-    // Evidence canvases are read-only views; only their local tab/target
-    // preferences persist. Opening metadata must not create a saved draft.
-    if (canvas && !isReadOnlyCanvas(canvas) && !this.remote.getSnapshot().canvases.some((c) => c.id === id)) void this.remote.enqueue({ kind: "canvas.save", canvas, surface, target, fields: {} });
+    // Browsing metadata persists only tab/target preferences. Editable object
+    // overlays start saving on an explicit field addition, never on opening.
+    if (canvas && canvas.kind !== "org-resource" && !isReadOnlyCanvas(canvas) && !this.remote.getSnapshot().canvases.some((c) => c.id === id)) void this.remote.enqueue({ kind: "canvas.save", canvas, surface, target, fields: {} });
     return true;
   };
   updateDraft = (surface: SurfaceId, id: string, fields: Record<string, string>) => {

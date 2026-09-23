@@ -91,7 +91,7 @@ test('project resource URLs preserve project and branch, with distinct global an
   for (const scope of [{ worktreeId: 'main' }, { projectId: '' }, { projectId: 'trailblazer-crm', worktreeId: '' }]) assert.equal(parseCanvasInput({ ...global, params: { ...global.params, ...scope } }), null);
 });
 
-test('reopening focuses existing resource, separate org tabs persist, and metadata cannot be saved as a draft', () => {
+test('reopening focuses existing resource, separate org tabs persist, and arbitrary metadata edits are rejected', () => {
   const disk = new Map(); global.window = { localStorage: { getItem: key => disk.get(key) ?? null, setItem: (key, value) => disk.set(key, value), removeItem: key => disk.delete(key) }, addEventListener() {}, removeEventListener() {} };
   const store = new SurfaceCanvasStore('resource-test');
   for (const orgId of ['prod', 'prod', 'uat']) {

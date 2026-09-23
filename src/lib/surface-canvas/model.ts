@@ -2,6 +2,7 @@ import type { WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { isResourceType, type ResourceIdentity } from "../org-resources/model";
 import { setupAreaForId } from "../org-resources/setup";
+import { isEditableObject } from "../org-resources/object-fields";
 export const OVERVIEW_CANVAS_ID = "overview";
 export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview", "project-file"] as const;
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
@@ -95,8 +96,16 @@ export function canvasVisibleInWorkspace(canvas: CanvasSpec | CanvasSpecInput, w
 /** Current editors accept bounded fields; older persisted content is not truncated. */
 export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
 
-/** Evidence canvases persist tab identity, never a second editable copy of the evidence. */
+/** Evidence stays read-only except for explicitly supported object field overlays. */
 export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean {
-  return canvas.kind === "project-file" || canvas.kind === "org-resource" || canvas.kind === "org-assessment" || canvas.kind === "preview"
+  return canvas.kind === "project-file" || (canvas.kind === "org-resource" && !isEditableObject(canvas.params)) || canvas.kind === "org-assessment" || canvas.kind === "preview"
     || (canvas.kind === "capability" && canvas.params.surface === "build" && !!setupAreaForId(canvas.params.capability));
+}
+
+export function canCopyCanvasToProject(from: CanvasSpecInput, to: CanvasSpecInput): boolean {
+  if (from.kind === "capability" && to.kind === "capability") return from.params.scope === "unbound" && to.params.scope === "project"
+    && from.params.capability === to.params.capability && from.params.section === to.params.section && from.params.surface === to.params.surface;
+  return from.kind === "org-resource" && to.kind === "org-resource" && !from.params.projectId && !!to.params.projectId
+    && isEditableObject(from.params) && from.params.orgId === to.params.orgId
+    && from.params.resourceType === to.params.resourceType && from.params.apiName === to.params.apiName;
 }

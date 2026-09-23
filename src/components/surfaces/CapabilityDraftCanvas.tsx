@@ -93,7 +93,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
         </div>
       </header>
 
-      <aside aria-label="Draft scope" className={styles.connectionNote}>
+      {capability.id !== "project" && <aside aria-label="Draft scope" className={styles.connectionNote}>
         {spec.params.scope === "unbound" ? <div><strong>Unbound draft</strong><p>{spec.params.orgId ? `No project selected · Org: ${orgs.find((item) => item.id === spec.params.orgId)?.label ?? spec.params.orgId}` : "This draft has no project or org target."}</p>
           {!!projects.length && <><label>Assign a copy to project <select value={assignmentProject} onChange={(event) => setAssignmentProject(event.target.value)}><option value="">Choose a project</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
           <button type="button" disabled={!assignmentProject || persistenceState !== "saved"} onClick={async () => {
@@ -106,7 +106,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
           {persistenceState !== "saved" && <p>Save or recover this draft before copying it to a project.</p>}
           {assignmentMessage && <p role="status">{assignmentMessage}</p>}
         </div> : <div><strong>Captured draft scope</strong><p>Project: {projects.find((item) => item.id === captured?.projectId)?.name ?? captured?.projectId} · Worktree: {captured?.worktreeId ?? "None"} · Org: {orgs.find((item) => item.id === captured?.orgId)?.label ?? captured?.orgId ?? "None"}</p><p>Changing workspace selection does not retarget this draft.</p></div>}
-      </aside>
+      </aside>}
       {isToolkitHome ? (
         <section aria-labelledby="toolkit-sections-heading">
           <h2 id="toolkit-sections-heading" className={styles.sectionHeading}>Add to your toolkit</h2>

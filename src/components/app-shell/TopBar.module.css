@@ -3,6 +3,7 @@
   /* Profile and project menus stay above the open workspace sidebar. */
   z-index: 50;
   display: grid;
+  /* Equal side columns keep search centered independently of either toolbar. */
   grid-template-columns: minmax(0, 1fr) minmax(16rem, 36rem) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: center;
@@ -29,7 +30,8 @@
 
 .homeLink {
   margin-inline-start: .75rem;
-  flex: 0 0 auto;
+  min-width: 0;
+  flex: 0 1 auto;
   color: inherit;
   text-decoration: none;
   border-radius: var(--slds-g-radius-border-2, 0.5rem);
@@ -40,6 +42,8 @@
   font-size: var(--slds-g-font-scale-2, 1rem);
   font-weight: 700;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .divider {
@@ -257,10 +261,10 @@
   .bar[data-project-scoped="true"] .divider { display: none; }
 }
 @media (min-width: 761px) and (max-width: 1400px) {
-  .bar { grid-template-columns: minmax(0, 1fr) minmax(16rem, 30rem) auto; }
+  .bar { grid-template-columns: minmax(0, 1fr) minmax(16rem, 30rem) minmax(0, 1fr); }
 }
 @media (min-width: 761px) and (max-width: 1000px) {
-  .bar { grid-template-columns: minmax(0, 1fr) minmax(14rem, 1fr) auto; gap: .75rem; }
+  .bar { grid-template-columns: minmax(0, 1fr) minmax(14rem, 1fr) minmax(0, 1fr); gap: .75rem; }
   .homeLink, .divider { display: none; }
   .commandLabel { display: none; }
   .commandLabelCompact { display: block; flex: 1; text-align: start; font-size: .8125rem; }
