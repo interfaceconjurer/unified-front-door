@@ -70,7 +70,7 @@ try {
     { id: "dependency-audit", work: () => run("npm", ["audit", "--include=dev", "--audit-level=moderate"]) },
     { id: "pure-tests", work: async () => {
       const suites = (await readdir("scripts")).filter(name => name.endsWith(".test.mjs") && !["database.test.mjs", "agent-database.test.mjs", "model-database.test.mjs"].includes(name)).sort();
-      const server = ["agent.test.mjs", "operations.test.mjs", "model-provider.test.mjs", "model-context.test.mjs", "model-worker.test.mjs"];
+      const server = ["agent.test.mjs", "operations.test.mjs", "model-provider.test.mjs", "model-context.test.mjs", "model-worker.test.mjs", "worker-loop.test.mjs"];
       await node(["--test", "--test-concurrency=1", ...suites.filter(name => !server.includes(name)).map(name => `scripts/${name}`)]);
       await node(["--conditions=react-server", "--test", "--test-concurrency=1", ...suites.filter(name => server.includes(name)).map(name => `scripts/${name}`)]);
     } },

@@ -20,6 +20,11 @@ import { requireSession, type OwnedSession } from "./session";
 
 export const LEASE_MS = 10000;
 export const MAX_RECOVERIES = 3;
+/** Sleep only when durable work is absent, including future steps and live
+ * leases held by another worker. Never make notification delivery authoritative. */
+export async function workerHasWork(): Promise<boolean> {
+  return transaction(async client => (await client.query("SELECT EXISTS(SELECT 1 FROM agent_runs WHERE status IN ('pending','running','streaming')) AS active")).rows[0].active);
+}
 export type RunLease = { run: RunRow; fence: number };
 const recoveryError: RunError = { code: "recovery_exhausted", message: "This attempt stopped after repeated worker interruptions. You can retry it.", retryable: true, effects: "none" };
 const uncertainError: RunError = { code: "reconciliation_required", message: "The tool outcome is uncertain. This attempt needs reconciliation before it can continue.", retryable: false, effects: "unknown" };

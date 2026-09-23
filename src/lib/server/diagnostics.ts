@@ -51,3 +51,4 @@ export function diagnoseRun(run: { id: string; request_id: string }, event: "cla
   emit({ event: "agent.run", runId: uuid.test(run.id) ? run.id : undefined, commandKey: createHash("sha256").update(run.request_id).digest("hex"), outcome: event, code: errorCode && errorCodes.has(errorCode) ? errorCode : undefined });
 }
 export function diagnoseWorker(event: "started" | "stopped" | "unavailable"): void { emit({ event: "worker.lifecycle", outcome: event }); }
+export function diagnoseWorkerWake(outcome: "available" | "unavailable"): void { emit({ event: "worker.wake", outcome }); }

@@ -1,6 +1,7 @@
 import { ApplicationError, stableJson, type SessionView } from "../application/contracts";
 import { activeRun, parseAgentCommand, type AgentAcknowledgement, type AgentCommand, type AgentReceipt, type AgentSnapshot, type RunView } from "./contracts";
 import { mergeAgentSnapshot, mergeRunProgress } from "./progress";
+import { browserActivity, browserVisible } from "../browser-activity";
 
 export const EMPTY_AGENT: AgentSnapshot = { conversations: [], runs: [] };
 const INITIAL: { data: AgentSnapshot; ready: boolean; error: string; pending: boolean; requestIssue: "retry" | "rejected" | null; recovery: string | null; acknowledged: { command: AgentCommand; receipt: AgentReceipt } | null } = { data: EMPTY_AGENT, ready: false, error: "", pending: false, requestIssue: null, recovery: null, acknowledged: null };
@@ -25,6 +26,7 @@ export class AgentClient {
   private lastProgressRun: string | null = null;
   private storageReadable = true;
   private readFailed = false;
+  private stopActivity?: () => void;
   private key: string;
   constructor(readonly session: SessionView, private transport: Transport, private businessChanged: () => void, private sessionChanged: () => void) {
     this.key = `ufd.agent-pending.v1.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}.${session.generation}`;
@@ -56,12 +58,14 @@ export class AgentClient {
   }
   start = () => {
     if (this.timer || !this.active) return;
+    this.stopActivity = browserActivity.subscribe(() => { void this.refresh(); });
     void this.refresh(); this.timer = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (!browserVisible()) return;
       if (this.sending && this.queue[0]?.command.kind === "visit") return;
       const run = this.selectedRun();
       const progressHealthy = run?.id === this.lastProgressRun && Date.now() - this.lastProgressRead < 2500;
       const active = this.view.data.runs.some(run => activeRun(run.status));
+      if (!active && !browserActivity.isActive()) return;
       if (active && !progressHealthy || this.blocked || this.readFailed || Date.now() - this.lastFullRead >= 5000) void this.refresh();
     }, 1000);
   };
@@ -78,12 +82,12 @@ export class AgentClient {
     return conversation && this.view.data.runs.find(run => run.kind === "chat" && run.conversationId === conversation.id && activeRun(run.status));
   }
   private scheduleProgress(delay = 0) {
-    if (!this.active || this.progressTimer || this.readingProgress || !this.selectedRun()) return;
+    if (!this.active || !browserVisible() || this.progressTimer || this.readingProgress || !this.selectedRun()) return;
     this.progressTimer = setTimeout(() => { this.progressTimer = null; void this.readProgress(); }, delay);
   }
   private async readProgress() {
     const run = this.selectedRun();
-    if (!this.active || !run || !this.transport.readRun || this.readingProgress) return;
+    if (!this.active || !browserVisible() || !run || !this.transport.readRun || this.readingProgress) return;
     this.readingProgress = true;
     try {
       const result = await this.transport.readRun(run.id, run.sequence);
@@ -104,6 +108,7 @@ export class AgentClient {
     }
   }
   deactivate() {
+    this.stopActivity?.(); this.stopActivity = undefined;
     this.active = false; if (this.timer) clearInterval(this.timer); this.timer = null;
     if (this.progressTimer) clearTimeout(this.progressTimer); this.progressTimer = null;
     for (const pending of this.queue) pending.resolve?.(null);

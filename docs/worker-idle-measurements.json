@@ -1,0 +1,28 @@
+{
+  "environment": "Local PostgreSQL, production web server, two independent worker processes, no browser/provider traffic",
+  "node": "22.23.2",
+  "passed": true,
+  "measurements": {
+    "beforeIdle": {
+      "workers": 1,
+      "durationMs": 30000,
+      "scans": 59,
+      "queryCalls": 177,
+      "scansPerMinute": 118,
+      "databaseLogEntries": 177
+    },
+    "afterIdle": {
+      "workers": 2,
+      "durationMs": 310004,
+      "scans": 0,
+      "queryCalls": 0,
+      "scansPerMinute": 0,
+      "databaseLogEntries": 0
+    },
+    "httpSubmitToProgressMs": 522,
+    "shutdownMs": 6,
+    "restartLeaseRecoveryMs": 10123
+  },
+  "cleanup": true,
+  "measuredOn": "2026-09-23"
+}

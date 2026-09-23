@@ -17,6 +17,7 @@ import { EMPTY_APPLICATION, RemoteWorkspaceStore } from "./remote-store";
 import { allocateBuffer } from "./buffer";
 import { AgentClient } from "../agent/client";
 import type { AgentAcknowledgement, AgentSnapshot, RunView } from "../agent/contracts";
+import { browserActivity } from "../browser-activity";
 
 async function api<T>(path: string, body?: unknown): Promise<T> {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 15000);
@@ -98,8 +99,8 @@ class ApplicationClient {
   start = () => {
     if (this.started || typeof window === "undefined") return; this.started = true; void this.reconnect();
     window.addEventListener("storage", (event) => { if (event.key === "ufd.session.changed") void this.reconnect(); });
-    window.addEventListener("focus", () => { void this.reconnect(); });
-    window.setInterval(() => { if (document.visibilityState === "visible" && !this.workspace?.hasPending()) { void this.reconnect(); } }, 5000);
+    browserActivity.subscribe(() => { void this.reconnect(); });
+    window.setInterval(() => { if (browserActivity.isActive() && !this.workspace?.hasPending()) { void this.reconnect(); } }, 5000);
   };
   /** View preferences belong to a conversation/workspace; saved drafts still
    * share the same remote owner and revision stream across those views. */
