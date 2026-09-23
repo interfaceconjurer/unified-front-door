@@ -95,6 +95,36 @@ negative runtime smoke, browser regression/fault checks, two live-database brows
 journeys, worker crash/restart recovery, and the performance protocol. Tests that
 need server-only module conditions run separately from browser/SSR tests.
 
+Pull requests run these same stage implementations in seven parallel jobs:
+code checks, database/browser persistence plus worker recovery, four browser
+regression shards, and performance. Each runtime job owns its production build
+and disposable Postgres service, so browser timing measurements do not compete
+with other suites on the same runner. `scripts/browser/suites.mjs` is the shared
+suite registry; `scripts/verification-plan.test.mjs` checks that the workflow
+matrix covers every release stage and every browser suite exactly once across
+the browser shards. Browser suites still exercise their existing motion modes.
+
+Each job reports phase durations in its summary and prints individual browser
+suite timings. The jobs finish independently even if one fails, revealing all
+failures in one run. New commits cancel superseded PR runs. The required `verify`
+check succeeds only when merge integrity and every applicable job succeed.
+Main/manual release verification still runs the complete gate and produces the
+exact-source deployment attestation; partial PR groups cannot produce one.
+Production deployments remain serialized and are never cancelled by a PR push.
+
+To reproduce one PR group locally against the isolated test database:
+
+```bash
+npm run verify:release -- --working-tree --group database
+npm run verify:release -- --working-tree --group browser-1
+```
+
+Group results and phase timings are saved in `.release/group-verification.json`
+and `.release/timings.json`. CI preserves those and the failing phase record,
+including on failure, without uploading raw server logs or credentials.
+The live-database browser journey builds its navigation URLs from the signed-in
+profile; cross-profile URLs are intentionally rejected by the app.
+
 Configure `DATABASE_TEST_URL` for an explicitly disposable, isolated target and
 `DATABASE_TEST_URL_UNPOOLED` for the same remote database's direct endpoint. The
 runner overrides both runtime URLs together, chooses a local port, and generates
