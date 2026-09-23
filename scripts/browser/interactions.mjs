@@ -2,7 +2,7 @@ import { origin, outputPath, httpCredentials } from './config.mjs';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { install, href } from './fixtures.mjs';
+import { install, href, target } from './fixtures.mjs';
 const label = process.argv[2] || 'candidate1';
 const browser = await chromium.launch({ headless: true }), out = { label, origin, checks: [], errors: [] };
 try {
@@ -98,12 +98,14 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('listbox').getByRole('option').filter({ hasText: 'Code' }).first().getByRole('button').click();
+        await dialog.getByRole('button', { name: /^Code Surface ·/ }).click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
+        assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Surface selection preserves the workspace');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');
         await page.goBack();
         await page.waitForURL('**/build?**');
+        assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Browser Back preserves the workspace');
         assert.equal(await composer.inputValue(), 'Draft survives keyboard navigation');
         out.checks.push(motion + ': palette route + browser Back preserve composer');
         await context.close();
