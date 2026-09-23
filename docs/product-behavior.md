@@ -187,9 +187,10 @@ sample preview do not expose the action.
 ## Navigator search
 
 The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
-surfaces, project records, sessions, connected orgs, and resources together.
-Exact names and API names rank ahead of prefixes, partial names, and descriptive
-matches. In the Projects tab, project/worktree groups remain connected. Result
+project records, resources, sessions, connected orgs, and surfaces in that order.
+Within each category, exact names and API names rank ahead of prefixes, partial
+names, and descriptive matches. All initially highlights the first result.
+In the Projects tab, project/worktree groups remain connected. Result
 types and project/org context distinguish similarly named destinations.
 
 Project results in **All** show **ALM**, not a Current badge, and open the project

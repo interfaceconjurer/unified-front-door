@@ -28,7 +28,7 @@ import { resourcesForOrg } from "@/lib/org-resources/catalog";
 import { SETUP_AREAS } from "@/lib/org-resources/setup";
 import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
 import { SURFACES } from "@/lib/workspace/surfaces";
-import { matchesPaletteQuery, paletteSearchRank, rankPaletteGroups } from "@/lib/navigation/palette-search";
+import { matchesPaletteQuery, rankPaletteGroups } from "@/lib/navigation/palette-search";
 import { RESOURCE_ICONS } from "@/components/surfaces/resource-icons";
 import styles from "./CommandPalette.module.css";
 import orgStyles from "@/components/workspace/OrgKind.module.css";
@@ -57,6 +57,7 @@ type Category = Exclude<Tab, "all">;
 
 const CATEGORIES: readonly Category[] = ["surfaces", "projects", "sessions", "orgs", "resources"];
 const TAB_ORDER: readonly Tab[] = ["all", ...CATEGORIES];
+const ALL_RESULT_ORDER: readonly Category[] = ["projects", "resources", "sessions", "orgs", "surfaces"];
 const TAB_LABEL: Record<Tab, string> = {
   all: "All",
   surfaces: "Surfaces",
@@ -128,8 +129,8 @@ const currentFirst = (a: PaletteItem, b: PaletteItem) => Number(b.isCurrent) - N
  *  - Orgs — connections available from login; picking one changes the target
  *    org without navigating or changing the assessment scope.
  *  - Resources — browse a connected org's metadata and open its canvas.
- * Each tab starts with the current destination highlighted, when it matches
- * the search. Type to filter, ↑/↓ to move, ←/→ to switch focused tabs, ↵ to
+ * All puts project files and resources first; category tabs start with their
+ * current destination highlighted. Type to filter, ↑/↓ to move, ←/→ to switch focused tabs, ↵ to
  * select, esc to dismiss.
  */
 export function CommandPalette({ initialTab = "all", open, onClose, onExited }: {
@@ -320,13 +321,13 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
         })).sort(currentFirst);
     }
     if (tab !== "all") return categoryItems(tab);
-    return rankPaletteGroups(CATEGORIES.flatMap(category => categoryItems(category).map(item => ({
+    return ALL_RESULT_ORDER.flatMap(category => rankPaletteGroups(categoryItems(category), query).map(item => ({
       ...item,
       // Worktree and session IDs overlap; qualify identities in the mixed list.
       id: `${category}:${item.id}`,
       description: category === "resources" ? item.description
         : `${item.indent ? "Worktree" : CATEGORY_LABEL[category]} · ${item.description}`,
-    }))), query);
+    })));
   }, [
     tab,
     query,
@@ -350,12 +351,11 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     resourceOrg,
   ]);
 
-  // Opening, switching tabs, and clearing search highlight the current item,
-  // including a worktree nested beneath its project. Search starts at its
-  // first match; explicit keyboard/pointer selection still takes precedence.
-  const defaultActive = query.trim() ? tab === "all"
-    ? items.reduce((best, item, index) => paletteSearchRank(item, query) < paletteSearchRank(items[best]!, query) ? index : best, 0)
-    : 0 : Math.max(0, items.findIndex((item) => item.isCurrent));
+  // All and searches start at the first result. Unfiltered category tabs
+  // highlight the current item, including a nested worktree. Explicit
+  // keyboard/pointer selection still takes precedence.
+  const defaultActive = tab === "all" || query.trim() ? 0
+    : Math.max(0, items.findIndex((item) => item.isCurrent));
   const safeActive = items.length ? Math.min(active ?? defaultActive, items.length - 1) : 0;
   // Keep keyboard selection visible in long org inventories without scrolling
   // the modal header or the page behind it.

@@ -36,6 +36,10 @@ try {
     assert.equal(await dialog.getByRole('button', { name: 'Clear search', exact: true }).count(), 0);
     const ids = await rows().evaluateAll(nodes => nodes.map(node => node.id));
     assert.equal(new Set(ids).size, ids.length, 'Mixed worktree/session identities must be unique');
+    const categories = ids.map(id => id.split(':')[0].replace('cmd-all-', ''));
+    assert.deepEqual(categories.filter((category, index) => category !== categories[index - 1]),
+      ['projects', 'resources', 'sessions', 'orgs', 'surfaces'], 'All prioritizes files before sessions and navigation');
+    assert.equal(await rows().first().getAttribute('aria-selected'), 'true', 'All starts at the top instead of scrolling to the current org/surface');
     await input().fill('Account');
     const beforeControls = page.url();
     await dialog.getByRole('button', { name: 'Clear search', exact: true }).click();
@@ -74,8 +78,10 @@ try {
     dialog = await open(page); await input().fill('lead routing');
     const text = await rows().allTextContents();
     const parent = text.findIndex(row => row.startsWith('Trailblazer CRM'));
-    assert(parent >= 0, 'All includes the matching project record');
+    assert.equal(parent, 0, 'Project results remain first during search');
     assert(await rows().nth(parent).getByText('ALM', { exact: true }).isVisible(), 'All shows the project record as an ALM canvas');
+    assert(text.findIndex(row => row.includes('Flow · Lead_Routing · UAT Sandbox'))
+      < text.findIndex(row => row.includes('Session · Trailblazer CRM')), 'Resources precede sessions during search');
     assert(text.some(row => row.includes('Session · Trailblazer CRM')));
     assert(text.some(row => row.includes('Flow · Lead_Routing · UAT Sandbox')));
     await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
