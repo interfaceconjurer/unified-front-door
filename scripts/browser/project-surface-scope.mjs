@@ -6,6 +6,7 @@ import { installAssessment } from './assessment-fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
 const modules = testModules(), { planProject } = modules.load('lib/projects/model');
+const { projectFromBrief } = modules.load('lib/projects/from-brief');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] }, cleanups = [];
 const main = { projectId: 'trailblazer-crm', worktreeId: 'main', orgId: 'uat' };
@@ -87,21 +88,57 @@ try {
   const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', viewport: { width: 1440, height: 1000 } });
   const fixture = await installAssessment(context, { profileId: 'sp' }); cleanups.push(fixture.cleanup);
   const projects = ['Current plan', 'Another plan'].map((name, index) => planProject({ id: `draft-${index}`, revision: 1, name, goal: 'Review captured findings', targetOrgId: 'uat', findingIds: [fixture.run.findings[0].id], runId: fixture.run.id }, fixture.run.findings, 'Sam', `create-${index}`, '2026-09-20T12:00:00Z', `plan-${index}`, ['uat']));
-  fixture.state.snapshot.assessment.projects = projects;
+  const brief = projectFromBrief({ id: 'brief-canvas', surface: 'alm', revision: 1,
+    target: { projectId: null, worktreeId: null, orgId: 'uat' },
+    canvas: { kind: 'capability', title: 'Start a project', params: { scope: 'unbound', orgId: 'uat', surface: 'alm', capability: 'project' } },
+    fields: { name: 'New app', goal: 'Make account reviews easier', projectType: 'react', context: 'Keep this context inside the project canvas.' },
+  }, 1, 'Sam', 'create-brief', '2026-09-20T12:00:00Z', 'brief-project');
+  fixture.state.snapshot.assessment.projects = [...projects, brief];
   const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
   const selected = { projectId: projects[0].id, worktreeId: null, orgId: 'uat' };
   await page.goto(origin + '/alm?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: 'alm', target: selected })));
   const panel = page.getByRole('tabpanel');
-  await panel.getByRole('heading', { name: 'Current plan', exact: true }).waitFor();
+  const table = panel.getByRole('table', { name: 'Your projects', exact: true });
+  await table.waitFor();
+  assert.equal(await table.getByRole('row').count(), 2, 'Selected project scope shows just its row and the table header');
+  assert.equal(await panel.getByRole('heading', { name: 'Current plan', exact: true }).count(), 0);
+  assert.equal(await panel.getByRole('heading', { name: 'Work items & plans', exact: true }).count(), 0);
   assert.equal(await panel.getByText('Another plan', { exact: true }).count(), 0);
-  assert.equal(await panel.getByRole('button', { name: 'Start a project', exact: true }).count(), 0);
+  assert(await panel.getByRole('region', { name: 'Start planning', exact: true }).getByRole('button', { name: /^Start a project/ }).isVisible());
   assert.deepEqual(destination(page).target, selected);
+  await table.getByRole('button', { name: 'Current plan', exact: true }).click();
+  await panel.getByRole('heading', { name: 'Current plan', exact: true }).waitFor();
+  assert.equal(destination(page).canvas.kind, 'improvement-project');
+  assert.deepEqual(destination(page).target, selected);
+  await panel.getByRole('heading', { name: 'Work items & plans', exact: true }).waitFor();
+  await page.reload();
+  await panel.getByRole('heading', { name: 'Current plan', exact: true }).waitFor();
+  await overview(page, 'ALM');
+  await table.waitFor();
+  assert.equal(await panel.getByRole('heading', { name: 'Work items & plans', exact: true }).count(), 0);
   await page.getByRole('link', { name: 'Global home', exact: true }).click();
   await page.waitForURL(url => url.pathname === '/');
   await page.goto(origin + '/alm?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: 'alm', target: { ...selected, projectId: null } })));
-  await panel.getByRole('heading', { name: 'Turn opportunities into progress.', exact: true }).waitFor();
-  assert.equal(await panel.getByRole('button').filter({ hasText: 'Another plan' }).count(), 1);
-  out.checks.push('Assessment ALM shows only the selected project plan; its cross-project overview remains global');
+  await panel.getByRole('heading', { name: 'Your projects', exact: true }).waitFor();
+  assert.equal(await table.getByRole('row').count(), 4);
+  assert.equal(await table.getByRole('button', { name: 'Another plan', exact: true }).count(), 1);
+  assert(await table.getByRole('row').filter({ hasText: 'New app' }).getByRole('cell', { name: 'No work items yet', exact: true }).isVisible());
+  await page.screenshot({ path: outputPath(`${label}-alm-projects-table.png`) });
+  await page.setViewportSize({ width: 760, height: 1050 });
+  await table.scrollIntoViewIfNeeded();
+  assert(await table.evaluate(node => node.getBoundingClientRect().right <= innerWidth), 'The compact table fits a narrow viewport');
+  await page.screenshot({ path: outputPath(`${label}-alm-projects-table-narrow.png`) });
+  await table.getByRole('button', { name: 'New app', exact: true }).click();
+  await panel.getByRole('heading', { name: 'New app', exact: true }).waitFor();
+  await panel.getByRole('heading', { name: 'Project goal', exact: true }).waitFor();
+  assert.equal(destination(page).canvas.params.projectId, brief.id);
+  assert.deepEqual(destination(page).target, { ...selected, projectId: null }, 'Global browsing opens a dedicated canvas without selecting a project or changing the connected org');
+  await overview(page, 'ALM');
+  assert.equal(await panel.getByRole('heading', { name: 'Project goal', exact: true }).count(), 0);
+  await table.getByRole('button', { name: 'Another plan', exact: true }).click();
+  await panel.getByRole('heading', { name: 'Another plan', exact: true }).waitFor();
+  assert.equal(destination(page).canvas.params.projectId, projects[1].id);
+  out.checks.push('ALM keeps project summaries in a scoped table; assessment and brief rows open dedicated canvases, preserve global/project scope and org, survive reload, and fit narrow layouts without inline plans');
   await context.close();
 } catch (error) { out.errors.push(error.stack); }
 finally {

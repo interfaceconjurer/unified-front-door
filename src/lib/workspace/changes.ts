@@ -8,6 +8,7 @@ import { primaryWorktree, type SurfaceId } from "./model";
 import type { WorkspaceTarget } from "./context";
 import { projectFiles, projectFileCanvas, workFilePath } from "./project-files";
 import { findResource } from "../org-resources/catalog";
+import { isEditablePermissions, permissionFileContent } from "../org-resources/permissions";
 import { objectFileContent, parseObjectFields } from "../org-resources/object-fields";
 
 export type FileChange = {
@@ -62,6 +63,14 @@ export function workspaceChanges(profileId: DemoProfileId, target: WorkspaceTarg
       || isReadOnlyCanvas(draft.canvas) || !profile.surfaceAccess.includes(draft.surface)) continue;
     const canvas = draft.canvas;
     if (canvas.kind === "org-resource") {
+      if (isEditablePermissions(canvas.params)) {
+        const counts = lineChanges(permissionFileContent(), permissionFileContent(draft.fields));
+        if (counts.additions || counts.deletions) {
+          const path = `.orgs/${segment(canvas.params.orgId)}/access/Service_Reps.assignments.json`;
+          changes.set(draft.id, { id: draft.id, path, status: "M", ...counts, surface: draft.surface, canvas, source: "draft", draft });
+        }
+        continue;
+      }
       const resource = findResource(canvas.params), fields = parseObjectFields(canvas.params, draft.fields);
       if (!resource || !fields?.length) continue;
       const path = `.orgs/${segment(canvas.params.orgId)}/objects/${segment(canvas.params.apiName)}.object.json`;

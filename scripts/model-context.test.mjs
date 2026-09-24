@@ -7,9 +7,9 @@ const { modelExecution, captureModelExecution } = modules.load("lib/server/model
 const { MODEL_POLICY, serializeModelRequest } = modules.load("lib/server/model-provider");
 const { parseAgentCommand } = modules.load("lib/agent/contracts");
 const settings = { policy: MODEL_POLICY, globalDailyCalls: 10, namespaceDailyCalls: 5 };
-const context = { profile: modules.load("lib/demo-profiles").demoProfileById("sp"), target: { projectId: null, worktreeId: null, orgId: null }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
+const context = { profile: modules.load("lib/demo-profiles").demoProfileById("sp"), target: { projectId: null, worktreeId: null, orgId: "prod" }, surface: "home", capturedAt: "2026-09-16T00:00:00Z", projectName: "Workspace", branch: "Planning", orgLabel: null, improvement: null };
 const finding = (id, orgId = "prod") => ({ id, orgId, title: `Finding ${id}`, runId: "assessment", evidence: ["Captured sample evidence"] });
-const assessment = { currentRunId: "assessment", runs: [{ id: "assessment", completedAt: "2026-09-16T00:00:00Z", source: { adapter: "demo", version: "1" }, findings: [finding("A"), finding("B", "sit")] }] };
+const assessment = { currentRunId: "assessment", runs: [{ id: "assessment", scopeOrgIds: ["prod", "sit"], completedAt: "2026-09-16T00:00:00Z", source: { adapter: "demo", version: "1" }, findings: [finding("A"), finding("B", "sit")] }] };
 const evidence = execution => JSON.parse(execution.prompt.messages.at(-1).content).evidence;
 
 test("model snapshot includes completed evidence and detaches all mutable source records", () => {
@@ -97,4 +97,18 @@ test('a project created from a brief keeps its intent without inheriting the cur
   assert.equal(captured.project.sourceRunId, null);
   assert.equal(captured.assessment, null);
   assert.deepEqual(captured.findings, []);
+});
+
+test('permission reasoning captures current workspace assignments separately from the connected org', () => {
+  const permissionContext = { ...context, surface: 'build', target: { ...context.target, orgId: 'uat' },
+    canvas: { kind: 'org-resource', title: 'Service Reps', params: { orgId: 'prod', resourceType: 'permission-set-group', apiName: 'Service_Reps' } },
+    permissions: { revision: 4, fields: { maya_chen: 'standard' } } };
+  const captured = modelExecution(permissionContext, assessment, 'How should we validate this change?', [], settings);
+  permissionContext.permissions.fields.maya_chen = '';
+  const permissions = evidence(captured).permissions;
+  assert.equal(permissions.sourceOrgId, 'prod'); assert.equal(permissions.revision, 4);
+  assert.equal(permissions.users.find(user => user.id === 'maya_chen').canDelete, false);
+  assert.equal(permissions.users.filter(user => user.canDelete).length, 5);
+  assert.match(permissions.state, /connected org has not been changed/);
+  assert.equal(evidence(captured).workspace.target.orgId, 'uat');
 });

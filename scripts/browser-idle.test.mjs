@@ -6,6 +6,7 @@ after(() => modules.cleanup());
 const { AgentClient } = modules.load('lib/agent/client');
 const { browserActivity } = modules.load('lib/browser-activity');
 const session = { namespaceId: 'n', profileId: 'am', generation: 'g', workspaceEpoch: 'e', expiresAt: 'future' };
+const context = { target: { projectId: null, worktreeId: null, orgId: 'prod' }, surface: 'build' };
 const flush = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 async function advance(t, ms) { for (let elapsed = 0; elapsed < ms; elapsed += 500) { t.mock.timers.tick(Math.min(500, ms - elapsed)); await flush(); } }
 function browser(t) {
@@ -27,7 +28,7 @@ test('idle agent history stops after a minute, including read failures; input re
 });
 test('active runs keep refreshing without input; hidden tabs pause and visibility resumes', async t => {
   browser(t); let reads = 0, terminal = false;
-  const client = new AgentClient(session, { read: async () => { reads++; return { runs: [{ id: 'r', kind: 'chat', status: terminal ? 'completed' : 'running', sequence: terminal ? 2 : 1 }], conversations: [] }; } }, () => {}, () => {});
+  const client = new AgentClient(session, { read: async () => { reads++; return { runs: [{ id: 'r', kind: 'chat', context, status: terminal ? 'completed' : 'running', sequence: terminal ? 2 : 1 }], conversations: [] }; } }, () => {}, () => {});
   try {
     client.start(); await flush(); await advance(t, 65000); const activeReads = reads;
     await advance(t, 10000); assert(reads > activeReads);
@@ -39,7 +40,7 @@ test('active runs keep refreshing without input; hidden tabs pause and visibilit
 });
 test('selected streaming progress also pauses while hidden and resumes on visibility', async t => {
   browser(t); let progressReads = 0;
-  const run = { id: 'r', conversationId: 'c', kind: 'chat', status: 'streaming', sequence: 1 };
+  const run = { id: 'r', conversationId: 'c', kind: 'chat', context, status: 'streaming', sequence: 1 };
   const client = new AgentClient(session, {
     read: async () => ({ runs: [run], conversations: [{ id: 'c', threadKey: 'thread', revision: 1, conversation: { scopeKey: 'home', messages: [] } }] }),
     readRun: async () => { progressReads++; return { run }; },

@@ -16,6 +16,7 @@ import {
   type CapabilityField, type SurfaceCapability,
 } from "./surface-capabilities";
 import { useSurfaceCanvasActions } from "./surface-canvas-context";
+import { CapabilityHeader } from "./CapabilityHeader";
 import styles from "./CapabilityDraftCanvas.module.css";
 
 function DraftFields({ fields, draft, onChange }: {
@@ -85,13 +86,7 @@ export function CapabilityDraftCanvas({ surfaceId, capability, spec }: {
 
   return (
     <article>
-      <header className={styles.header}>
-        <span className={styles.icon} aria-hidden="true"><Icon width={23} height={23} /></span>
-        <div>
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </header>
+      <CapabilityHeader title={title} description={description} Icon={Icon} />
 
       {capability.id !== "project" && <aside aria-label="Draft scope" className={styles.connectionNote}>
         {spec.params.scope === "unbound" ? <div><strong>Unbound draft</strong><p>{spec.params.orgId ? `No project selected · Org: ${orgs.find((item) => item.id === spec.params.orgId)?.label ?? spec.params.orgId}` : "This draft has no project or org target."}</p>

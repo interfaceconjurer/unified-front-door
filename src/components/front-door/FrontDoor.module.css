@@ -1,7 +1,6 @@
 .frontDoor {
-  /* Declare the scheme in this compiled stylesheet too: SLDS's external CSS
-     cannot supply the variables generated when light-dark() is transformed. */
-  color-scheme: light dark;
+  /* Share the chosen scheme; global root rules supply compiled color fallbacks. */
+  color-scheme: var(--app-color-scheme, light dark);
   display: flex;
   flex-direction: column;
   width: 100%;

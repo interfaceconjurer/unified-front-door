@@ -141,6 +141,15 @@ export class RemoteWorkspaceStore implements PersistenceControls {
   /** Every edit is buffered synchronously; only transport dispatch is coalesced. */
   enqueueEdit = (operation: Extract<ApplicationOperation, { kind: "canvas.save" | "draft.edit" }>) => this.enqueue(operation, crypto.randomUUID(), true);
   flushEdits = () => { clearTimeout(this.editTimer); this.editTimer = undefined; this.editStarted = 0; void this.drain(); };
+  /** Preserve manual edits before another channel changes the same draft. */
+  settleEdits = async (): Promise<boolean> => {
+    if (!this.active || this.blocked || this.bufferInvalid || !this.isReady()) return false;
+    const results = this.pending.map(command => this.results.get(command.commandId));
+    if (results.some(result => !result)) return false;
+    this.flushEdits();
+    for (const result of results) if (!await result) return false;
+    return this.active && !this.blocked && !this.pending.length;
+  };
   private scheduleEdits() {
     const now = Date.now();
     this.editStarted ||= now;

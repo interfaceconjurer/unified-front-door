@@ -34,7 +34,7 @@ try {
     await create.click();
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination') ?? '{}').target?.projectId?.startsWith('project-'));
     const project = fixture.state.snapshot.assessment.projects[0];
-    assert.equal(project.name, name); assert.equal(project.projectType, 'react'); assert.equal(project.targetOrgId, orgId);
+    assert.equal(project.name, name); assert.equal(project.projectType, 'react'); assert.equal(project.targetOrgId, null);
     await page.getByRole('heading', { name, exact: true }).waitFor();
     assert.equal(await panel.getAttribute('data-open'), 'true');
     await panel.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).waitFor();
@@ -93,7 +93,7 @@ try {
     assert.equal(fixture.state.snapshot.assessment.projects.length, 2);
     const second = fixture.state.snapshot.assessment.projects.find(saved => saved.id !== project.id);
     assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.projectId, second.id);
-    assert.equal(second.targetOrgId, orgId); assert.equal(fixture.state.snapshot.assessment.projects[0].name, name);
+    assert.equal(second.targetOrgId, null); assert.equal(fixture.state.snapshot.assessment.projects[0].name, name);
     assert(!fixture.state.snapshot.canvases.some(saved => saved.canvas.kind === 'capability' && saved.canvas.params.capability === 'project' && saved.target.projectId), 'New project briefs are never attached to the previous project');
     out.checks.push(`${owner}: create, sidebar entry, reload, explicit reopen, retained intent, and second project through global ALM with Back/draft preservation${!orgId ? ' without an org' : ''}`);
     await page.screenshot({ path: outputPath(`${label}-created-${owner}.png`) });

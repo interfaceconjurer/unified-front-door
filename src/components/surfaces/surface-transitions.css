@@ -11,7 +11,8 @@
   animation: none;
 }
 
-:root:active-view-transition-type(canvas-change)::view-transition {
+/* Snapshots animate the content, but never intercept live navigation controls. */
+::view-transition {
   pointer-events: none;
 }
 

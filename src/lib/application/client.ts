@@ -369,7 +369,7 @@ function assessmentAdapter(workspace: RemoteWorkspaceStore | null) { return {
   canKeepLocalChanges: () => workspace?.canKeepLocalChanges() ?? false,
   getError: () => workspace?.getError() ?? "",
   hasBufferFailure: () => workspace?.hasBufferFailure() ?? false,
-  start: () => { void workspace?.enqueue({ kind: "assessment.start" }); },
+  start: (orgId?: string) => { void workspace?.enqueue({ kind: "assessment.start", ...(orgId ? { orgId } : {}) }); },
   advance: () => { if (!workspace?.hasPending()) void workspace?.enqueue({ kind: "assessment.advance" }); },
   pause: () => { void workspace?.enqueue({ kind: "assessment.pause" }); },
   rescan: (orgIds: string[]) => { void workspace?.enqueue({ kind: "assessment.rescan", orgIds }); },

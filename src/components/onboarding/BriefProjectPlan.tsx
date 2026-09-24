@@ -31,7 +31,7 @@ export function BriefProjectPlan({ project }: { project: SavedProject }) {
     <header className={styles.projectHeader}>
       <p className={styles.kicker}>{template.label} · PROJECT</p>
       <h1>{project.name}</h1><p>Your project is ready.</p>
-      <div className={styles.projectMeta}><span>Owner · {project.owner}</span><span>{orgs.find(org => org.id === project.targetOrgId)?.label ?? "No target org"}</span></div>
+      <div className={styles.projectMeta}><span>Owner · {project.owner}</span><span>Deployment target · {orgs.find(org => org.id === project.targetOrgId)?.label ?? "Choose later"}</span></div>
     </header>
     <section className={styles.evidence}><h2>Project goal</h2><p style={{ whiteSpace: "pre-wrap" }}>{project.goal}</p></section>
     {project.context && <section className={styles.evidence}><h2>Project context</h2><p style={{ whiteSpace: "pre-wrap" }}>{project.context}</p></section>}

@@ -45,7 +45,7 @@ export async function installAssessment(context, { profileId = 'sp', beforeComma
     const target = command.context.target, threadKey = JSON.stringify(target.projectId ? ['project-session', target.projectId, target.worktreeId] : ['unbound-session', null]);
     let saved = state.agent.conversations.find(saved => saved.threadKey === threadKey);
     if (!saved) { saved = { id: randomUUID(), threadKey, revision: 0, conversation: { scopeKey: 'home', messages: [] } }; state.agent.conversations.push(saved); }
-    const today = captureToday({ capturedAt: new Date().toISOString(), profile, scope: 'global', projectName: 'All projects', branch: '', hasProjects: !!recent.length || !!state.snapshot.assessment.projects.length, recent, working: recent.filter(work => work.status === 'working').length, assessment: state.snapshot.assessment });
+    const today = captureToday({ capturedAt: new Date().toISOString(), profile, scope: 'global', projectName: 'All projects', branch: '', hasProjects: !!recent.length || !!state.snapshot.assessment.projects.length, recent, working: recent.filter(work => work.status === 'working').length, assessment: state.snapshot.assessment, orgId: target.orgId });
     const withOrg = updateConversation(saved.conversation, { type: 'org', orgId: target.orgId, label: ASSESSMENT_ORGS.find(org => org.id === target.orgId)?.label ?? null });
     saved.conversation = updateConversation(withOrg, command.context.surface === 'home'
       ? target.projectId ? { type: 'project', label: 'Project', reply: 'Your saved project plan is ready to review.' } : { type: 'today', snapshot: today, force: command.refreshToday }

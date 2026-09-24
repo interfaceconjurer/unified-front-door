@@ -30,7 +30,8 @@ try {
         assert(['assessment.start', 'assessment.pause'].includes(command.kind), 'No automatic import or unrelated mutation');
         const saved = state.snapshot.assessment;
         if (command.kind === 'assessment.start' && saved.status !== 'running') {
-          saved.status = 'running'; saved.currentRunId = 'assessment-startup';
+          saved.status = 'running'; saved.currentRunId = 'assessment-startup'; saved.scopeOrgIds = ['prod'];
+          if (!saved.runs.length) saved.runs.push({ id: saved.currentRunId, scopeOrgIds: ['prod'], startedAt: '2026-09-17T12:00:00Z', completedAt: null, findings: [], source: { adapter: 'demo-org-assessment', version: '1' } });
           state.snapshot.assessmentRevision++;
           state.agent.runs = [{ id: 'assessment-startup-execution', requestId: command.commandId, turnId: null, conversationId: null, retryOf: null,
             kind: 'assessment', status: 'running', sequence: state.snapshot.assessmentRevision, createdAt: '2026-09-17T12:00:00.000Z', updatedAt: '2026-09-17T12:00:00.000Z',
@@ -42,7 +43,7 @@ try {
         return route.fulfill({ json: { result: { revision: state.snapshot.assessmentRevision } } });
       });
       const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
-      await page.goto(origin + '/');
+      await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: null, target: { projectId: null, worktreeId: null, orgId: 'prod' } })));
       await page.locator('[data-assessment-run-id="assessment-startup-execution"]').waitFor({ state: 'attached' });
       assert(commands.includes('assessment.start'), `${name}: automatic assessment must start`);
       assert.equal(await page.evaluate(key => localStorage.getItem(key), key), source);
@@ -57,7 +58,7 @@ try {
       await page.getByRole('button', { name: 'Resume assessment', exact: true }).click();
       await page.locator('[data-run-status="running"]').waitFor({ state: 'attached' });
 
-      state.snapshot.assessment.status = 'complete'; state.snapshot.assessment.step = 5;
+      state.snapshot.assessment.status = 'complete'; state.snapshot.assessment.step = 5; state.snapshot.assessment.runs[0].completedAt = '2026-09-17T12:05:00Z';
       state.agent.runs[0].status = 'completed'; state.agent.runs[0].sequence++;
       await page.getByRole('button', { name: 'Run again', exact: true }).waitFor();
       const count = commands.length;

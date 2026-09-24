@@ -11,7 +11,7 @@ import { orgsForProfile } from "@/lib/workspace/orgs";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
 import { getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
-import { useAssessmentRunner } from "@/components/onboarding/use-assessment";
+import { useAssessment, useAssessmentRunner } from "@/components/onboarding/use-assessment";
 import { workspaceProject } from "@/lib/onboarding/assessment";
 
 export type WorkspacePanelFilter = "all" | "projects" | "apps";
@@ -40,7 +40,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const { profile, resolved } = useDemoProfile();
   const [panelFilter, setPanelFilter] = useState<WorkspacePanelFilter>("all");
   const [projectPanelRequest, setProjectPanelRequest] = useState(0);
-  const assessment = useAssessmentRunner();
+  const { state: assessment } = useAssessment();
   const pathname = usePathname(), search = useSearchParams();
   const route = `${pathname}?${search.toString()}`;
   const projects = useMemo(() => [...(profile ? projectsForProfile(profile.id) : []), ...assessment.projects.map(workspaceProject)], [assessment.projects, profile]);
@@ -78,6 +78,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       activeProject: context.project, activeWorktree: context.worktree, activeOrg: context.org,
       agentSessions: context.project?.agentSessions ?? [], sessionKey: context.sessionKey };
   }, [projects, orgs, selection, resolved, destination, pathname, store, panelFilter, projectPanelRequest]);
+  useAssessmentRunner(value.target.orgId);
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
 }
 export function useWorkspace(): WorkspaceContextValue {

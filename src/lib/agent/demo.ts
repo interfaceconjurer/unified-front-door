@@ -31,7 +31,7 @@ export function demoReply(input: Extract<RunInput, { kind: "chat" }>): string {
       : "All work items are marked complete. Review the acceptance criteria and the sandbox validation evidence before planning a release.";
   }
   if (c.profile.onboarding) return /project/i.test(text)
-    ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, sandbox, and work item plans, then choose Create project."
+    ? "Return to the home assessment, select the opportunities you want to address, and choose Shape a project. Review its goal, optional deployment target, and work item plans, then choose Create project."
     : "The demo assessment reviews usage and limits, automation failures, and release readiness for your selected orgs. Each finding includes sample evidence and an approach to investigate. Review the scope and findings on the home screen.";
   if (destination) return `I’d start this in ${SURFACES[destination].label}. I’ll carry your goal and the context we establish here into that workspace.`;
   if (c.surface === "home") return /plan|steps|approach/i.test(text)

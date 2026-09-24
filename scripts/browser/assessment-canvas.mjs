@@ -17,13 +17,13 @@ try {
     canvas: { kind: 'org-assessment', title: findingId ? run.findings[0].title : 'Org assessment', params: { scope: 'unbound', orgId: 'uat', runId, ...(findingId ? { findingId } : {}) } } });
   const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
   await page.goto(origin + destinationHref({ version: 1, owner: 'sp', surface: null, target }));
-  await page.getByRole('button', { name: /orgs in scope/ }).click();
+  await page.getByRole('button', { name: 'UAT Sandbox', exact: true }).click();
   await page.waitForURL(url => url.pathname === '/build');
   let routed = JSON.parse(new URL(page.url()).searchParams.get('destination'));
   assert.deepEqual(routed.target, target); assert.equal(routed.canvas.kind, 'org-assessment'); assert.equal(routed.canvas.params.runId, run.id);
   await page.getByRole('heading', { name: 'Org assessment', exact: true }).waitFor();
-  assert(await page.getByRole('checkbox', { name: /Hotfix Scratch/ }).isDisabled());
-  out.checks.push('Today scope opens Build assessment with the selected org and captured run; expired org excluded');
+  assert.equal(await page.getByRole('checkbox').count(), 0, 'Scope follows the connection rather than a multi-org picker');
+  out.checks.push('Today scope opens Build assessment with the selected org and captured run; new scans follow one selected connected org');
   const oldFindingHref = origin + destinationHref(destination(run.id, run.findings[0].id));
   await page.goto(oldFindingHref);
   await page.getByText(run.findings[0].evidence[0], { exact: true }).waitFor();
@@ -43,7 +43,7 @@ try {
   });
   const rescanned = page.waitForResponse(response => response.url().includes('/api/application') && response.request().method() === 'POST'
     && response.request().postDataJSON().command.kind === 'assessment.rescan');
-  await page.getByRole('button', { name: 'Analyze selected orgs', exact: true }).click();
+  await page.getByRole('button', { name: 'Run assessment', exact: true }).click();
   const rescanResponse = await rescanned;
   const newRunId = state.snapshot.assessment.currentRunId;
   assert.notEqual(newRunId, run.id);

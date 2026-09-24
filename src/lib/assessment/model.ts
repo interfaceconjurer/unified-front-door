@@ -1,6 +1,6 @@
 /** Assessment history is application data, independent of live catalogs. */
 export type Finding = {
-  id: string; orgId: string; category: "Limits" | "Automation" | "Release readiness" | "Unknown";
+  id: string; orgId: string; category: "Access" | "Limits" | "Automation" | "Release readiness" | "Unknown";
   priority: "High" | "Medium" | "Unknown"; title: string; summary: string; metric: string;
   metricLabel: string; effort: string; impact: string; evidence: readonly string[];
   source: string; hypothesis: string; steps: readonly string[]; validation: string;

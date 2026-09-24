@@ -9,10 +9,10 @@ import { SurfaceLauncher } from "./SurfaceLauncher";
 import { ReturningSurface } from "./ReturningSurface";
 import { BuildSetupAreas } from "./BuildSetupAreas";
 import { LazyFeature } from "@/components/interaction/LazyFeature";
-const loadProjects = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectsOverview }));
+const loadProjects = () => import("./ProjectsTable").then(module => ({ default: module.ProjectsTable }));
 import styles from "./SurfaceProjection.module.css";
 
-/** First visits introduce the tools; established workspaces center current work. */
+/** ALM always exposes its tools; other surfaces adapt to workspace experience. */
 export function SurfaceProjection({ surfaceId, children }: {
   surfaceId: SurfaceId;
   children?: React.ReactNode;
@@ -21,8 +21,12 @@ export function SurfaceProjection({ surfaceId, children }: {
   const { profile } = useDemoProfile();
   const { target } = useWorkspace();
   const { state } = useAssessment();
-  if (surfaceId === "alm" && (profile?.onboarding === "org-assessment" || state.projects.some(project => project.id === target.projectId))) {
-    return <LazyFeature load={loadProjects} properties={{}} />;
+  if (surfaceId === "alm") {
+    const hasSavedProjects = state.projects.some(project => !target.projectId || project.id === target.projectId);
+    return <ReturningSurface surfaceId={surfaceId}>
+      {children}
+      {hasSavedProjects && <LazyFeature load={loadProjects} properties={{}} />}
+    </ReturningSurface>;
   }
   if (profile?.workspaceExperience === "established") {
     return <ReturningSurface surfaceId={surfaceId}>{children}</ReturningSurface>;

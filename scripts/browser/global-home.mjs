@@ -123,10 +123,10 @@ try {
     await page.waitForURL(url => url.pathname === '/code');
     await homeButton.click();
     await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
-    assert.equal(destination(page).target.orgId, 'uat', 'Home retains the org selected in the project');
+    assert.equal(destination(page).target.orgId, null, 'Opening a project preserves the unselected connection');
     assert.deepEqual(state.agent.conversations.find(saved => saved.threadKey === key({})).conversation.messages.at(-1), initialToday, 'The first project return must reuse Today even when it brings back a newly selected org');
     assert.equal(await page.getByRole('article', { name: 'Today briefing' }).count(), 1);
-    out.checks.push(`${motion}: first return from a project carries its org without duplicating the existing Today`);
+    out.checks.push(`${motion}: project entry preserves the connection and return reuses the existing Today`);
     const earlierChat = page.getByRole('complementary', { name: 'Earlier org conversations' });
     await earlierChat.getByText('Earlier conversation · Production', { exact: true }).click();
     await earlierChat.getByText('Earlier Production discussion is preserved.', { exact: true }).waitFor();
@@ -155,7 +155,7 @@ try {
     await orgDialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).getByRole('button').click();
     await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
     assert.equal(await homeButton.getAttribute('aria-current'), 'location', 'Home stays selected during global surface browsing');
-    await page.getByText('Target org · Production', { exact: true }).waitFor();
+    await page.getByText('Connected org · Production', { exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeResource, 'Opening a surface from Today must keep the continuous conversation sharp');
@@ -206,7 +206,7 @@ try {
     await orgDialog.getByRole('option').filter({ hasText: 'UAT Sandbox' }).getByRole('button').click();
     await page.waitForFunction(() => {
       const messages = [...document.querySelectorAll('[data-kind="context"]')];
-      return messages.at(-1)?.textContent.startsWith('Target org · UAT Sandbox');
+      return messages.at(-1)?.textContent.startsWith('Connected org · UAT Sandbox');
     });
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Org changes stay in the same continuous chat without a dissolve');

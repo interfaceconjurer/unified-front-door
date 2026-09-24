@@ -15,7 +15,7 @@
     "predev": "node scripts/copy-slds.mjs && npm run build:worker",
     "prebuild": "node scripts/copy-slds.mjs",
     "test:persistence": "node --test scripts/persistence.test.mjs",
-    "test:domain": "node --test scripts/domain.test.mjs scripts/org-resources.test.mjs scripts/demo-profiles.test.mjs scripts/project-explorer.test.mjs scripts/workspace-changes.test.mjs scripts/object-fields.test.mjs scripts/change-transfer.test.mjs",
+    "test:domain": "node --test scripts/domain.test.mjs scripts/org-resources.test.mjs scripts/demo-profiles.test.mjs scripts/project-explorer.test.mjs scripts/workspace-changes.test.mjs scripts/object-fields.test.mjs scripts/change-transfer.test.mjs scripts/permissions.test.mjs",
     "test:navigation": "node --test scripts/navigation.test.mjs scripts/palette-search.test.mjs scripts/starters.test.mjs scripts/assessment-canvas.test.mjs scripts/alm-app-migration.test.mjs",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/database.mjs migrate",
     "test:application": "node --test scripts/application.test.mjs scripts/profile-reset.test.mjs",

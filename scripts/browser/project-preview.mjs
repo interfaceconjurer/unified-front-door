@@ -62,7 +62,8 @@ try {
     assert.equal(await launch.count(), 0);
     await preview.getByRole('button', { name: 'Open worktree lead-routing in Trailblazer CRM', exact: true }).click();
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === 'trailblazer-crm');
-    assert.deepEqual(current(page).target, target);
+    assert.deepEqual(current(page).target, { ...target, orgId: global.orgId });
+    assert.deepEqual(current(page).canvasTarget, target);
     assert.equal(current(page).canvas.kind, 'preview');
     await page.goBack(); await preview.getByRole('button', { name: /^Open worktree/ }).waitFor();
     assert.deepEqual(current(page).target, global);

@@ -20,7 +20,61 @@ async function open(page, surface) {
   assert.equal(await trigger(page).getAttribute('aria-expanded'), 'true');
   assert.equal(await item(page, surface).getAttribute('aria-checked'), 'true');
 }
+// One physical click, without Playwright waiting for transition overlays to
+// disappear or retrying a missed target. Navigation must work during motion.
+async function clickOnce(page, locator) {
+  const box = await locator.boundingBox();
+  assert(box, 'The navigation control is visible');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
 try {
+  for (const motion of ['no-preference', 'reduce']) {
+    const context = await browser.newContext({ httpCredentials, reducedMotion: motion, viewport: { width: 1440, height: 1000 } });
+    const fixture = await installAssessment(context); cleanups.push(fixture.cleanup);
+    const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
+    const target = { projectId: null, worktreeId: null, orgId: 'prod' };
+    await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'sp', surface: null, target })));
+    const opportunities = page.getByRole('checkbox', { name: /^Include / });
+    await opportunities.first().waitFor();
+    await page.waitForFunction(() => document.querySelector('fieldset[aria-label="Today"]').getAnimations({ subtree: true })
+      .every(animation => animation.effect.getComputedTiming().iterations === Infinity || animation.playState === 'finished'));
+    for (let index = 0; index < await opportunities.count(); index++) await opportunities.nth(index).setChecked(index === 0);
+    await page.getByRole('button', { name: 'Shape a project', exact: true }).click();
+    const name = page.getByLabel('Project name', { exact: true }); await name.waitFor();
+    await name.fill('Keep Sam’s project draft');
+    const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
+    await composer.fill('Keep Sam’s unsent note');
+    await settle(page);
+    // Stretch the existing surface motion so the checks can reliably exercise
+    // its live frames, rather than depend on machine speed or click retries.
+    await page.addStyleTag({ content: '::view-transition-group(.surface-swap), ::view-transition-old(.surface-swap), ::view-transition-new(.surface-swap) { animation-duration: 3s; }' });
+    await clickOnce(page, surfaceTab(page, 'alm'));
+    await page.waitForFunction(() => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() === 'ALM');
+    await page.getByRole('tab', { name: 'Start a project', exact: true }).click(); await name.waitFor();
+    assert.equal(await name.inputValue(), 'Keep Sam’s project draft');
+    await open(page, 'alm');
+    assert.deepEqual(await menu(page).getByRole('menuitemradio').allTextContents(), ['Build & Setup', 'ALM']);
+    await clickOnce(page, item(page, 'build'));
+    await page.waitForURL(url => url.pathname === '/build');
+    if (motion === 'no-preference') await page.waitForFunction(() => document.getAnimations().some(animation => animation.animationName === 'surface-land' && animation.playState === 'running'));
+    await clickOnce(page, trigger(page));
+    await page.waitForFunction(() => document.querySelector('[role="menu"][aria-label="Switch surface"]')?.matches(':popover-open'), undefined, { timeout: 1500 });
+    await clickOnce(page, item(page, 'alm'));
+    await page.waitForURL(url => url.pathname === '/alm'); await name.waitFor();
+    if (motion === 'no-preference') await page.waitForFunction(() => document.getAnimations().some(animation => animation.animationName === 'surface-land' && animation.playState === 'running'));
+    await clickOnce(page, surfaceTab(page, 'alm'));
+    await page.waitForFunction(() => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() === 'ALM');
+    assert.equal(destination(page).canvas, undefined);
+    assert.deepEqual(destination(page).target, target);
+    await page.getByRole('tab', { name: 'Start a project', exact: true }).click(); await name.waitFor();
+    assert.equal(await name.inputValue(), 'Keep Sam’s project draft');
+    assert.equal(await composer.inputValue(), 'Keep Sam’s unsent note');
+    assert.equal(fixture.state.snapshot.assessment.draft.findingIds.length, 1);
+    assert.equal(fixture.commands.filter(command => command.kind === 'draft.begin').length, 1);
+    assert(!fixture.commands.some(command => command.kind === 'project.create'));
+    out.checks.push(`${motion}: Sam shapes one opportunity; one physical click opens ALM overview or switches surfaces even during active motion, preserving project/chat drafts and the connected org`);
+    await context.close();
+  }
   for (const motion of ['no-preference', 'reduce']) for (const project of [false, true]) {
     const context = await browser.newContext({ httpCredentials, reducedMotion: motion, colorScheme: 'dark', viewport: { width: 1440, height: 1000 } });
     const fixture = await installAssessment(context, { profileId: 'am' }); cleanups.push(fixture.cleanup);

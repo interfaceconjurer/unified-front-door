@@ -1,5 +1,5 @@
 .launcher {
-  color-scheme: light dark;
+  color-scheme: var(--app-color-scheme, light dark);
 }
 
 .heading {

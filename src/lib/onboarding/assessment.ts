@@ -19,14 +19,26 @@ export const ASSESSMENT_ORGS: readonly Org[] = [
 ];
 
 export const ASSESSMENT_STEPS = [
-  { title: "Discover accessible orgs", detail: "Check connections and the scope available to your account." },
+  { title: "Check the selected org", detail: "Verify read access to the org selected for this assessment." },
   { title: "Review usage and limits", detail: "Compare API, storage, and async usage with available capacity." },
   { title: "Trace process friction", detail: "Look for failed automations and repeated manual steps." },
-  { title: "Check release readiness", detail: "Review metadata differences and validation results." },
+  { title: "Review access and release readiness", detail: "Compare user permissions with role policies and review release dependencies." },
   { title: "Prioritize opportunities", detail: "Connect the evidence to practical improvements and a plan." },
 ] as const;
 
 export const ASSESSMENT_FINDINGS: readonly Finding[] = [
+  {
+    id: "case-access", orgId: "prod", category: "Access", priority: "High",
+    title: "Give service representatives the access they need",
+    summary: "Six service representatives can delete Cases, although their role only requires reading, creating and editing them.",
+    metric: "6", metricLabel: "users with unnecessary Delete access", effort: "15–30 minutes",
+    impact: "Align Case access with the service team's role while preserving the permissions they use every day.",
+    evidence: ["Six members of Service Reps have a direct Case Delete permission-set assignment.", "The service role policy requires Read, Create and Edit on Cases, but not Delete.", "Minimum Access profiles and the Service Reps group do not grant Delete; no other captured grants provide it."],
+    source: "Demo user access summary · permission-set assignments · service role policy",
+    hypothesis: "The direct Case Delete assignments exceed the documented role policy. Confirm the affected users have no approved exception before removing them.",
+    steps: ["Review the six service representatives and the source of their Case permissions.", "Remove unnecessary Case Delete assignments, keeping Read, Create and Edit access. Review each tracked change.", "Validate effective access and test the service workflow before applying the reviewed assignment plan."],
+    validation: "All six representatives retain Read, Create and Edit on Cases and have no remaining Delete grant. Changes are reviewed before they are applied to an org.",
+  },
   {
     id: "api-headroom", orgId: "prod", category: "Limits", priority: "High",
     title: "Give your integrations more API headroom",

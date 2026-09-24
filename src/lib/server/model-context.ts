@@ -1,4 +1,5 @@
 import "server-only";
+import { assessmentForOrg } from "../assessment/selected-org";
 import type { PoolClient } from "pg";
 import type { CapturedContext } from "../agent/contracts";
 import type { AssessmentState } from "../assessment/state";
@@ -7,6 +8,7 @@ import type { OwnedSession } from "./session";
 import { ModelProviderError, serializeModelRequest, type ModelPrompt, type ModelSettings } from "./model-provider";
 import { navigationOptions } from "../agent/navigation";
 import { hasExplicitNavigationIntent } from "../agent/navigation-intent";
+import { permissionUsers } from "../org-resources/permissions";
 import { projectTemplate } from "../projects/templates";
 
 export type ModelExecution = {
@@ -22,10 +24,10 @@ type History = { messageId: number; runId: string; role: "user" | "assistant"; c
 export function modelExecution(context: CapturedContext, assessment: AssessmentState, text: string, history: History[], settings: ModelSettings): ModelExecution {
   const navigation = settings.policy.promptVersion === "workspace-navigator-v2"
     || settings.policy.promptVersion === "workspace-planner-v3" && hasExplicitNavigationIntent(text) ? navigationOptions(context) : undefined;
-  const completed = assessment.runs.find(run => run.id === (context.improvement ? context.improvement.runId : assessment.currentRunId) && run.completedAt);
-  // An owned project can intentionally investigate production evidence in a
-  // sandbox. Its work items define evidence scope; target org is the execution
-  // destination. Standalone assessment scope follows the selected org.
+  const completed = assessment.runs.find(run => run.id === (context.improvement ? context.improvement.runId : assessmentForOrg(assessment, context.target.orgId).currentRunId) && run.completedAt);
+  // Project work items define their source evidence independently of the
+  // connected org. A deployment target does
+  // not authorize changes to an org. Standalone assessment scope follows the selected org.
   const findings = context.improvement ? context.improvement.workItems.map(item => item.finding)
     : (completed?.findings ?? []).filter(finding => !context.target.orgId || finding.orgId === context.target.orgId);
   const included = [...findings];
@@ -42,6 +44,9 @@ export function modelExecution(context: CapturedContext, assessment: AssessmentS
         goal: context.improvement.goal, projectType: projectTemplate(context.improvement.projectType).id, context: context.improvement.context ?? "",
         workItems: context.improvement.workItems.filter(item => included.some(finding => finding.id === item.findingId)).map(({ id, findingId, status }) => ({ id, findingId, status })) } : null,
       ...(context.projectBrief ? { projectBrief: context.projectBrief } : {}),
+      ...(context.permissions && context.canvas ? { permissions: { sourceOrgId: context.canvas.params.orgId, group: "Service Reps",
+        baselineAccess: ["Read", "Create", "Edit"], users: permissionUsers(context.permissions.fields), revision: context.permissions.revision,
+        state: "Tracked workspace assignments; the connected org has not been changed" } } : {}),
       assessment: completed ? { id: completed.id, completedAt: completed.completedAt, source: completed.source } : null, findings: included };
     const prompt: ModelPrompt = { ...(navigation ? { navigation } : {}), messages: [...prior.map(({ role, content }) => ({ role, content })),
       { role: "user", content: JSON.stringify({ evidence, request: text }) }] };

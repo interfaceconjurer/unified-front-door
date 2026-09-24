@@ -9,9 +9,10 @@ export function applyAssessmentCommand(state: AssessmentState, command: Applicat
   const newRun = (scopeOrgIds: string[]): AssessmentRun => ({ id: `assessment-${context.id()}`, startedAt: context.now, completedAt: null, scopeOrgIds, findings: [], source: { adapter: "demo-org-assessment", version: "1" } });
   switch (command.kind) {
     case "assessment.start": {
+      if (command.orgId && state.status !== "idle" && !state.scopeOrgIds.includes(command.orgId)) conflict("An assessment for another org is already selected.");
       if (state.status === "paused") return accessibleScope(state.scopeOrgIds).length ? { ...state, status: "running" } : state;
       if (state.status !== "idle") return state;
-      const scopeOrgIds = accessibleScope(state.scopeOrgIds); if (!scopeOrgIds.length) invalid("Choose an accessible assessment scope.");
+      const scopeOrgIds = accessibleScope(command.orgId ? [command.orgId] : []); if (!scopeOrgIds.length) invalid("Choose a connected org to assess.");
       const run = newRun(scopeOrgIds);
       return { ...state, scopeOrgIds, status: "running", currentRunId: run.id, runs: [...state.runs, run] };
     }
@@ -24,7 +25,7 @@ export function applyAssessmentCommand(state: AssessmentState, command: Applicat
     }
     case "assessment.pause": return state.status === "running" ? { ...state, status: "paused" } : state;
     case "assessment.rescan": {
-      const scopeOrgIds = accessibleScope(command.orgIds); if (!scopeOrgIds.length || scopeOrgIds.length !== new Set(command.orgIds).size) invalid("The assessment scope is unavailable.");
+      const scopeOrgIds = accessibleScope(command.orgIds); if (command.orgIds.length !== 1 || scopeOrgIds.length !== 1) invalid("Choose one connected org to assess.");
       const run = newRun(scopeOrgIds); return { ...state, status: "running", step: 0, scopeOrgIds, completedAt: null, currentRunId: run.id, runs: [...state.runs, run] };
     }
     case "draft.begin": {
@@ -41,7 +42,7 @@ export function applyAssessmentCommand(state: AssessmentState, command: Applicat
     case "project.create": {
       const draft = state.draft, run = state.runs.find((r) => r.id === draft?.runId);
       if (!draft || draft.id !== command.draftId || draft.revision !== command.draftRevision) conflict("The project draft changed. Review the latest fields.");
-      if (!run?.completedAt || !ASSESSMENT_ORGS.some((org) => org.id === draft.targetOrgId && org.kind === "sandbox" && org.connection === "connected")) invalid("The project target or source run is unavailable.");
+      if (!run?.completedAt || draft.targetOrgId && !ASSESSMENT_ORGS.some((org) => org.id === draft.targetOrgId && org.connection === "connected")) invalid("The deployment target or source run is unavailable.");
       const findings = run.findings.filter((f) => !state.projects.some((p) => p.runId === run.id && p.workItems.some((i) => i.findingId === f.id)));
       const project = planProject(draft, findings, context.owner, command.commandId, context.now, `org-improvement-${context.id()}`, run.scopeOrgIds);
       if (!project) conflict("Selected findings are already allocated or the project is incomplete.");

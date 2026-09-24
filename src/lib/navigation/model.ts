@@ -23,8 +23,9 @@ export function destinationCanvasTarget(destination: Destination): WorkspaceTarg
 }
 export function canvasDestination(owner: DemoProfileId, surface: SurfaceId, canvas: CanvasSpecInput, captured: WorkspaceTarget, workspace: WorkspaceTarget): Destination {
   const retainWorkspace = captured.projectId !== null && (workspace.projectId === null
-    || captured.projectId === workspace.projectId && captured.worktreeId === null
-      && (workspace.worktreeId !== null || canvas.kind === "improvement-project"));
+    || captured.projectId === workspace.projectId
+      && (captured.worktreeId === null || captured.worktreeId === workspace.worktreeId)
+      && (!sameTarget(captured, workspace) || canvas.kind === "improvement-project"));
   return canonicalDestination({ version: 1, owner, surface, canvas,
     target: retainWorkspace ? workspace : captured,
     ...(retainWorkspace ? { canvasTarget: captured } : {}) });
@@ -52,13 +53,15 @@ export function readDestination(href: string): DestinationRead {
     const captured = value.canvasTarget === undefined ? undefined : parseTarget(value.canvasTarget);
     if (!target || canvas === null || url.pathname !== (value.surface ? `/${value.surface}` : "/")) throw new Error();
     // A separate owner allows global browsing or a project-wide resource in
-    // the same project. It must never smuggle another worktree into a project.
+    // the same project/worktree while retaining a separate connection. It must
+    // never smuggle another worktree into a project.
     if (captured === null || captured && (!canvas || captured.projectId === null
-      || target.projectId !== null && (captured.projectId !== target.projectId || captured.worktreeId !== null))) throw new Error();
+      || target.projectId !== null && (captured.projectId !== target.projectId || captured.worktreeId !== null && captured.worktreeId !== target.worktreeId))) throw new Error();
     const ownedTarget = captured ?? target;
     if (canvas && (!value.surface || canvas.kind === "capability" && canvas.params.surface !== value.surface || !sameTarget(canvasTarget(canvas, ownedTarget), ownedTarget))) throw new Error();
     if (canvas?.kind === "org-assessment" && value.surface !== "govern" && value.surface !== "build") throw new Error();
     if (canvas?.kind === "org-resource" && RESOURCE_TYPES[canvas.params.resourceType].surface !== value.surface) throw new Error();
+    if (canvas?.kind === "work-item-change" && value.surface !== "build") throw new Error();
     return { kind: "destination", value: canonicalDestination({ version: 1, owner: value.owner, surface: value.surface, target, ...(canvas ? { canvas } : {}), ...(captured ? { canvasTarget: captured } : {}) }) };
   } catch { return { kind: "invalid", reason: "This workspace link is invalid or uses an unsupported version." }; }
 }
@@ -126,6 +129,11 @@ export function resolveDestination(href: string, owner: DemoProfileId, access: r
   const destination = decoded.value;
   if (destination.owner !== owner) return { kind: "unavailable", reason: "This link belongs to another demo profile. Choose a destination in your current workspace." };
   if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
+  if (destination.canvas?.kind === "work-item-change") {
+    const { projectId, workItemId } = destination.canvas.params;
+    if (!savedProjects.some(project => project.id === projectId && project.workItems.some(item => item.id === workItemId)))
+      return { kind: "unavailable", reason: "This work item is unavailable in the selected project." };
+  }
   if (destination.canvas?.kind === "project-file") {
     const file = fileForCanvas(owner, destination.canvas.params, savedProjects), orgId = destination.canvas.params.orgId;
     if (!file || file.surfaceId !== destination.surface || orgId && !ORGS.some(org => org.id === orgId && org.connection === "connected")) return { kind: "unavailable", reason: "This file is unavailable in the selected project or worktree." };
@@ -158,14 +166,23 @@ export function normalizeDestinationHref(value: unknown): string | null {
   return decoded.kind === "destination" ? destinationHref(decoded.value) : null;
 }
 
-/** A newly saved plan supplies its own target before React projects the new record. */
+/** Project entry keeps the connection while preserving the canvas's saved ownership. */
+export function projectEntryDestination(destination: Destination, orgId: string | null): Destination {
+  const target = { ...destination.target, orgId };
+  if (destination.canvas)
+    return canvasDestination(destination.owner, destination.surface!, destination.canvas, destinationCanvasTarget(destination), target);
+  if (target.orgId === destination.target.orgId) return destination;
+  return { version: 1, owner: destination.owner, surface: destination.surface, target };
+}
+
+/** A saved plan has no implicit connection to its optional deployment target. */
 export function improvementProjectDestination(
   owner: DemoProfileId,
   project: Pick<import("../projects/model").ImprovementProject, "id" | "name" | "targetOrgId">,
   captured?: WorkspaceTarget,
 ): Destination {
   const canvas: CanvasSpecInput = { kind: "improvement-project", title: project.name, params: { projectId: project.id } };
-  const target = captured ?? { projectId: project.id, worktreeId: null, orgId: project.targetOrgId };
+  const target = captured ?? { projectId: project.id, worktreeId: null, orgId: null };
   if (!parseTarget(target) || !sameTarget(canvasTarget(canvas, target), target)) throw new TypeError("Invalid saved project destination");
   return { version: 1, owner, surface: "alm", canvas, target };
 }

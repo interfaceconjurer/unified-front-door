@@ -7,6 +7,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { previewCanvas } from "@/lib/preview/model";
 import { WorkspaceChanges } from "./WorkspaceChanges";
+import { ThemeSwitch } from "./ThemeSwitch";
 import styles from "./TopBar.module.css";
 
 type TopBarProps = {
@@ -84,9 +85,7 @@ export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel
           title={`Preview ${activeProject?.name} · ${activeWorktree?.branch}`} onClick={() => openCanvas("build", preview)}>
           <EyeIcon width={16} height={16} /><span>Preview</span>
         </button>}
-        <button type="button" className={styles.helpButton} aria-label="Help">
-          ?
-        </button>
+        <ThemeSwitch />
         {profileMenu}
         <button
           type="button"

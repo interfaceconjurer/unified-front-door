@@ -33,7 +33,7 @@ const context = { target: { projectId: null, worktreeId: null, orgId: null }, su
 const send = (s, command) => transaction(c => executeAgentCommand(c, s.token, s.session.generation, command));
 const snapshot = s => transaction(c => observeAgent(c, s.token, s.session.generation));
 const workspace = s => transaction(async c => readWorkspace(c, await requireSession(c, s.token, s.session.generation)));
-const app = (s, kind, expectedRevision, fields = {}) => transaction(c => executeCommand(c, s.token, s.session.generation, { kind, expectedRevision, commandId: randomUUID(), ...fields }));
+const app = (s, kind, expectedRevision, fields = {}) => transaction(c => executeCommand(c, s.token, s.session.generation, { kind, expectedRevision, commandId: randomUUID(), ...(kind === "assessment.start" && expectedRevision === 0 ? { orgId: "prod" } : {}), ...fields }));
 const chat = s => send(s, { kind: "submit", requestId: randomUUID(), context, text: "Build a scoped automation" });
 const fastAdapter = { async step(...args) { const result = await demoAdapter.step(...args); return result.kind === "progress" ? { ...result, delayMs: 0 } : result; } };
 
@@ -165,7 +165,7 @@ test("first Home return carries a project's org without printing content that du
   assert.deepEqual(arrival.conversation.conversation.messages, returned.conversation.conversation.messages);
   // Choosing another org explicitly on Home still records that change.
   const changed = await send(s, { kind: "visit", requestId: randomUUID(), context: { ...home, target: { ...home.target, orgId: "prod" } } });
-  assert.equal(changed.conversation.conversation.messages.at(-2).text, "Target org · Production");
+  assert.equal(changed.conversation.conversation.messages.at(-2).text, "Connected org · Production");
   assert.equal(changed.conversation.conversation.messages.at(-1).role, "today");
 });
 
@@ -177,13 +177,13 @@ test("org changes share global history, log once, and preserve in-flight executi
   const opened = await visit(uat);
   assert.equal(opened.conversationId, home.conversationId);
   assert.deepEqual(opened.conversation.conversation.messages[0], JSON.parse(JSON.stringify(home.conversation.conversation.messages[0])));
-  assert.equal(opened.conversation.conversation.messages.filter(message => message.text === "Target org · UAT Sandbox").length, 1);
+  assert.equal(opened.conversation.conversation.messages.filter(message => message.text === "Connected org · UAT Sandbox").length, 1);
   const repeated = await visit(uat); assert.deepEqual(repeated.conversation, opened.conversation);
   const reply = await send(s, { kind: "submit", requestId: randomUUID(), context: uat, text: "Keep the captured org" });
   const prod = { ...uat, target: { ...uat.target, orgId: "prod" } };
   const switched = await visit(prod);
   assert.equal(switched.conversationId, opened.conversationId);
-  assert.equal(switched.conversation.conversation.messages.at(-1).text, "Target org · Production");
+  assert.equal(switched.conversation.conversation.messages.at(-1).text, "Connected org · Production");
   assert.deepEqual((await snapshot(s)).runs.find(run => run.id === reply.runId).context.target, uat.target);
   await finish(reply.runId);
   const returned = await visit({ ...prod, surface: "home" });
@@ -330,7 +330,7 @@ test("legacy running assessments preserve unavailable scope and pause before wor
       await c.query("INSERT INTO assessment_runs(namespace_id,profile_id,id,record) VALUES($1,$2,$3,$4)", [s.session.namespaceId, s.session.profileId, logical, record]);
       await c.query("UPDATE workspaces SET assessment_cursor=$3 WHERE namespace_id=$1 AND profile_id=$2", [s.session.namespaceId, s.session.profileId, { schemaVersion: 2, status: "running", step: 0, scopeOrgIds: orgIds, completedAt: null, currentRunId: logical }]);
     });
-    await app(s, "assessment.start", 0); const paused = await workspace(s);
+    await app(s, "assessment.start", 0, { orgId: undefined }); const paused = await workspace(s);
     assert.equal(paused.assessment.status, "paused"); assert.deepEqual(paused.assessment.scopeOrgIds, orgIds); assert.equal(paused.assessment.currentRunId, logical); assert.equal((await snapshot(s)).runs.length, 0);
     await app(s, "assessment.rescan", paused.assessmentRevision, { orgIds: ["prod"] }); const resumed = await workspace(s);
     assert.notEqual(resumed.assessment.currentRunId, logical); assert.deepEqual(resumed.assessment.runs.find(run => run.id === logical).scopeOrgIds, orgIds); assert.equal((await snapshot(s)).runs.length, 1);
@@ -382,7 +382,7 @@ test("autonomous assessment updates preserve command revisions and concurrent pr
 });
 
 test("duplicate assessment joins preserve the command token and legacy attachment still executes", async () => {
-  const s = await owner("sp"), start = { kind: "assessment.start", commandId: randomUUID(), expectedRevision: 0 };
+  const s = await owner("sp"), start = { kind: "assessment.start", orgId: "prod", commandId: randomUUID(), expectedRevision: 0 };
   const first = await transaction(c => executeCommand(c, s.token, s.session.generation, start));
   const joined = await app(s, "assessment.start", 0);
   assert.equal(joined.revision, first.revision); assert.equal((await workspace(s)).assessmentRevision, first.revision);
@@ -400,4 +400,106 @@ test("duplicate assessment joins preserve the command token and legacy attachmen
   const attached = await snapshot(legacy); assert.equal(attached.runs.length, 1); assert.equal(attached.runs[0].assessmentRunId, logical);
   await app(legacy, "assessment.pause", 0); assert.equal((await workspace(legacy)).assessment.status, "paused");
   assert.equal((await snapshot(legacy)).runs[0].status, "cancelled");
+});
+
+test('workers and archived Today preserve the selected org; optional project targets persist independently', async () => {
+  const s = await owner('sp');
+  const home = orgId => ({ surface: 'home', target: { projectId: null, worktreeId: null, orgId } });
+  await send(s, { kind: 'visit', requestId: randomUUID(), context: home('prod') });
+  await app(s, 'assessment.start', 0, { orgId: 'prod' });
+  await finish((await snapshot(s)).runs[0].id);
+  let state = await workspace(s);
+  const production = structuredClone(state.assessment.runs[0]);
+  assert.deepEqual(production.scopeOrgIds, ['prod']);
+  assert(production.findings.every(f => f.orgId === 'prod'));
+  await app(s, 'draft.begin', state.assessmentRevision, { runId: production.id,
+    fields: { name: 'Project without deployment', goal: 'Work in version control', targetOrgId: '', findingIds: [production.findings[0].id] } });
+  state = await workspace(s);
+  await app(s, 'project.create', state.assessmentRevision, { draftId: state.assessment.draft.id, draftRevision: state.assessment.draft.revision });
+  state = await workspace(s);
+  assert.equal(state.assessment.projects[0].targetOrgId, null);
+  assert.equal(state.assessment.projects[0].workItems[0].finding.id, production.findings[0].id);
+  await send(s, { kind: 'visit', requestId: randomUUID(), context: home('uat') });
+  const before = (await snapshot(s)).conversations[0].conversation.messages;
+  const archivedProduction = structuredClone(before.find(m => m.role === 'today'));
+  assert.deepEqual(archivedProduction.snapshot.assessment.scopeOrgIds, ['prod']);
+  assert.equal(before.at(-1).snapshot.assessment.status, 'idle');
+  await app(s, 'assessment.rescan', state.assessmentRevision, { orgIds: ['uat'] });
+  await finish((await snapshot(s)).runs.at(-1).id);
+  const messages = (await snapshot(s)).conversations[0].conversation.messages;
+  assert.deepEqual(messages.find(m => m.role === 'today'), archivedProduction);
+  assert.deepEqual(messages.at(-1).snapshot.assessment.scopeOrgIds, ['uat']);
+  assert(messages.at(-1).snapshot.assessment.findings.every(f => f.orgId === 'uat'));
+  await send(s, { kind: 'visit', requestId: randomUUID(), context: home('prod') });
+  const returned = (await snapshot(s)).conversations[0].conversation.messages.at(-1).snapshot.assessment;
+  assert.equal(returned.currentRunId, production.id);
+  assert.deepEqual(returned.findings, production.findings);
+  assert.equal(returned.projects[0].targetOrgId, null);
+});
+
+test('permissions chat follows a manual edit, commits once with its receipt, and supports durable undo in global and project scope', async () => {
+  const { canvasId, canvasTarget } = modules.load('lib/surface-canvas/model');
+  const { permissionUsers } = modules.load('lib/org-resources/permissions');
+  const { workspaceChanges } = modules.load('lib/workspace/changes');
+  for (const project of [false, true]) {
+    const s = await owner('am');
+    const canvas = { kind: 'org-resource', title: 'Service Reps', params: { orgId: 'prod', resourceType: 'permission-set-group', apiName: 'Service_Reps', ...(project ? { projectId: 'acme-storefront', worktreeId: 'main' } : {}) } };
+    const target = canvasTarget(canvas, {}), id = canvasId(canvas.kind, canvas.params);
+    const context = { target, surface: 'build', canvas };
+    const visit = await send(s, { kind: 'visit', requestId: randomUUID(), context });
+    assert.match(visit.conversation.conversation.messages.at(-1).text, /6 service representatives/);
+    assert.equal((await workspace(s)).canvases.some(draft => draft.id === id), false, 'Viewing does not create a change');
+    await app(s, 'canvas.save', 0, { canvas, target, surface: 'build', fields: { maya_chen: 'standard' } });
+    const command = { kind: 'submit', requestId: randomUUID(), context: { ...context, canvasRevision: 1 }, text: 'Can you update all of these users permissions to standard access?' };
+    const receipts = await Promise.all([send(s, command), send(s, command)]);
+    assert.deepEqual(receipts[0], receipts[1]);
+    let draft = (await workspace(s)).canvases.find(draft => draft.id === id);
+    assert.equal(draft.revision, 2); assert(permissionUsers(draft.fields).every(user => !user.canDelete));
+    const run = (await snapshot(s)).runs.find(run => run.id === receipts[0].runId);
+    assert.equal(run.status, 'completed'); assert.match(run.result, /5 users/); assert.match(run.result, /1 already/);
+    assert.deepEqual(run.context.canvas, canvas);
+    assert.equal(await workerTick({ runId: run.id }), false, 'Completed local edits cannot be dispatched again');
+    await app(s, 'canvas.save', 2, { canvas, target, surface: 'build', fields: { jordan_lee: '' } });
+    draft = (await workspace(s)).canvases.find(draft => draft.id === id);
+    assert.equal(permissionUsers(draft.fields).filter(user => user.canDelete).length, 1);
+    await send(s, { kind: 'submit', requestId: randomUUID(), context: { ...context, canvasRevision: 3 }, text: 'Undo all permission changes' });
+    const state = await workspace(s); draft = state.canvases.find(draft => draft.id === id);
+    assert.equal(draft.revision, 4); assert(permissionUsers(draft.fields).every(user => user.canDelete));
+    assert.equal(workspaceChanges('am', target, state.assessment.projects, [draft]).filter(file => file.path.includes('Service_Reps')).length, 0);
+  }
+});
+
+test('permission chat rejects stale or forged scope and rolls back edits, runs and receipts together', async () => {
+  const { canvasId } = modules.load('lib/surface-canvas/model');
+  const s = await owner('sp');
+  const canvas = { kind: 'org-resource', title: 'Service Reps', params: { orgId: 'prod', resourceType: 'permission-set-group', apiName: 'Service_Reps' } };
+  const target = { projectId: null, worktreeId: null, orgId: 'prod' };
+  const context = { target, surface: 'build', canvas, canvasRevision: 0 };
+  const command = { kind: 'submit', requestId: randomUUID(), context, text: 'Remove Delete Cases access for all users' };
+  await app(s, 'canvas.save', 0, { canvas, target, surface: 'build', fields: { maya_chen: 'standard' } });
+  await assert.rejects(send(s, command), error => error.code === 'conflict');
+  assert.equal((await snapshot(s)).runs.length, 0);
+  const other = await owner('sp');
+  await assert.rejects(send(other, { ...command, context: { ...context, canvas: { ...canvas, params: { ...canvas.params, projectId: 'foreign-project' } } } }), /unavailable/);
+  await assert.rejects(send(s, { ...command, context: { ...context, canvas: { ...canvas, params: { ...canvas.params, orgId: 'scratch-hotfix' } } } }), error => error.code === 'invalid');
+  const current = { ...command, context: { ...context, canvasRevision: 1 } };
+  await assert.rejects(transaction(async client => {
+    await executeAgentCommand(client, s.token, s.session.generation, current, undefined, () => { throw Error('Permission edits must not call a model'); });
+    throw Error('rollback permissions');
+  }), /rollback permissions/);
+  const id = canvasId(canvas.kind, canvas.params);
+  assert.deepEqual((await workspace(s)).canvases.find(draft => draft.id === id).fields, { maya_chen: 'standard' });
+  assert.equal((await snapshot(s)).runs.length, 0);
+  await send(s, current);
+  assert.equal((await workspace(s)).canvases.find(draft => draft.id === id).revision, 2);
+});
+
+test('explicit navigation still uses the existing agent path from a permissions canvas', async () => {
+  const s = await owner('sp');
+  const canvas = { kind: 'org-resource', title: 'Service Reps', params: { orgId: 'prod', resourceType: 'permission-set-group', apiName: 'Service_Reps' } };
+  const accepted = await send(s, { kind: 'submit', requestId: randomUUID(), text: 'Open ALM', context: { target: { projectId: null, worktreeId: null, orgId: 'prod' }, surface: 'build', canvas, canvasRevision: 0 } });
+  assert.equal(accepted.destination, 'alm');
+  assert.equal((await snapshot(s)).runs.find(run => run.id === accepted.runId).status, 'pending');
+  assert.equal((await workspace(s)).canvases.length, 0);
+  await send(s, { kind: 'cancel', requestId: randomUUID(), runId: accepted.runId });
 });

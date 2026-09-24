@@ -1,5 +1,5 @@
 .home, .projectCanvas {
-  color-scheme: light dark;
+  color-scheme: var(--app-color-scheme, light dark);
   --ink: var(--slds-g-color-on-surface-3, #03234d);
   --muted: var(--slds-g-color-on-surface-1, #5c5c5c);
   --surface: var(--slds-g-color-surface-1, #fff);
@@ -47,9 +47,6 @@
     transform: none;
   }
 }
-
-/* Keyboard focus should never land on content waiting for its reveal. */
-.home :focus-within { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .home .hero,
@@ -152,6 +149,7 @@
 .explore > p { margin: 0 0 1.2rem; color: var(--muted); font-size: 0.75rem; }
 .review > .sectionHead { margin: 1.3rem 0; }
 .review .sectionHead h2 { font-size: 1.5rem; font-weight: 500; }
+.projectBack { margin-bottom: 1.25rem; }
 .field { display: flex; flex-direction: column; gap: 0.45rem; margin: 0 0 1.2rem; font-size: 0.8rem; font-weight: 600; }
 .field input, .field textarea, .field select, .planFooter select { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 0.4rem; background: var(--surface); color: var(--ink); font: inherit; font-weight: 400; }
 .field textarea { resize: vertical; }
@@ -194,7 +192,7 @@
 .itemStatus { margin-left: auto; color: var(--muted); font-size: 0.65rem; white-space: nowrap; }
 .itemStatus[data-status="in-progress"] { color: var(--accent); }
 .itemStatus[data-status="done"] { color: light-dark(#267752, #9cd8b7); }
-.plan { padding: 0 1.25rem 1.25rem; border-top: 1px solid var(--border); }
+.plan { padding: 1.25rem; border-top: 1px solid var(--border); }
 .plan h3 { margin: 1.2rem 0 0.4rem; font-size: 0.8125rem; }
 .plan > p { margin: 0.4rem 0; font-size: 0.8125rem; }
 .planSteps { padding-left: 1.3rem; margin: 0.6rem 0 1.2rem; font-size: 0.8125rem; color: var(--muted); }

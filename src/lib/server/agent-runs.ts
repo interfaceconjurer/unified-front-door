@@ -23,7 +23,7 @@ export function runView(row: RunRow): RunView {
     kind: row.kind, status: row.status, checkpoint: row.checkpoint, sequence: row.sequence, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString(),
     execution: row.execution.kind === "model" ? { provider: "anthropic", model: row.execution.settings.policy.model, promptVersion: row.execution.settings.policy.promptVersion, omittedFindings: row.execution.provenance.omittedFindings, omittedHistoryMessages: row.execution.provenance.omittedHistoryMessages } : { provider: "demo" },
     assessmentRunId: row.input.kind === "assessment" ? row.input.assessmentRunId : null,
-    context: { target: row.input.context.target, surface: row.input.context.surface }, error: row.error, result: row.result };
+    context: { target: row.input.context.target, surface: row.input.context.surface, ...(row.input.context.canvas ? { canvas: row.input.context.canvas } : {}) }, error: row.error, result: row.result };
 }
 export async function lockAgentWorkspace(client: PoolClient, session: OwnedSession): Promise<void> {
   const row = (await client.query("SELECT epoch FROM workspaces WHERE namespace_id=$1 AND profile_id=$2 FOR UPDATE", [session.namespaceId, session.profileId])).rows[0];

@@ -7,10 +7,10 @@ import { testModules } from '../test-modules.mjs';
 const modules = testModules(), { destinationHref } = modules.load('lib/navigation/model');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] }, cleanups = [];
-const target = { projectId: null, worktreeId: null, orgId: 'uat' };
+const target = { projectId: null, worktreeId: null, orgId: 'prod' };
 const home = owner => origin + destinationHref({ version: 1, owner, surface: null, target });
 const projectCanvas = owner => origin + destinationHref({ version: 1, owner, surface: 'alm', target,
-  canvas: { kind: 'capability', title: 'Start a project', params: { scope: 'unbound', orgId: 'uat', surface: 'alm', capability: 'project' } } });
+  canvas: { kind: 'capability', title: 'Start a project', params: { scope: 'unbound', orgId: 'prod', surface: 'alm', capability: 'project' } } });
 const destination = page => JSON.parse(new URL(page.url()).searchParams.get('destination'));
 async function setup(options) {
   const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', viewport: { width: 1440, height: 1000 } });

@@ -18,6 +18,21 @@ try {
   const today = page.getByRole('group', { name: 'Today', exact: true });
   await today.getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
   assert.equal(await today.getByRole('button', { name: /^Review / }).count(), 5);
+  // The build transforms light-dark(); test rendered colors as well as scheme.
+  for (const theme of ['dark', 'light']) {
+    const toggle = page.getByRole('switch', { name: 'Dark mode', exact: true });
+    if (await toggle.getAttribute('aria-checked') !== String(theme === 'dark')) await toggle.click();
+    const card = today.getByRole('button', { name: /^Review / }).first();
+    const colors = await card.evaluate(element => {
+      const style = getComputedStyle(element);
+      return { background: style.backgroundColor, border: style.borderTopColor, width: style.borderTopWidth, label: getComputedStyle(element.firstElementChild).color };
+    });
+    assert.deepEqual(colors, theme === 'dark'
+      ? { background: 'rgb(34, 38, 44)', border: 'rgb(98, 82, 56)', width: '1px', label: 'rgb(244, 198, 122)' }
+      : { background: 'rgb(255, 253, 248)', border: 'rgb(225, 205, 166)', width: '1px', label: 'rgb(137, 87, 0)' }, `${theme} attention card retains its background, border and status color`);
+    await card.screenshot({ path: outputPath(`${label}-attention-card-${theme}.png`) });
+    out.checks.push(`${theme}: attention cards retain themed background, border and status color after using the appearance switch`);
+  }
   const global = fixture.state.agent.conversations.find(thread => JSON.parse(thread.threadKey)[0] === 'unbound-session');
   const original = structuredClone(global.conversation.messages.find(message => message.role === 'today'));
   for (const id of ['hotfix-tests', 'storefront-health', 'storefront-release']) {

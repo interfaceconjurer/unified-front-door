@@ -1,9 +1,9 @@
 // One registry for both the full release gate and PR shards.
 export const BROWSER_SUITES = Object.freeze([
-    'expansion-profiles', 'modal-working', 'profile-reset', 'org-sign-in', 'session-recovery', 'profile-start', 'assessment-startup', 'org-resources', 'org-setup', 'unified-search', 'global-home', 'workspace-tabs', 'today-departure',
-    'starter-canvases', 'assessment-canvas', 'project-creation', 'project-create-end-to-end', 'agent-navigation',
-    'project-panel', 'project-explorer', 'workspace-changes', 'object-field-changes', 'project-surface-scope', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
-    'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps', 'idle-suspension',
+    'expansion-profiles', 'modal-working', 'profile-reset', 'org-sign-in', 'session-recovery', 'profile-start', 'assessment-startup', 'org-assessment-scope', 'org-resources', 'org-setup', 'unified-search', 'global-home', 'workspace-tabs', 'today-departure',
+    'starter-canvases', 'assessment-canvas', 'assessment-project-transition', 'project-creation', 'project-create-end-to-end', 'agent-navigation',
+    'project-panel', 'project-explorer', 'workspace-changes', 'object-field-changes', 'project-surface-scope', 'alm-overview', 'work-item-changes', 'permissions', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'surface-switcher', 'chat-layout',
+    'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps', 'idle-suspension', 'theme-switch',
 ]);
 
 export function browserSuites(shard) {

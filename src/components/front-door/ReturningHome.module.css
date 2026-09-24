@@ -1,4 +1,4 @@
-.home { color-scheme: light dark; }
+.home { color-scheme: var(--app-color-scheme, light dark); }
 .hero { margin-bottom: 1.75rem; }
 .hero > p { margin: 0 0 0.625rem; color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.8125rem; }
 .hero > h2 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: clamp(1.5rem, 2.5vw, 2rem); font-weight: 500; letter-spacing: -0.025em; line-height: 1.3; }

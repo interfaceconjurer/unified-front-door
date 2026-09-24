@@ -22,6 +22,18 @@ test("command boundary rejects snapshots, invalid revisions, extra ownership and
   assert.equal(normalized.canvas.draft, undefined); assert.equal(normalized.canvas.id, undefined); assert.equal(normalized.fields.source,"kept");
   assert.equal(stableJson({b:2,a:1}),stableJson({a:1,b:2}));
 });
+
+test('work-item change saves require Build, a work item, and matching project ownership', () => {
+  const input = { kind: 'work-item-change', title: 'Prepare change', params: { projectId: 'saved-plan', workItemId: 'item-one' } };
+  const value = { kind: 'canvas.save', canvas: input, surface: 'build', target: { projectId: 'saved-plan', worktreeId: null, orgId: 'uat' }, fields: { source: 'configuration change' }, commandId: 'save-change', expectedRevision: 0 };
+  assert.deepEqual(parseCommand(value), value);
+  for (const invalid of [
+    { ...value, surface: 'alm' },
+    { ...value, target: { ...value.target, projectId: 'another-project' } },
+    { ...value, target: { ...value.target, worktreeId: 'unowned-worktree' } },
+    { ...value, canvas: { ...input, params: { projectId: 'saved-plan' } } },
+  ]) assert.throws(() => parseCommand(invalid));
+});
 test("rapid field edits retain each observed revision and report saved only after acknowledgment", async () => {
   const disk = browser(), gate = deferred(); let first = true;
   const r = remote({ send: async () => { if(first){first=false;await gate.promise;} } }); await r.store.load();
@@ -156,4 +168,20 @@ test("recovery keeps the latest memory-only version beside differing stale disk 
   const key="ufd.pending.v1.namespace-a.sp.generation-a.page",r=remote();r.transport.send=async()=>{throw Error("offline");};const store=new RemoteWorkspaceStore(session,r.transport,key,()=>{});await store.load();await store.enqueue(save({source:"disk copy"}),"one");blocked=true;void store.enqueue(save({notes:"latest memory"}),"two");
   const {applicationClient}=modules.load("lib/application/client");applicationClient.workspace=store;applicationClient.showRecovery();const entries=applicationClient.getSnapshot().recovery;assert.equal(entries.length,2);const memory=entries.find(e=>e.memoryOnly);assert.equal(JSON.parse(memory.raw).commands.length,2);assert.match(memory.label,/session generati/);assert.equal(JSON.parse(entries.find(e=>!e.memoryOnly).raw).commands.length,1);assert.equal(store.hasBufferFailure(),true);
   store.useSavedVersion();await new Promise(r=>setTimeout(r,10));blocked=false;applicationClient.showRecovery();assert.equal(applicationClient.getSnapshot().recovery.length,0);applicationClient.workspace=null;delete global.localStorage;
+});
+
+test('settling edits before a chat action waits for persistence and stops on a failed first edit without losing queued input', async () => {
+  browser(); const gate = deferred(), r = remote({ send: () => gate.promise }); await r.store.load();
+  void r.store.enqueueEdit(save({ source: 'manual change' }));
+  let completed = false;
+  const ready = r.store.settleEdits().then(result => { completed = true; return result; });
+  await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(completed, false);
+  gate.resolve(); assert.equal(await ready, true); assert.equal(r.getSaved().canvases[0].fields.source, 'manual change');
+  r.store.deactivate();
+  const failure = deferred(), blocked = remote({ send: () => failure.promise }); await blocked.store.load();
+  void blocked.store.enqueue(save({ source: 'first' }), 'first');
+  void blocked.store.enqueue(save({ notes: 'keep second' }), 'second');
+  const settled = blocked.store.settleEdits(); failure.reject(Error('Disconnected'));
+  assert.equal(await settled, false); assert.equal(blocked.store.getPending().length, 2);
+  assert.equal(blocked.store.getSnapshot().canvases[0].fields.notes, 'keep second'); blocked.store.deactivate();
 });
