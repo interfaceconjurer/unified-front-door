@@ -85,7 +85,7 @@ try {
     assert.equal(snapshot.canvases.find(v => v.canvas.params.capability === 'automation').fields.name, latest);
     out.stage = 'assessment';
     session = await select('sp');
-    await p.goto(origin + '/');
+    await p.goto(origin + destinationHref({ version: 1, owner: 'sp', surface: null, target: { projectId: null, worktreeId: null, orgId: 'prod' } }));
     let assessmentRun;
     for (let i = 0; i < 50; i++) {
         const observed = await c.request.get(origin + '/api/agent?generation=' + encodeURIComponent(session.generation));
@@ -96,6 +96,7 @@ try {
         await p.waitForTimeout(300);
     }
     assert(assessmentRun, 'Sam automatic assessment queued');
+    assert.equal(assessmentRun.context.target.orgId, 'prod', 'Automatic assessment captures the selected org');
     const { workerTick } = modules.load('lib/server/agent-worker'), { demoAdapter } = modules.load('lib/agent/demo');
     const fast = { async step(...args) { const result = await demoAdapter.step(...args); return result.kind === 'progress' ? { ...result, delayMs: 0 } : result; } };
     for (let i = 0; i < 10; i++)
@@ -103,6 +104,7 @@ try {
             break;
     await p.getByRole('button', { name: 'Shape a project', exact: true }).waitFor({ timeout: 45000 });
     out.stage = 'create-project';
+    await p.getByRole('group', { name: 'Today', exact: true }).getByRole('checkbox', { name: /^Include / }).first().check();
     await p.getByRole('button', { name: 'Shape a project', exact: true }).click();
     const projectName = p.getByRole('textbox', { name: 'Project name', exact: true });
     await projectName.waitFor();

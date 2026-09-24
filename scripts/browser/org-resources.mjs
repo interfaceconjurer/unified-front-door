@@ -180,8 +180,9 @@ try {
   assert(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth));
   await choose(dialog, 'Custom object · Project__c'); await article(scoped.page, 'Project').waitFor();
   assert.equal(await header.getByRole('button', { name: /Switch project/ }).count(), 1);
-  assert.deepEqual(currentDestination().target, { ...scopedTarget, orgId: 'prod' });
-  out.checks.push('Mobile header and resource search fit; choosing another org preserves the active project and branch');
+  assert.deepEqual(currentDestination().target, scopedTarget, 'Inspecting another org resource preserves the current connection');
+  assert.equal(currentDestination().canvas.params.orgId, 'prod', 'The resource retains its captured source org');
+  out.checks.push('Mobile header and resource search fit; inspecting another org preserves the active project, branch and connection while capturing its source org');
   await scoped.context.close();
 } catch (error) {
   out.errors.push(error.stack);

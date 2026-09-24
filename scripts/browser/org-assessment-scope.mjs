@@ -57,15 +57,17 @@ try {
   assert.deepEqual(state.snapshot.assessment.scopeOrgIds, ['prod']);
   await selectOrg('Acme Production', 'prod');
   await complete();
-  assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), 3);
+  assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), 4);
   const production = structuredClone(state.snapshot.assessment.runs[0]);
   out.checks.push('First assessment starts automatically for the selected org only; switching connections leaves its worker scope intact');
 
   const projects = [];
-  for (const [name, target] of [['API project', 'sit'], ['Routing project', '']]) {
+  for (const [name, target, title] of [
+    ['API project', 'sit', 'Give your integrations more API headroom'],
+    ['Routing project', '', 'Keep new leads moving to the right team'],
+  ]) {
     const choices = today().getByRole('checkbox', { name: /^Include / });
-    const title = (await choices.first().getAttribute('aria-label')).slice('Include '.length);
-    for (let index = 0; index < await choices.count(); index++) await choices.nth(index).setChecked(index === 0);
+    for (let index = 0; index < await choices.count(); index++) await choices.nth(index).setChecked(await choices.nth(index).getAttribute('aria-label') === `Include ${title}`);
     await today().getByRole('button', { name: 'Shape a project', exact: true }).click();
     await page.getByRole('heading', { name: 'Start a project', exact: true }).waitFor();
     assert.equal(await page.getByLabel('Deployment target (optional)', { exact: true }).inputValue(), '');
@@ -80,7 +82,7 @@ try {
     assert(project.workItems[0].finding.evidence.length);
     await home();
     assert.equal(await today().getByRole('heading', { name: title, exact: true }).count(), 0, 'Allocated opportunity no longer appears on Today');
-    assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), 3 - projects.length);
+    assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), 4 - projects.length);
   }
   await selectOrg('UAT Sandbox', 'uat');
   const before = mutations().length;
@@ -110,7 +112,9 @@ try {
   await selectOrg('Acme Production', 'prod');
   await today().getByRole('button', { name: 'Run again', exact: true }).waitFor();
   await today().getByRole('checkbox', { name: /^Include / }).first().waitFor();
-  assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), 1);
+  assert.deepEqual((await today().getByRole('checkbox', { name: /^Include / }).evaluateAll(choices => choices.map(choice => choice.getAttribute('aria-label')))).sort(), [
+    'Include Give service representatives the access they need', 'Include Make room before data storage gets tight',
+  ].sort());
   assert.equal(state.snapshot.assessment.runs.length, 2);
   await selectOrg('SIT Sandbox', 'sit');
   await today().getByRole('button', { name: 'Run assessment', exact: true }).waitFor();

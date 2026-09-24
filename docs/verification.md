@@ -537,3 +537,11 @@ suites are removed.
 | Navigation and agent polling | Connected org and captured canvas scope are independent; existing isolation, history, progress and idle checks remain. Polling fixtures now include the required run context consumed by canvas-change refreshes. |
 | Appearance and sign-in | The unused Help placeholder is replaced by the requested theme switch. `theme-switch`, `attention-scenarios` and `org-sign-in` cover appearance and the loading handoff; existing authentication and recovery checks remain. |
 | Workspace reads | Batched record reads retain tenant/profile filtering, locking, ordering, quotas and response shape; application, agent and model database suites retain persistence and isolation coverage. |
+
+Publication checks also adapt resource-search assertions to independently verify
+the retained connection and the canvas's captured source org. Feature inspection
+checks for live-feature switches inside its canvas, allowing the global appearance
+switch. The selected-org journey explicitly creates API and routing projects and
+checks that permissions/storage opportunities remain; the real-database journey
+selects an org and opportunity explicitly. These replace stale fixture assumptions
+without removing navigation, read-only-feature or durable-creation coverage.
