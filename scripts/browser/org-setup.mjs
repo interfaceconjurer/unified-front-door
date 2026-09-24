@@ -53,7 +53,7 @@ try {
   await page.screenshot({ path: outputPath(`${label}-setup-features.png`) });
   await area.getByRole('button', { name: 'Open Experience Cloud', exact: true }).click();
   await page.getByRole('article', { name: 'Experience Cloud resource' }).getByRole('heading', { name: 'Configuration review' }).waitFor();
-  assert.equal(await page.getByRole('switch').count(), 0);
+  assert.equal(await page.getByRole('article', { name: 'Experience Cloud resource' }).getByRole('switch').count(), 0, 'Feature inspection cannot enable a live org feature');
   await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('combobox').fill('object manager');

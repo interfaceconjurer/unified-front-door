@@ -32,9 +32,9 @@ test("target-org changes append context without replacing history and survive su
   assert.equal(store.getSnapshot().sessions.global, before);
   store.dispatch("global", { type: "org", orgId: "prod", label: "Production" });
   assert.deepEqual(messages(store, "global").slice(0, -1), before.messages);
-  assert.equal(messages(store, "global").at(-1).text, "Target org · Production");
+  assert.equal(messages(store, "global").at(-1).text, "Connected org · Production");
   assert.equal(store.getSnapshot().sessions.global.targetOrgId, "prod");
-  assert.equal(messages(store, "global").filter(message => message.text === "Target org · UAT Sandbox").length, 1);
+  assert.equal(messages(store, "global").filter(message => message.text === "Connected org · UAT Sandbox").length, 1);
   store.dispatch("global", home());
   assert.equal(store.getSnapshot().sessions.global.targetOrgId, "prod");
 });

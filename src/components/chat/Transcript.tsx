@@ -38,7 +38,7 @@ export const Transcript = memo(function Transcript({ messages, startIndex, total
               : <div className={`${styles.message} ${message.role === "user" ? styles.user : ""}`}><div className={message.role === "user" ? styles.bubble : styles.agentReply}>{run ? <StreamingText key={`${run.id}:${run.turnId}`} text={message.text} active={activeRun(run.status)} /> : message.text}{run && <div className={styles.runStatus} data-run-id={run.id} data-run-status={run.status}>
                 <span role="status">{run.status === "pending" ? "Waiting for agent…" : run.status === "running" ? "Preparing reply…" : run.status === "streaming" ? "Replying…" : run.status === "completed" ? "Completed" : run.status === "cancelled" ? "Cancelled" : "Could not complete"}</span>
                 {run.execution?.provider === "anthropic" && <p>Anthropic · {run.execution.model} · reasoning from captured demo data</p>}
-                {run.execution?.provider === "demo" && <p>Demo · simulated reply</p>}
+                {run.execution?.provider === "demo" && <p>{run.context.canvas ? "Demo · permissions assistant" : "Demo · simulated reply"}</p>}
                 {!!((run.execution?.omittedFindings ?? 0) + (run.execution?.omittedHistoryMessages ?? 0)) && <p>Some older messages or findings were omitted to fit the request limit.</p>}
                 {run.error && <p>{run.error.message}</p>}
                 {run.error?.providerCost === "unknown" && run.error.code !== "model_outcome_unknown" && <p>This request may have been charged. Retrying creates a new paid request.</p>}
@@ -53,7 +53,7 @@ export const Transcript = memo(function Transcript({ messages, startIndex, total
               <div className={styles.suggestions} aria-label="Suggested prompts">
                 {suggestions.map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)}>{prompt}</button>)}
               </div>
-              <p className={styles.prototypeNote}>Replies use captured workspace data. Suggestions need human review; no changes are executed.</p>
+              <p className={styles.prototypeNote}>Replies use captured workspace data. Tracked changes do not modify a connected org.</p>
             </>}
           </div>})}</>;
 });

@@ -54,9 +54,9 @@ try {
     await entry.focus(); await entry.press('Enter');
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === project.id);
     await panel.getByRole('heading', { name: work.title, exact: true }).waitFor();
-    assert.deepEqual(destination(page).target, captured);
+    assert.deepEqual(destination(page).target, { ...captured, orgId: global.orgId });
     assert.equal(destination(page).canvas.params.workId, id);
-    assert.equal(destination(page).canvasTarget, undefined);
+    assert.deepEqual(destination(page).canvasTarget, captured);
     assert.equal(await entry.count(), 0, 'Project views do not embed project/worktree switching');
     assert.equal(await notes.inputValue(), note);
     assert.deepEqual(globalThread.conversation, before, 'Project entry leaves the global conversation intact');
@@ -71,7 +71,7 @@ try {
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === project.id);
     await page.reload();
     await panel.getByRole('heading', { name: work.title, exact: true }).waitFor();
-    assert.deepEqual(destination(page).target, captured);
+    assert.deepEqual(destination(page).target, { ...captured, orgId: global.orgId });
     assert.equal(destination(page).canvas.params.workId, id);
     assert.equal(await notes.inputValue(), note);
     assert.equal(await entry.count(), 0);

@@ -19,6 +19,8 @@ import { editComposerDraft, type ComposerDraftState } from "@/lib/chat/composer-
 import { ConversationStore, type Message } from "@/lib/chat/conversation";
 import { conversationKey, sameTarget } from "@/lib/workspace/context";
 import { applicationClient } from "@/lib/application/client";
+import { canvasId } from "@/lib/surface-canvas/model";
+import { isEditablePermissions, PERMISSION_SUGGESTIONS } from "@/lib/org-resources/permissions";
 import { inactiveAgent } from "@/lib/agent/client";
 import { activeRun, type AgentContext } from "@/lib/agent/contracts";
 import { nextFrame, scrollToEntry, waitForMotion } from "@/lib/motion";
@@ -81,13 +83,16 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
   const returning = profile?.workspaceExperience === "established";
   const dayZero = profile?.onboarding === "org-assessment";
 
-  const { activeProject, activeWorktree, sessionKey, target, projects, orgs } = useWorkspace();
+  const { activeProject, activeWorktree, sessionKey, target, orgs, destination } = useWorkspace();
+  const canvas = destination.kind === "available" && destination.destination.surface === "build" ? destination.destination.canvas : undefined;
+  const permissionCanvas = canvas?.kind === "org-resource" && isEditablePermissions(canvas.params) ? canvas : undefined;
+  const permissionKey = permissionCanvas ? canvasId(permissionCanvas.kind, permissionCanvas.params) : null;
   const { state: assessment } = useAssessment();
   const improvement = assessment.projects.find((project) => project.id === activeProject?.id);
   const returningSession = profile?.workspaceExperience === "established"
     ? activeProject?.agentSessions.find((session) => session.worktreeId === activeWorktree?.id)
     : undefined;
-  const scope: Scope = improvement?.source === "brief" ? {
+  const scope: Scope = permissionCanvas ? { ...baseScope, suggestions: PERMISSION_SUGGESTIONS } : improvement?.source === "brief" ? {
     ...baseScope,
     suggestions: ["Plan the first milestone", "What should we clarify first?", "Define success for the first version"],
   } : improvement ? {
@@ -105,7 +110,7 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
   const application = useSyncExternalStore(applicationClient.subscribe, applicationClient.getSnapshot, applicationClient.getServerSnapshot);
   const agent = applicationClient.agent ?? inactiveAgent;
   const remote = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
-  const capturedContext = useMemo<AgentContext>(() => ({ target, surface: baseScope.key as AgentContext["surface"] }), [target, baseScope.key]);
+  const capturedContext = useMemo<AgentContext>(() => ({ target, surface: baseScope.key as AgentContext["surface"], ...(permissionCanvas ? { canvas: permissionCanvas } : {}) }), [target, baseScope.key, permissionCanvas]);
   useEffect(() => { agent.start(); }, [agent]);
   useEffect(() => { agent.setThread(sessionKey); }, [agent, sessionKey]);
 
@@ -171,7 +176,7 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
     if (!profile || !remote.ready) return;
     void agent.command({ kind: "visit", requestId: crypto.randomUUID(), context: capturedContext });
   });
-  useEffect(() => { visit(); }, [agent, remote.ready, sessionKey, scope.key, target.orgId]);
+  useEffect(() => { visit(); }, [agent, remote.ready, sessionKey, scope.key, target.orgId, permissionKey]);
 
   useEffect(() => {
     if (isHome && ["#agent-composer", "#front-door-composer"].includes(window.location.hash)) composerRef.current?.focus();
@@ -278,11 +283,10 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
   }
 
   const resumeWork = useCallback((work: ReturningWork) => {
-    const project = projects.find(project => project.id === work.projectId);
     void agent.command({ kind: "visit", requestId: crypto.randomUUID(), workId: work.id,
-      context: { surface: work.surfaceId, target: target.projectId === null ? target : { projectId: work.projectId, worktreeId: work.worktreeId, orgId: project?.defaultOrgId ?? null } } });
+      context: { surface: work.surfaceId, target: target.projectId === null ? target : { projectId: work.projectId, worktreeId: work.worktreeId, orgId: target.orgId } } });
     openWork(work);
-  }, [projects, agent, openWork, target]);
+  }, [agent, openWork, target]);
 
   const startStarter = useCallback((id: StarterId) => {
     if (!profile) return;
@@ -316,7 +320,17 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
     const navigationIsCurrent = captureIntent(), requestId = crypto.randomUUID();
     navigationIntents.current.clear();
     navigationIntents.current.set(requestId, navigationIsCurrent);
-    const receipt = await agent.command({ kind: "submit", requestId, context: capturedContext, text: value });
+    let context = capturedContext;
+    if (context.canvas) {
+      const workspace = applicationClient.workspace;
+      if (!workspace || !await workspace.settleEdits()) {
+        setDraftState(current => ({ ...current, problem: "Your latest edit is still being saved. Resolve any persistence issue, then send this message again." }));
+        return;
+      }
+      if (!navigationIsCurrent()) return;
+      context = { ...context, canvasRevision: workspace.getSnapshot().canvases.find(draft => draft.id === canvasId(context.canvas!.kind, context.canvas!.params))?.revision ?? 0 };
+    }
+    const receipt = await agent.command({ kind: "submit", requestId, context, text: value });
     if (!receipt) return;
     if (receipt.destination && navigationIsCurrent()) navigateSurface(receipt.destination, "overview");
   }, [profile, remote.pending, remote.ready, captureIntent, agent, capturedContext, navigateSurface]);

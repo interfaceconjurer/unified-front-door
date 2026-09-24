@@ -30,7 +30,7 @@ export function updateConversation(current: Conversation | undefined, event: Con
   if (event.type === "org") {
     if (thread.targetOrgId === event.orgId) return thread;
     const messages = thread.targetOrgId === undefined && event.orgId === null ? thread.messages
-      : [...thread.messages, { id, role: "context" as const, text: event.orgId ? `Target org · ${event.label ?? event.orgId}` : "Target org cleared" }];
+      : [...thread.messages, { id, role: "context" as const, text: event.orgId ? `Connected org · ${event.label ?? event.orgId}` : "Org connection cleared" }];
     return { ...thread, targetOrgId: event.orgId, messages };
   }
   if (event.type === "today") {

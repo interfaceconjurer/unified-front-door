@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ViewTransition } from "react";
 import { flushSync } from "react-dom";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { FeatureBoundary } from "@/components/interaction/FeatureBoundary";
@@ -247,23 +247,30 @@ export function SurfaceCanvasHost({
           navigateSurface(next, next === surfaceId ? "overview" : "restore");
         }} />
 
-      {/* Tab changes are immediate; the shell animates whole-surface changes. */}
-      <div
-        ref={panelRef}
-        role="tabpanel"
-        id={panelDomId(surfaceId)}
-        aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
-        tabIndex={0}
-        className={styles.panel}
-      >
-        <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
-          {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
-            children
-          ) : (
-            <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
-          )}
-        </CanvasLayout></FeatureBoundary>
-      </div>
+      {/* Capture only content: captured DOM cannot receive pointer events while
+          its browser snapshot animates. Tabs and the menu must stay interactive. */}
+      <ViewTransition name="surface-canvas" default="none"
+        share={{ "workspace-context": "workspace-dissolve", default: "surface-swap" }}
+        update={{ "workspace-context": "workspace-dissolve", default: "none" }}
+        enter={{ "workspace-context": "workspace-dissolve", default: "none" }}
+        exit={{ "workspace-context": "workspace-dissolve", default: "none" }}>
+        <div
+          ref={panelRef}
+          role="tabpanel"
+          id={panelDomId(surfaceId)}
+          aria-labelledby={tabDomId(surfaceId, activeCanvas.id)}
+          tabIndex={0}
+          className={styles.panel}
+        >
+          <FeatureBoundary label="Canvas" resetKey={`${surfaceId}:${activeCanvas.id}`}><CanvasLayout>
+            {problem ? <section><h2>Destination unavailable</h2><p>{problem}</p></section> : activeCanvas.id === OVERVIEW_CANVAS_ID ? (
+              children
+            ) : (
+              <CanvasContent key={activeCanvas.id} spec={activeCanvas} />
+            )}
+          </CanvasLayout></FeatureBoundary>
+        </div>
+      </ViewTransition>
     </div>
   );
 }

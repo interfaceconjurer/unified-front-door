@@ -113,11 +113,11 @@ export default function LoginPage() {
           <p>This permanently deletes their saved chats, assessments, projects, and drafts in this demo workspace, then restores their original starting state.</p>
           <p>Starter demo projects stay available. Other users’ data is unchanged.</p>
           {problem && <p role="alert">{problem.message}</p>}
-          {busy && <p role="status">Clearing saved data…</p>}
           <div className={styles.dialogActions}>
             <button type="button" ref={cancelRef} onClick={dismiss} disabled={busy}>{problem && !problem.retryable ? "Close" : "Cancel"}</button>
-            <button type="button" className={styles.confirmClear} onClick={() => { void confirmClear(); }} disabled={busy || problem?.retryable === false}>
-              {busy ? "Clearing…" : problem?.retryable ? "Retry clear" : "Clear data"}
+            <button type="button" className={styles.confirmClear} onClick={() => { void confirmClear(); }} disabled={busy || problem?.retryable === false} aria-busy={busy}>
+              {busy && <span className={styles.clearSpinner} aria-hidden="true" />}
+              {problem?.retryable ? "Retry clear" : "Clear data"}
             </button>
           </div>
         </div>

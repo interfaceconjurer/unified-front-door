@@ -101,8 +101,8 @@ export type Project = {
   name: string;
   description: string;
   worktrees: readonly Worktree[];
-  /** The org this project targets by default; the active target can be switched
-   *  to any org in the global registry. */
+  /** Optional deployment destination. Project selection must preserve the
+   *  independently selected connection. */
   defaultOrgId: string | null;
   facets: ProjectFacets;
   /** One session per worktree, or one project-level session with a null ID —

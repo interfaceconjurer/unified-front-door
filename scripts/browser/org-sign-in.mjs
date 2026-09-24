@@ -69,8 +69,29 @@ try {
         return style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.color !== style.backgroundColor;
       }), 'Continue remains a visible filled primary action in both themes');
       await page.screenshot({ path: outputPath(`${label}-choose-org-${id}.png`) });
+      // Hold data and navigation briefly so the workspace-ready / login-route
+      // handoff is observable even on a fast local server.
+      await page.route('**/api/application*', async route => {
+        if (route.request().method() === 'GET') await new Promise(resolve => setTimeout(resolve, 120));
+        await route.fallback();
+      });
+      await page.route(url => url.pathname === '/' && url.searchParams.has('_rsc'), async route => {
+        await new Promise(resolve => setTimeout(resolve, 250)); await route.continue();
+      });
+      await page.evaluate(() => {
+        window.__signInTransition = { sawLoading: false, flashedLogin: false };
+        const record = () => {
+          const state = window.__signInTransition;
+          if (document.querySelector('#session-heading')?.textContent === 'Opening your workspace…') state.sawLoading = true;
+          if (state.sawLoading && document.querySelector('#login-heading')) state.flashedLogin = true;
+        };
+        window.__signInObserver = new MutationObserver(record);
+        window.__signInObserver.observe(document.body, { childList: true, subtree: true });
+      });
       await page.getByRole('button', { name: 'Continue', exact: true }).click();
       await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
+      const transition = await page.evaluate(() => { window.__signInObserver.disconnect(); return window.__signInTransition; });
+      assert.deepEqual(transition, { sawLoading: true, flashedLogin: false }, 'Loading stays visible until the signed-in workspace replaces login');
       await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
       assert.deepEqual(destination(page).target, { projectId: null, worktreeId: null, orgId: 'sit' });
       assert(visits.every(visit => visit.context.target.orgId === 'sit'), 'No first visit may run without the selected org');

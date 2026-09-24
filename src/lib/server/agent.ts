@@ -2,17 +2,21 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { AGENT_LIMITS, activeRun, parseAgentCommand, type AgentAcknowledgement, type AgentReceipt, type AgentSnapshot, type SavedConversation, type RunInput, type AgentPolicy } from "../agent/contracts";
+import { canvasId } from "../surface-canvas/model";
+import { permissionGuidance } from "../org-resources/permissions";
+import { applyPermissionReply } from "./permission-agent";
 import { demoPolicy, projectIntroduction } from "../agent/demo";
 import { ApplicationError, conflict, invalid, stableJson, type ApplicationCommand } from "../application/contracts";
 import { updateConversation, type Conversation } from "../chat/conversation";
 import { assessmentBriefing, captureToday } from "../chat/today-snapshot";
+import { assessmentForOrg } from "../assessment/selected-org";
 import { workForProfile } from "../workspace/demo-workspace";
 import { RETURNING_WORK, workCanvasInput } from "../workspace/returning-work";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
 import { SURFACES } from "../workspace/surfaces";
 import { UNBOUND_TARGET } from "../workspace/context";
 import { captureAgentContext } from "./agent-context";
-import { cancelAgentRun, createAgentRun, lockAgentWorkspace, runView, type RunRow } from "./agent-runs";
+import { appendRunEvent, updateRunMessage, cancelAgentRun, createAgentRun, lockAgentWorkspace, runView, type RunRow } from "./agent-runs";
 import { hash, requireSession, type OwnedSession } from "./session";
 import { assertBytes } from "./quota";
 import { captureModelExecution } from "./model-context";
@@ -103,7 +107,7 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
     // Freeze the latest acknowledged business state when this live Today becomes
     // history. Earlier Today entries retain their original bounded snapshots.
     if (trailing?.role === "today") saved.conversation = { ...original, messages: [...original.messages.slice(0, -1),
-      { ...trailing, snapshot: { ...trailing.snapshot, assessment: assessmentBriefing(workspace.assessment) } }] };
+      { ...trailing, snapshot: { ...trailing.snapshot, assessment: assessmentBriefing(trailing.snapshot.profile.onboarding ? assessmentForOrg(workspace.assessment, original.targetOrgId ?? null) : workspace.assessment) } }] };
     // Home may carry back an org selected in a different project conversation.
     // Preserve a trailing Today instead of manufacturing an org marker after it.
     // Explicit org selections still use normal visits and remain logged.
@@ -112,7 +116,12 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
       : updateConversation(saved.conversation, { type: "org", orgId: context.target.orgId, label: context.orgLabel });
     if (command.kind === "visit") {
       let next: Conversation;
-      if (command.workId) {
+      if (context.canvas && context.permissions) {
+        const key = `permissions:${canvasId(context.canvas.kind, context.canvas.params)}`;
+        next = saved.conversation.visitKey === key ? saved.conversation : {
+          ...updateConversation(saved.conversation, { type: "surface", scopeKey: "build", label: "Build & Setup", reply: permissionGuidance(context.permissions.fields), force: true }), visitKey: key,
+        };
+      } else if (command.workId) {
         const work = workForProfile(context.profile.id).some(work => work.id === visitedWork?.id) && visitedWork?.surfaceId === context.surface ? visitedWork : undefined;
         if (!work) invalid("This work destination is unavailable in the captured context.");
         next = saved.conversation.visitKey === `work:${work.id}` ? saved.conversation : {
@@ -125,7 +134,7 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
             return { ...work, projectName: project.name, branch: project.worktrees.find(tree => tree.id === work.worktreeId)?.branch ?? work.worktreeId ?? undefined }; })
           .sort((a, b) => Number(!!b.attention) - Number(!!a.attention) || b.updated.localeCompare(a.updated));
         next = updateConversation(saved.conversation, { type: "today", force: command.refreshToday, snapshot: captureToday({ capturedAt: context.capturedAt, profile: context.profile, scope: "global", projectName: "All projects", branch: "", hasProjects: context.hasProjects,
-          recent, working: projects.reduce((count, project) => count + project.agentSessions.filter(session => session.status === "working").length, 0), assessment: workspace.assessment }) });
+          recent, working: projects.reduce((count, project) => count + project.agentSessions.filter(session => session.status === "working").length, 0), assessment: workspace.assessment, orgId: context.target.orgId }) });
       } else if (context.surface === "home") {
         next = updateConversation(saved.conversation, { type: "project", label: context.projectName, reply: projectIntroduction(context) });
       } else next = updateConversation(saved.conversation, { type: "surface", scopeKey: context.surface, label: SURFACES[context.surface].label,
@@ -136,9 +145,10 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
       result = { conversationId: saved.id };
     } else {
       if ((await client.query("SELECT id FROM agent_runs WHERE namespace_id=$1 AND profile_id=$2 AND conversation_id=$3 AND status IN ('pending','running','streaming')", [...scope, saved.id])).rowCount) throw new ApplicationError("conflict", "A reply is already in progress. Your message draft is still here.", 409);
+      const permission = await applyPermissionReply(client, session, context, command.text, command.requestId);
       let settings: ModelSettings | null;
-      try { settings = settingsSource(); } catch { throw new ApplicationError("unavailable", "The model provider is not configured correctly. Your message has not been submitted.", 503); }
-      const input: RunInput = { kind: "chat", text: command.text, context, destination: settings ? null : policy.recommend(command.text, context) }, turnId = randomUUID();
+      try { settings = permission ? null : settingsSource(); } catch { throw new ApplicationError("unavailable", "The model provider is not configured correctly. Your message has not been submitted.", 503); }
+      const input: RunInput = { kind: "chat", text: command.text, context, destination: settings || permission ? null : policy.recommend(command.text, context) }, turnId = randomUUID();
       if (input.destination && !context.profile.surfaceAccess.includes(input.destination)) invalid("The adapter recommended an unavailable surface.");
       let execution;
       try { execution = settings ? await captureModelExecution(client, session, saved.id, saved.conversation, context, workspace.assessment, command.text, settings) : undefined; }
@@ -147,6 +157,13 @@ export async function executeAgentCommand(client: PoolClient, token: string | un
       const next = updateConversation(saved.conversation, { type: "send", text: command.text, reply: "", ...(input.destination ? { destination: { key: input.destination, label: SURFACES[input.destination].label } } : {}) });
       next.messages = next.messages.map((message, i) => i >= saved.conversation.messages.length && (message.role === "user" || message.role === "agent") ? { ...message, turnId, runId: run.id } : message);
       await saveConversation(client, session, saved, next);
+      if (permission) {
+        await updateRunMessage(client, run, permission.text);
+        await client.query("UPDATE agent_runs SET status='completed',result=$2,effect_state=$3,effect_id=$4,effect_tool=$5,effect_input=$6 WHERE id=$1",
+          [run.id, permission.text, permission.changed ? "confirmed" : "none", permission.changed ? randomUUID() : null,
+            permission.changed ? "workspace.permissions" : null, permission.changed ? { canvas: context.canvas, fields: permission.patch } : null]);
+        await appendRunEvent(client, run, "completed", { text: permission.text });
+      }
       result = { conversationId: saved.id, turnId, runId: run.id, destination: input.destination };
     }
   }
@@ -165,6 +182,6 @@ export async function syncAssessmentExecution(client: PoolClient, session: Owned
   if (command.kind === "assessment.pause" || after.status !== "running" || existing && command.kind === "assessment.start") return;
   const previous = (await client.query("SELECT * FROM agent_runs WHERE namespace_id=$1 AND profile_id=$2 AND kind='assessment' AND input->>'assessmentRunId'=$3 ORDER BY created_at DESC,id DESC LIMIT 1", [...scope, after.currentRunId])).rows[0] as RunRow | undefined;
   if (previous?.effect_state === "unknown") conflict("The previous attempt requires reconciliation before it can resume.");
-  const { context } = await captureAgentContext(client, session, { target: UNBOUND_TARGET, surface: "home" });
+  const { context } = await captureAgentContext(client, session, { target: { ...UNBOUND_TARGET, orgId: after.scopeOrgIds.length === 1 ? after.scopeOrgIds[0]! : null }, surface: "home" });
   await createAgentRun(client, session, command.commandId, { kind: "assessment", assessmentRunId: after.currentRunId!, orgIds: [...after.scopeOrgIds], context }, { checkpoint: after.step, retryOf: previous?.id });
 }

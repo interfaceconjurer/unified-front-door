@@ -20,7 +20,7 @@ const COPY: Record<SurfaceId, { heading: string; description: string; workHeadin
   code: { heading: "Back to your code.", description: "Resume your changes or open another tool.", workHeading: "Continue working" },
   build: { heading: "Keep your ideas moving.", description: "Pick up your agents, automations, and experiences.", workHeading: "Your builds" },
   govern: { heading: "Keep your workspace in view.", description: "Follow up on access reviews and revisit the signals you’re watching.", workHeading: "Reviews & monitors" },
-  alm: { heading: "Move your next change forward.", description: "Review your releases, manage deployed apps, and plan what’s next.", workHeading: "Apps & releases" },
+  alm: { heading: "Move your next change forward.", description: "Start a project, plan your work, and take changes through validation and release.", workHeading: "Apps & releases" },
 };
 
 export function ReturningSurface({ surfaceId, children }: {
@@ -58,16 +58,18 @@ export function ReturningSurface({ surfaceId, children }: {
       </div>}
     </header>
 
+    {surfaceId === "alm" && <SurfaceLauncher surfaceId={surfaceId} />}
+
     {children}
 
     {surfaceId === "build" && <BuildSetupAreas />}
 
-    <section aria-labelledby="surface-work-heading">
+    {(surfaceId !== "alm" || work.length > 0) && <section aria-labelledby="surface-work-heading">
       <div className={styles.sectionHeading}><h2 id="surface-work-heading">{copy.workHeading}</h2>
         <span>{attention ? `${attention} needs your attention` : `${work.length} recent ${work.length === 1 ? "item" : "items"}`}</span>
       </div>
       {work.length ? <RecentWorkList items={work} /> : <p className={styles.empty}>Your work in this surface will appear here. Start something new below.</p>}
-    </section>
+    </section>}
 
     {surfaceId === "govern" && <section aria-labelledby="environments-heading">
       <div className={styles.sectionHeading}><h2 id="environments-heading">Connected environments</h2><span>Select a target org</span></div>
@@ -75,7 +77,7 @@ export function ReturningSurface({ surfaceId, children }: {
         <button type="button" aria-pressed={org.id === activeOrg?.id} onClick={() => selectOrg(org.id)}>
           <span className={styles.connection} data-connection={org.connection} aria-hidden="true" />
           <span><strong>{org.label}</strong><small>{org.kind}{org.expiresInDays !== undefined && ` · ${org.expiresInDays === 0 ? "Expired" : `At capture: ${org.expiresInDays} days remaining`}`}</small></span>
-          <span className={styles.orgState}>{org.id === activeOrg?.id ? "Target org" : org.connection === "expired" ? "Expired" : "Connected"}</span>
+          <span className={styles.orgState}>{org.id === activeOrg?.id ? "Selected org" : org.connection === "expired" ? "Expired" : "Connected"}</span>
         </button>
       </li>)}</ul>
     </section>}
@@ -106,9 +108,9 @@ export function ReturningSurface({ surfaceId, children }: {
       </li>)}</ul>
     </section>}
 
-    <details className={styles.newWork}>
+    {surfaceId !== "alm" && <details className={styles.newWork}>
       <summary>Start something new <span>Browse tools & starters</span></summary>
       <div className={styles.launcher}><SurfaceLauncher surfaceId={surfaceId} /></div>
-    </details>
+    </details>}
   </div>;
 }

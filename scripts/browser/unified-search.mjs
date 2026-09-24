@@ -164,7 +164,8 @@ try {
     assert.equal(await rows().filter({ hasText: 'Release_Checklist__c' }).count(), 1, 'All is not restricted by a resource-type filter');
     await input().press('Enter'); await dialog.waitFor({ state: 'detached' });
     await page.getByRole('article', { name: 'Release Checklist resource', exact: true }).waitFor();
-    assert.deepEqual(destination(page).target, { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' });
+    assert.deepEqual(destination(page).target, { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'prod' });
+    assert.equal(destination(page).canvas.params.orgId, 'uat', 'Inspecting a search result captures its org without switching the connection');
     dialog = await open(page); await input().fill('nothing-matches-this-identifier');
     assert.equal(await rows().count(), 0);
     await input().press('Enter'); assert(await dialog.isVisible());

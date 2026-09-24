@@ -2,9 +2,9 @@ import type { WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import { isResourceType, type ResourceIdentity } from "../org-resources/model";
 import { setupAreaForId } from "../org-resources/setup";
-import { isEditableObject } from "../org-resources/object-fields";
+import { isEditableResource } from "../org-resources/editable";
 export const OVERVIEW_CANVAS_ID = "overview";
-export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "org-resource", "org-assessment", "preview", "project-file"] as const;
+export const LAUNCHABLE_KINDS = ["app", "capability", "work", "improvement-project", "work-item-change", "org-resource", "org-assessment", "preview", "project-file"] as const;
 export type LaunchableCanvasKind = (typeof LAUNCHABLE_KINDS)[number];
 export type CanvasKind = "overview" | LaunchableCanvasKind;
 export type CapabilityScope = { scope: "unbound"; orgId?: string } | { scope: "project"; projectId: string; worktreeId?: string; orgId?: string };
@@ -15,6 +15,7 @@ type Inputs = {
   capability: { surface: SurfaceId; capability: string; section?: string } & CapabilityScope;
   work: { workId: string; projectId: string; worktreeId: string | null };
   "improvement-project": { projectId: string };
+  "work-item-change": { projectId: string; workItemId: string };
   "org-assessment": { runId?: string; findingId?: string } & CapabilityScope;
   "org-resource": ResourceIdentity & { projectId?: string; worktreeId?: string };
 };
@@ -41,6 +42,8 @@ export function parseCanvasInput(value: unknown, legacy = false): CanvasSpecInpu
       ? { kind: "preview", title: value.title, params: { projectId: p.projectId as string, worktreeId: p.worktreeId as string, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) } } : null;
     case "work": return ["workId", "projectId"].every(nonempty) && (p.worktreeId === null || nonempty("worktreeId")) ? { kind: "work", title: value.title, params: { workId: p.workId as string, projectId: p.projectId as string, worktreeId: p.worktreeId as string | null } } : null;
     case "improvement-project": return nonempty("projectId") ? { kind: "improvement-project", title: value.title, params: { projectId: p.projectId as string } } : null;
+    case "work-item-change": return nonempty("projectId") && nonempty("workItemId")
+      ? { kind: "work-item-change", title: value.title, params: { projectId: p.projectId as string, workItemId: p.workItemId as string } } : null;
     case "org-assessment":
     case "capability": {
       const scope = (p.scope === "unbound" || legacy && p.scope === undefined) && (p.orgId === undefined || nonempty("orgId")) ? { scope: "unbound" as const, ...(p.orgId === undefined ? {} : { orgId: p.orgId as string }) }
@@ -98,7 +101,7 @@ export const CANVAS_FIELD_CHARACTER_LIMIT = 16000;
 
 /** Evidence stays read-only except for explicitly supported object field overlays. */
 export function isReadOnlyCanvas(canvas: CanvasSpecInput): boolean {
-  return canvas.kind === "project-file" || (canvas.kind === "org-resource" && !isEditableObject(canvas.params)) || canvas.kind === "org-assessment" || canvas.kind === "preview"
+  return canvas.kind === "project-file" || (canvas.kind === "org-resource" && !isEditableResource(canvas.params)) || canvas.kind === "org-assessment" || canvas.kind === "preview"
     || (canvas.kind === "capability" && canvas.params.surface === "build" && !!setupAreaForId(canvas.params.capability));
 }
 
@@ -106,6 +109,6 @@ export function canCopyCanvasToProject(from: CanvasSpecInput, to: CanvasSpecInpu
   if (from.kind === "capability" && to.kind === "capability") return from.params.scope === "unbound" && to.params.scope === "project"
     && from.params.capability === to.params.capability && from.params.section === to.params.section && from.params.surface === to.params.surface;
   return from.kind === "org-resource" && to.kind === "org-resource" && !from.params.projectId && !!to.params.projectId
-    && isEditableObject(from.params) && from.params.orgId === to.params.orgId
+    && isEditableResource(from.params) && from.params.orgId === to.params.orgId
     && from.params.resourceType === to.params.resourceType && from.params.apiName === to.params.apiName;
 }

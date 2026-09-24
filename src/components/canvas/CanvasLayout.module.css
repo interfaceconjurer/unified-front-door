@@ -1,5 +1,5 @@
 .layout {
-  color-scheme: light dark;
+  color-scheme: var(--app-color-scheme, light dark);
   min-inline-size: 0;
   inline-size: 100%;
   padding: clamp(1.25rem, 3vw, 2.5rem);

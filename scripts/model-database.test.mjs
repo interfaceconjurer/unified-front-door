@@ -294,7 +294,7 @@ test("cancel, reset, persona, revocation, expiry and shutdown abort I/O and reje
 
 test("captured findings and acknowledged history obey target, persona and namespace boundaries", async () => {
   const s = await owner("sp"), other = await owner("sp"), budget = scope();
-  await transaction(c => executeCommand(c, s.token, s.session.generation, { kind: "assessment.start", expectedRevision: 0, commandId: randomUUID() }));
+  await transaction(c => executeCommand(c, s.token, s.session.generation, { kind: "assessment.start", orgId: "prod", expectedRevision: 0, commandId: randomUUID() }));
   const assessmentRun = (await snapshot(s)).runs[0];
   const fast = { async step(...args) { const outcome = await demoAdapter.step(...args); return outcome.kind === "progress" ? { ...outcome, delayMs: 0 } : outcome; } };
   for (let i = 0; i < 10 && await workerTick({ runId: assessmentRun.id, adapter: fast }); i++) { /* bounded fixture execution */ }

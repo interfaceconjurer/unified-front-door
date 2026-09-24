@@ -7,7 +7,13 @@
  */
 :root {
   font-family: Arial, Helvetica, sans-serif;
+  /* Keep literal schemes here so the CSS build also emits the variables used
+     by its light-dark() fallback throughout the compiled component styles. */
+  color-scheme: light dark;
 }
+
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 /* The external SLDS stylesheet is loaded after this bundle. Scope the reset to
    the body class so it keeps precedence over broad design-system selectors. */
@@ -23,6 +29,10 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+}
+
+body.slds-color-scheme_system {
+  color-scheme: var(--app-color-scheme, light dark);
 }
 
 body {

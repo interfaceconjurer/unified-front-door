@@ -76,6 +76,12 @@ const CATALOG: readonly Template[] = [
   }),
   resource("permission-set", "Project_Manager", "Project Manager", "Manage delivery projects and view their customer accounts.", { facts: facts(["License", "Salesforce"], ["Assigned users", "8"]), related: [ref("custom-object", "Project__c")] }),
   resource("permission-set", "Release_Manager", "Release Manager", "Review release checklists and approve changes in a sandbox.", { orgIds: ["uat", "sit"], facts: facts(["Assigned users", "4"]), related: [ref("custom-object", "Release_Checklist__c")] }),
+  resource("permission-set-group", "Service_Reps", "Service Reps", "Case access for the service team, including each user's additional permissions.", {
+    facts: facts(["Members", "6"], ["Baseline Case access", "Read, Create, Edit"], ["Profile", "Minimum Access"], ["Role policy", "Service representatives do not delete Cases"]),
+    related: [ref("permission-set", "Case_Management"), ref("permission-set", "Case_Delete")],
+  }),
+  resource("permission-set", "Case_Management", "Case Management", "Read, create and edit Cases for the service team.", { facts: facts(["Object", "Case"], ["Permissions", "Read, Create, Edit"]), related: [ref("permission-set-group", "Service_Reps")] }),
+  resource("permission-set", "Case_Delete", "Case Delete", "Additional Case deletion access assigned directly to individual users.", { facts: facts(["Object", "Case"], ["Permissions", "Read, Delete"], ["Direct assignments", "6"]), related: [ref("permission-set-group", "Service_Reps")] }),
   resource("permission-set-group", "Sales_Team", "Sales Team", "A reusable collection of access for sales representatives.", { facts: facts(["Permission sets", "Sales Operations"], ["Status", "Updated"]), related: [ref("permission-set", "Sales_Operations")] }),
   resource("custom-permission", "Bypass_Lead_Routing", "Bypass Lead Routing", "Allow authorized operators to bypass automatic lead assignment.", { facts: facts(["Used by", "Lead Routing"]), related: [ref("flow", "Lead_Routing")] }),
   resource("profile", "Sales_User", "Sales User", "Baseline login, app, and object access for the sales team.", { facts: facts(["User license", "Salesforce"], ["Profile type", "Custom"], ["Default app", "Sales"]), related: [ref("permission-set-group", "Sales_Team")] }),

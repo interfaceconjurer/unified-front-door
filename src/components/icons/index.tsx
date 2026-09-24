@@ -29,6 +29,12 @@ function Svg(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+export const MoonIcon: IconComponent = (p) => (
+  <Svg {...p}>
+    <path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7Z" />
+  </Svg>
+);
+
 export const HomeIcon: IconComponent = (p) => (
   <Svg {...p}>
     <path d="M3 11 12 4l9 7" />

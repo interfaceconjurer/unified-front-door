@@ -13,7 +13,7 @@ export function useAssessment() {
 }
 
 /** Mount once at workspace level, so leaving home does not stop the assessment. */
-export function useAssessmentRunner() {
+export function useAssessmentRunner(orgId: string | null) {
   const { profile } = useDemoProfile();
   const { state, store } = useAssessment();
   const persistence = useSyncExternalStore(store.subscribe, store.getPersistenceSnapshot, store.getServerPersistenceSnapshot);
@@ -24,7 +24,10 @@ export function useAssessmentRunner() {
   // must not block work in the independently saved server workspace.
   const enabled = profile?.onboarding === "org-assessment" && persistence === "saved";
   useEffect(() => {
-    if (enabled && execution.ready && (state.status === "idle" || state.status === "running" && !execution.data.runs.some(run => run.assessmentRunId === state.currentRunId))) store.start();
-  }, [enabled, execution.ready, execution.data.runs, store, state.status, state.currentRunId]);
-  return state;
+    if (!enabled || !execution.ready) return;
+    // Only the first assessment is automatic. Switching connections never
+    // starts another scan or retargets an in-flight worker.
+    if (state.status === "idle" && !state.runs.length && orgId) store.start(orgId);
+    else if (state.status === "running" && !execution.data.runs.some(run => run.assessmentRunId === state.currentRunId)) store.start();
+  }, [enabled, execution.ready, execution.data.runs, store, state.status, state.currentRunId, state.runs.length, orgId]);
 }

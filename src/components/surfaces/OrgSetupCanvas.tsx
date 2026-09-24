@@ -27,7 +27,7 @@ export function OrgSetupCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
 
   return <article className={styles.browser} aria-label={area.title}>
     <div className={styles.scope}>
-      <label>Target org<select aria-label="Setup org" value={org?.id ?? ""} onChange={event => openArea(area.id, event.target.value)}>
+      <label>Source org<select aria-label="Setup org" value={org?.id ?? ""} onChange={event => openArea(area.id, event.target.value)}>
         <option value="" disabled>Choose an org</option>{orgs.filter(org => org.connection === "connected").map(org => <option value={org.id} key={org.id}>{org.label}</option>)}
       </select></label><span>Demo metadata</span>
     </div>

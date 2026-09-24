@@ -128,3 +128,15 @@ test('general projects retain intent without fabricating assessment runs or repo
     assert.throws(() => projectFromBrief({ ...brief, fields }, 2, 'Jordan', 'create', '', 'p'));
   }
 });
+
+test('assessment projects can be saved without a deployment target and never infer one from the connection', () => {
+  const { decodeAssessment } = modules.load('lib/assessment/state-codec');
+  const { parseCommand } = modules.load('lib/application/contracts');
+  const optional = parseCommand({ ...begin, fields: { ...begin.fields, targetOrgId: '' } });
+  const context = { id: () => 'optional', owner: 'Sam', now: '2026-09-23T12:00:00Z' };
+  const pending = applyAssessmentCommand(completed, optional, context);
+  const saved = applyAssessmentCommand(pending, { kind: 'project.create', draftId: pending.draft.id, draftRevision: 1, expectedRevision: 1, commandId: 'create-optional' }, context);
+  assert.equal(saved.projects[0].targetOrgId, null);
+  assert.deepEqual(decodeAssessment(saved).value.projects, saved.projects);
+  assert.equal(saved.projects[0].workItems[0].finding.id, source.findings[0].id);
+});

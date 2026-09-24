@@ -9,7 +9,7 @@ import { useWorkspace } from "@/components/workspace/workspace-context";
 import { applicationClient, getActiveSelectionStore as getWorkspaceSelectionStore } from "@/lib/application/client";
 import { getActiveCanvasStore as getSurfaceCanvasStore } from "@/lib/application/client";
 import { canvasId, canvasVisibleInWorkspace, type CanvasSpecInput, type CapabilityScope } from "@/lib/surface-canvas/model";
-import { NavigationController, canvasTarget, canvasDestination, destinationCanvasTarget, destinationHref, readDestination, resolveDestination, improvementProjectDestination, type Destination } from "@/lib/navigation/model";
+import { NavigationController, canvasTarget, canvasDestination, destinationCanvasTarget, destinationHref, readDestination, resolveDestination, improvementProjectDestination, projectEntryDestination, type Destination } from "@/lib/navigation/model";
 import { conversationKey, homeTarget, sameTarget, UNBOUND_TARGET, type WorkspaceTarget } from "@/lib/workspace/context";
 import { RESOURCE_TYPES, type OrgResource } from "@/lib/org-resources/model";
 import { primaryWorktree, sessionKey } from "@/lib/workspace/model";
@@ -98,9 +98,10 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     surface = canonicalCanvasSurface(surface, input);
     const captured = canvases.getSnapshot()[surface].targets?.[canvasId(input.kind, input.params)];
     if (captured) return captured;
+    if (input.kind === "work-item-change") return canvasTarget(input, workspace.target);
     const project = input.kind === "capability" || input.kind === "org-resource" || input.kind === "org-assessment" ? null : workspace.projects.find((item) => item.id === input.params.projectId);
     const remembered = project ? selection.getSnapshot().orgByProject[project.id] : undefined;
-    return canvasTarget(input, { projectId: null, worktreeId: null, orgId: input.kind === "improvement-project" ? project?.defaultOrgId ?? null : remembered ?? project?.defaultOrgId ?? null });
+    return canvasTarget(input, { projectId: null, worktreeId: null, orgId: input.kind === "improvement-project" ? null : remembered ?? project?.defaultOrgId ?? null });
   }
   function currentDestination(surface: SurfaceId | null): Destination {
     const state = canvases.getSnapshot(), slice = surface ? state[surface] : null;
@@ -111,7 +112,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     if (surface && canvas && canvas.kind !== "overview") {
       const captured = targetForCanvas(surface, canvas);
       if (sameTarget(captured, target) || target.projectId === null && captured.projectId !== null
-        || target.projectId !== null && captured.projectId === target.projectId && captured.worktreeId === null)
+        || target.projectId !== null && captured.projectId === target.projectId && (captured.worktreeId === null || captured.worktreeId === target.worktreeId))
         return canvasDestination(owner, surface, canvas, captured, target);
     }
     return { version: 1, owner, surface, target };
@@ -149,16 +150,16 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     // Explicit entry from global browsing. Keep this exact canvas and its saved
     // target, rather than restoring the project's previously visited canvas.
     if (workspace.target.projectId !== null || captured.projectId === null) return;
-    controller.navigate({ version: 1, owner, surface: canonicalCanvasSurface(surface, input), target: captured, canvas: input });
+    controller.navigate(projectEntryDestination({ version: 1, owner, surface: canonicalCanvasSurface(surface, input), target: captured, canvas: input }, workspace.target.orgId));
   };
   const openImprovementProject = (project: PlanDestination) => {
     // Explicit project entry (including the onboarding “Open project” action).
     const previous = selection.destinationFor(owner, project.id, null);
-    if (previous) { controller.navigate(previous); return; }
+    if (previous) { controller.navigate(projectEntryDestination(previous, workspace.target.orgId)); return; }
     const destination = improvementProjectDestination(owner, project);
     const id = canvasId(destination.canvas!.kind, destination.canvas!.params);
     const captured = canvases.getSnapshot().alm.targets?.[id];
-    controller.navigate(improvementProjectDestination(owner, project, captured));
+    controller.navigate(projectEntryDestination(improvementProjectDestination(owner, project, captured), workspace.target.orgId));
   };
   const openProjectCreation = () => {
     // Creating a project is global work, even when launched from a project.
@@ -187,17 +188,17 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const stored = selection.getSnapshot();
     const requestedTree = worktreeId ?? stored.worktreeByProject[projectId];
     const selectedTree = project?.worktrees.find(tree => tree.id === requestedTree) ?? (project ? primaryWorktree(project) : null);
-    const target: WorkspaceTarget = { projectId, worktreeId: selectedTree?.id ?? null, orgId: stored.orgByProject[projectId] ?? project?.defaultOrgId ?? null };
+    const target: WorkspaceTarget = { projectId, worktreeId: selectedTree?.id ?? null, orgId: workspace.target.orgId };
     const previous = selection.destinationFor(owner, projectId, target.worktreeId);
-    if (previous && (!previous.surface || profile!.surfaceAccess.includes(previous.surface)) && (surface === undefined || previous.surface === surface)) { controller.navigate(previous); return; }
+    if (previous && (!previous.surface || profile!.surfaceAccess.includes(previous.surface)) && (surface === undefined || previous.surface === surface)) { controller.navigate(projectEntryDestination(previous, target.orgId)); return; }
     if (surface === undefined && project && applicationClient.workspace?.getSnapshot().assessment.projects.some(saved => saved.id === project.id)) { openImprovementProject({ id: project.id, name: project.name, targetOrgId: project.defaultOrgId }); return; }
     const conversation = applicationClient.agent?.getSnapshot().data.conversations.find(saved => saved.threadKey === sessionKey(projectId, target.worktreeId))?.conversation;
     const lastWork = workForProfile(owner).filter(work => work.projectId === projectId && work.worktreeId === target.worktreeId)
       .sort((a, b) => b.updated.localeCompare(a.updated))[0];
     const lastSurface = conversation && isSurfaceId(conversation.scopeKey) && profile!.surfaceAccess.includes(conversation.scopeKey) ? conversation.scopeKey : lastWork?.surfaceId ?? null;
     const canvas = !conversation && lastWork && (surface === undefined || surface === lastWork.surfaceId) ? workCanvasInput(lastWork) : undefined;
-    controller.navigate({ version: 1, owner, surface: surface === undefined ? lastSurface : surface,
-      target: canvas && lastWork ? targetForCanvas(lastWork.surfaceId, canvas) : target, ...(canvas ? { canvas } : {}) });
+    controller.navigate(projectEntryDestination({ version: 1, owner, surface: surface === undefined ? lastSurface : surface,
+      target: canvas && lastWork ? targetForCanvas(lastWork.surfaceId, canvas) : target, ...(canvas ? { canvas } : {}) }, target.orgId));
   };
   const visibleProblem = workspace.destination.kind === "unavailable" ? workspace.destination.reason : problem;
   const globalHome: Destination = { version: 1, owner, surface: null, target: homeTarget(workspace.target) };

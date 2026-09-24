@@ -2,7 +2,7 @@ import type { AssessmentState } from "../assessment/state";
 import type { DemoProfileId } from "../demo-profiles";
 import type { DraftEdit, ImprovementProject, ProjectDraftFields } from "../projects/model";
 import { isProjectType, PROJECT_CONTEXT_LIMIT } from "../projects/templates";
-import { parseObjectFields } from "../org-resources/object-fields";
+import { validResourceFields } from "../org-resources/editable";
 import { parseCanvasInput, canvasId, canvasTarget, isReadOnlyCanvas, type CanvasSpecInput } from "../surface-canvas/model";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { SURFACE_IDS, type SurfaceId } from "../workspace/surfaces";
@@ -13,7 +13,8 @@ export type TransferSource = { sourceId: string; sourceRevision: number };
 /** assessmentRevision guards user commands; autonomous progress uses run events. */
 export type ApplicationSnapshot = { session: SessionView; assessment: AssessmentState; assessmentRevision: number; canvases: SavedCanvas[]; imports: SavedImport[] };
 export type ApplicationOperation =
-  | { kind: "assessment.start" | "assessment.advance" | "assessment.pause" }
+  | { kind: "assessment.start"; orgId?: string }
+  | { kind: "assessment.advance" | "assessment.pause" }
   | { kind: "assessment.rescan"; orgIds: string[] }
   | { kind: "draft.begin"; runId: string; fields: ProjectDraftFields }
   | { kind: "draft.edit"; draftId: string; edit: DraftEdit }
@@ -59,14 +60,15 @@ export function parseCommand(value: unknown): ApplicationCommand {
   if (!record(value) || !text(value.commandId, 200) || !revision(value.expectedRevision) || !text(value.kind)) invalid();
   const common = ["kind", "commandId", "expectedRevision"];
   switch (value.kind) {
-    case "assessment.start": case "assessment.advance": case "assessment.pause": exact(value, common); break;
+    case "assessment.start": exact(value, [...common, "orgId"]); if (value.orgId !== undefined && !text(value.orgId)) invalid(); break;
+    case "assessment.advance": case "assessment.pause": exact(value, common); break;
     case "assessment.rescan": exact(value, [...common, "orgIds"]); if (!stringList(value.orgIds)) invalid(); break;
     case "draft.begin": {
       exact(value, [...common, "runId", "fields"]);
       const f = value.fields;
       if (!text(value.runId) || !record(f)) invalid();
       exact(f, ["name", "goal", "targetOrgId", "findingIds", "projectType", "context"]);
-      if (!text(f.name, 1000) || !text(f.goal, 50000) || !text(f.targetOrgId) || !stringList(f.findingIds)) invalid();
+      if (!text(f.name, 1000) || !text(f.goal, 50000) || typeof f.targetOrgId !== "string" || f.targetOrgId.length > 1000 || !stringList(f.findingIds)) invalid();
       if (f.projectType !== undefined && !isProjectType(f.projectType) || f.context !== undefined && (typeof f.context !== "string" || f.context.length > PROJECT_CONTEXT_LIMIT)) invalid();
       break;
     }
@@ -87,9 +89,10 @@ export function parseCommand(value: unknown): ApplicationCommand {
       exact(value, [...common, "surface", "canvas", "target", ...(value.kind === "canvas.save" ? ["fields"] : ["sourceId", "sourceRevision"])]);
       const canvas = parseCanvasInput(value.canvas), target = parseTarget(value.target);
       if (!canvas || isReadOnlyCanvas(canvas) || !target || !SURFACE_IDS.includes(value.surface as SurfaceId) || (canvas.kind === "capability" && canvas.params.surface !== value.surface)
+        || (canvas.kind === "work-item-change" && value.surface !== "build")
         || stableJson(canvasTarget(canvas, target)) !== stableJson(target)) invalid();
       if (value.kind === "canvas.save" ? !fields(value.fields) : !text(value.sourceId, 5000) || !revision(value.sourceRevision) || value.sourceRevision === 0) invalid();
-      if (canvas.kind === "org-resource" && (value.surface !== "build" || value.kind === "canvas.save" && !parseObjectFields(canvas.params, value.fields as Record<string, string>))) invalid("The object field changes are not valid.");
+      if (canvas.kind === "org-resource" && (value.surface !== "build" || value.kind === "canvas.save" && !validResourceFields(canvas.params, value.fields as Record<string, string>))) invalid("The resource changes are not valid.");
       if (value.kind === "canvas.save" && canvas.kind === "capability" && canvas.params.capability === "project") briefTransferSources((value.fields as Record<string, string>).transferSources);
       // Whitelist runtime canvas data at the server boundary, just as at the URL boundary.
       return { ...value, canvas, target } as ApplicationCommand;

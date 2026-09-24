@@ -9,20 +9,51 @@ import { assessmentCursor } from "../assessment/cursor";
 import { assertBytes, DEMO_LIMITS } from "./quota";
 import { canonicalCanvasSurface } from "../surface-canvas/routing";
 
+type WorkspaceRecords = {
+  runs: AssessmentRun[] | null;
+  findings: FindingSnapshot[] | null;
+  projects: ImprovementProject[] | null;
+  items: { project_id: string; record: PlannedWorkItem; status: PlannedWorkItem["status"] }[] | null;
+  draft: AssessmentState["draft"];
+  canvases: SavedCanvas[] | null;
+  imports: ApplicationSnapshot["imports"] | null;
+};
+
 export async function readWorkspace(client: PoolClient, session: OwnedSession, lock = false): Promise<ApplicationSnapshot> {
   const scope = [session.namespaceId, session.profileId];
   const workspace = (await client.query(`SELECT assessment_revision,assessment_cursor FROM workspaces WHERE namespace_id=$1 AND profile_id=$2${lock ? " FOR UPDATE" : ""}`, scope)).rows[0];
   if (!workspace) throw new Error("Missing workspace");
-  const runs = (await client.query("SELECT record FROM assessment_runs WHERE namespace_id=$1 AND profile_id=$2 ORDER BY record->>'startedAt',id", scope)).rows.map((row) => ({ ...row.record, findings: [] })) as AssessmentRun[];
-  const findings = (await client.query("SELECT record FROM assessment_findings WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows.map((row) => row.record) as FindingSnapshot[];
+  // Keep the workspace lock as a separate statement: a waiting READ COMMITTED
+  // writer must see the records committed by its predecessor after acquiring it.
+  // Fetch the collections together so every refresh/agent visit avoids seven
+  // sequential network round trips to the remote database.
+  const records = (await client.query<WorkspaceRecords>(`SELECT
+    (SELECT jsonb_agg(record ORDER BY record->>'startedAt',id)
+      FROM assessment_runs WHERE namespace_id=$1 AND profile_id=$2) AS runs,
+    (SELECT jsonb_agg(record ORDER BY id)
+      FROM assessment_findings WHERE namespace_id=$1 AND profile_id=$2) AS findings,
+    (SELECT jsonb_agg(record || jsonb_build_object('revision',revision) ORDER BY record->>'createdAt',id)
+      FROM improvement_projects WHERE namespace_id=$1 AND profile_id=$2) AS projects,
+    (SELECT jsonb_agg(jsonb_build_object('project_id',project_id,'record',record,'status',status) ORDER BY id)
+      FROM project_work_items WHERE namespace_id=$1 AND profile_id=$2) AS items,
+    (SELECT record || jsonb_build_object('revision',revision)
+      FROM project_drafts WHERE namespace_id=$1 AND profile_id=$2) AS draft,
+    (SELECT jsonb_agg(jsonb_build_object('id',id,'surface',surface_id,'canvas',canvas,'target',target,'fields',fields,'revision',revision) ORDER BY id)
+      FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2) AS canvases,
+    (SELECT jsonb_agg(summary || jsonb_build_object('importedAt',imported_at) ORDER BY imported_at,source_hash)
+      FROM (SELECT summary,imported_at,source_hash FROM import_receipts
+        WHERE namespace_id=$1 AND profile_id=$2 ORDER BY imported_at,source_hash LIMIT $3) receipts) AS imports`,
+  [...scope, DEMO_LIMITS.imports])).rows[0];
+  if (!records) throw new Error("Missing workspace records");
+  const runs = (records.runs ?? []).map(run => ({ ...run, findings: [] as FindingSnapshot[] }));
+  const findings = records.findings ?? [];
   for (const run of runs) run.findings = findings.filter((finding) => finding.runId === run.id);
-  const projects = (await client.query("SELECT record,revision FROM improvement_projects WHERE namespace_id=$1 AND profile_id=$2 ORDER BY record->>'createdAt',id", scope)).rows.map((row) => ({ ...row.record, revision: row.revision, workItems: [] })) as ImprovementProject[];
-  const items = (await client.query("SELECT project_id,record,status FROM project_work_items WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows;
+  const projects = (records.projects ?? []).map(project => ({ ...project, workItems: [] as PlannedWorkItem[] }));
+  const items = records.items ?? [];
   for (const project of projects) project.workItems = items.filter((row) => row.project_id === project.id).map((row) => ({ ...row.record, status: row.status })) as PlannedWorkItem[];
-  const draft = (await client.query("SELECT record,revision FROM project_drafts WHERE namespace_id=$1 AND profile_id=$2", scope)).rows[0];
-  const canvases = (await client.query("SELECT id,surface_id,canvas,target,fields,revision FROM canvas_drafts WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id", scope)).rows.map((row) => ({ id: row.id, surface: canonicalCanvasSurface(row.surface_id, row.canvas), canvas: row.canvas, target: row.target, fields: row.fields, revision: row.revision })) as SavedCanvas[];
-  const imports = (await client.query("SELECT summary,imported_at FROM import_receipts WHERE namespace_id=$1 AND profile_id=$2 ORDER BY imported_at,source_hash LIMIT $3", [...scope, DEMO_LIMITS.imports])).rows.map(row => ({ ...row.summary, importedAt: row.imported_at.toISOString() }));
-  const snapshot: ApplicationSnapshot = { session: sessionView(session), assessmentRevision: workspace.assessment_revision, assessment: { ...workspace.assessment_cursor, projects, runs, draft: draft ? { ...draft.record, revision: draft.revision } : null }, canvases, imports };
+  const canvases = (records.canvases ?? []).map(row => ({ ...row, surface: canonicalCanvasSurface(row.surface, row.canvas) }));
+  const imports = (records.imports ?? []).map(row => ({ ...row, importedAt: new Date(row.importedAt).toISOString() }));
+  const snapshot: ApplicationSnapshot = { session: sessionView(session), assessmentRevision: workspace.assessment_revision, assessment: { ...workspace.assessment_cursor, projects, runs, draft: records.draft }, canvases, imports };
   assertBytes(snapshot, DEMO_LIMITS.snapshotBytes, "Workspace response");
   return snapshot;
 }

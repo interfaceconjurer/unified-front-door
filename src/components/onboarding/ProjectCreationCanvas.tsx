@@ -13,6 +13,9 @@ import { ASSESSMENT_ORGS } from "@/lib/onboarding/assessment";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { useAssessment } from "./use-assessment";
 import { ProjectIntentFields } from "./ProjectIntentFields";
+import { CapabilityHeader } from "@/components/surfaces/CapabilityHeader";
+import { capabilityForCanvas } from "@/components/surfaces/surface-capabilities";
+import capabilityStyles from "@/components/surfaces/CapabilityDraftCanvas.module.css";
 import styles from "./onboarding.module.css";
 
 export function ProjectCreationCanvas({ spec }: { spec: CanvasOf<"capability"> }) {
@@ -53,20 +56,25 @@ function ProjectReview({ draft, findings, owner, earlier, sourceAvailable, creat
 }) {
   const id = useId();
   const selected = findings.filter(finding => draft.findingIds.includes(finding.id));
-  const targetAvailable = ASSESSMENT_ORGS.some(org => org.id === draft.targetOrgId && org.kind === "sandbox" && org.connection === "connected");
-  return <section className={`${styles.projectCanvas} ${styles.review}`} aria-label="Project creation" data-project-draft-id={draft.id} data-project-source-run={draft.runId}>
-    <button className={styles.textButton} type="button" onClick={onBack}><ChevronLeftIcon width={15} height={15} aria-hidden="true" />Back to opportunities</button>
-    <div className={styles.sectionHead}><div><p className={styles.kicker}>FROM INSIGHT TO ACTION</p><h1>Start a project</h1><p>Adjust the saved draft, then create your project and planned work items.</p></div></div>
-    {persistence}
-    {earlier && <p>This draft keeps the findings from an earlier assessment. Your newer assessment does not change its plan.</p>}
-    {sourceDate && <p className={styles.quiet}>Source assessment completed <time dateTime={sourceDate}>{new Date(sourceDate).toLocaleString()}</time></p>}
+  const targetAvailable = !draft.targetOrgId || ASSESSMENT_ORGS.some(org => org.id === draft.targetOrgId && org.connection === "connected");
+  const capability = capabilityForCanvas("alm", "project")!;
+  return <section className={styles.projectCanvas} aria-label="Project creation" data-project-draft-id={draft.id} data-project-source-run={draft.runId}>
+    <button className={`${styles.textButton} ${styles.projectBack}`} type="button" onClick={onBack}><ChevronLeftIcon width={15} height={15} aria-hidden="true" />Back to Today</button>
+    <CapabilityHeader title={capability.label} description={capability.description} Icon={capability.Icon} />
+    <aside className={capabilityStyles.connectionNote} aria-label="Project source"><div>
+      <strong>From insight to action</strong><p>Your selected org assessment opportunities provide the starting point for this project.</p>
+      {sourceDate && <p>Source assessment completed <time dateTime={sourceDate}>{new Date(sourceDate).toLocaleString()}</time></p>}
+      {earlier && <p>This draft keeps the findings from an earlier assessment. Your newer assessment does not change its plan.</p>}
+    </div></aside>
     {!sourceAvailable && <p role="status">Some source findings are unavailable or already assigned. Your draft is preserved; review the source assessment before creating a project.</p>}
-    {!targetAvailable && <p role="status">The saved work environment is unavailable. Choose a connected sandbox before creating this project.</p>}
-    <form onSubmit={event => { event.preventDefault(); if (!busy && sourceAvailable && selected.length && targetAvailable) onCreate(); }}>
+    {!targetAvailable && <p role="status">The saved deployment target is unavailable. Choose a connected org or leave the target unset.</p>}
+    <form className={capabilityStyles.draft} aria-label="Start a project draft" onSubmit={event => { event.preventDefault(); if (!busy && sourceAvailable && selected.length && targetAvailable) onCreate(); }}>
+      <div className={capabilityStyles.draftHeading}><h2>Your starting point</h2>{persistence}</div>
       <fieldset className={styles.briefingFields} disabled={creating} aria-busy={creating}>
       <label className={styles.field} htmlFor={`${id}-name`}>Project name<input id={`${id}-name`} required maxLength={100} value={draft.name} onChange={event => onChange({ field: "name", value: event.target.value })} /></label>
       <ProjectIntentFields value={draft} goalLimit={1500} onChange={(field, value) => onChange({ field, value })} />
-      <div className={styles.formRow}><label className={styles.field}>Start work in<select value={draft.targetOrgId} onChange={event => onChange({ field: "targetOrgId", value: event.target.value })}>{!targetAvailable && <option value={draft.targetOrgId}>{draft.targetOrgId} · unavailable</option>}{ASSESSMENT_ORGS.filter(org => org.kind === "sandbox" && org.connection === "connected").map(org => <option key={org.id} value={org.id}>{org.label}</option>)}</select></label><div className={styles.field}>Project owner<strong className={styles.owner}>{owner}</strong></div></div>
+      <div className={styles.formRow}><label className={styles.field}>Deployment target (optional)<select aria-label="Deployment target (optional)" value={draft.targetOrgId} onChange={event => onChange({ field: "targetOrgId", value: event.target.value })}><option value="">Choose later</option>{!targetAvailable && <option value={draft.targetOrgId}>{draft.targetOrgId} · unavailable</option>}{ASSESSMENT_ORGS.filter(org => org.connection === "connected").map(org => <option key={org.id} value={org.id}>{org.label}</option>)}</select></label><div className={styles.field}>Project owner<strong className={styles.owner}>{owner}</strong></div></div>
+      <p className={styles.quiet}>Develop and review changes in your project with version control. A deployment target is where you deploy those changes; selecting it does not change your connected org or deploy anything.</p>
       <h3 className={styles.workHeading}>Planned work items <span>{selected.length}</span></h3><p className={styles.quiet}>Each item retains its captured evidence, implementation steps, and validation criteria.</p>
       <div className={styles.reviewItems}>{findings.map(finding => <div className={styles.reviewItem} key={finding.id}><label><input type="checkbox" checked={draft.findingIds.includes(finding.id)} onChange={event => onChange({ field: "finding", id: finding.id, included: event.target.checked })} /><span><strong>{finding.title}</strong><small>{finding.priority} priority · {finding.effort} · {finding.orgLabel}</small></span></label>{draft.findingIds.includes(finding.id) && <details className={styles.evidence}><summary>Review work item plan</summary><ul>{finding.evidence.map((evidence, index) => <li key={index}>{evidence}</li>)}</ul><ol>{finding.steps.map((step, index) => <li key={index}>{step}</li>)}</ol><p><strong>Validation:</strong> {finding.validation}</p></details>}</div>)}</div>
       <div className={styles.selectionBar}><div><strong>Ready for a first step</strong><span>Saves a project and {selected.length} work items to this demo workspace. No repository or org is provisioned.</span></div><button className={styles.primary} type="submit" disabled={busy || !sourceAvailable || !targetAvailable || !selected.length || !draft.name.trim() || !draft.goal.trim()}>Create project <ChevronRightIcon width={16} height={16} aria-hidden="true" /></button></div>

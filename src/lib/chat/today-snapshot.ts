@@ -3,6 +3,7 @@ import { currentFindings, type FindingSnapshot } from "../assessment/model";
 import type { AssessmentState } from "../assessment/state";
 import type { ProjectDraft } from "../projects/model";
 import type { ReturningWork } from "../workspace/returning-work";
+import { assessmentForOrg } from "../assessment/selected-org";
 export const BRIEFING_LIMITS = { findings: 20, projects: 12, workReferences: 100, text: 2000, entries: 12, recent: 12 } as const;
 export type ProjectSummary = { id: string; name: string; runId: string | null; targetOrgId: string | null; findingIds: string[]; workItemCount: number; completedCount: number };
 export type AssessmentBriefing = Pick<AssessmentState, "status" | "step" | "completedAt" | "currentRunId"> & {
@@ -58,7 +59,7 @@ export function assessmentBriefing(state: AssessmentState): AssessmentBriefing {
 }
 export type TodaySnapshot = { capturedAt: string; profile: DemoProfile; projectName: string; branch: string; scope?: "global";
   hasProjects: boolean; recent: readonly ReturningWork[]; totalRecent: number; truncated: boolean; working: number; assessment: AssessmentBriefing };
-export function captureToday(input: Omit<TodaySnapshot, "assessment" | "totalRecent" | "truncated"> & { assessment: AssessmentState }): TodaySnapshot {
+export function captureToday(input: Omit<TodaySnapshot, "assessment" | "totalRecent" | "truncated"> & { assessment: AssessmentState; orgId?: string | null }): TodaySnapshot {
   const bound = limiter(), profile = input.profile;
   const result = { capturedAt: input.capturedAt, hasProjects: input.hasProjects, working: input.working,
     ...(input.scope ? { scope: input.scope } : {}),
@@ -67,6 +68,6 @@ export function captureToday(input: Omit<TodaySnapshot, "assessment" | "totalRec
     recent: bound.list(input.recent, BRIEFING_LIMITS.recent).map((work) => ({ id: work.id, projectId: work.projectId, worktreeId: work.worktreeId, surfaceId: work.surfaceId,
       ...(work.projectName ? { projectName: bound.text(work.projectName, 100) } : {}), ...(work.branch ? { branch: bound.text(work.branch, 200) } : {}),
       title: bound.text(work.title), summary: bound.text(work.summary), updated: bound.text(work.updated), status: work.status, statusLabel: bound.text(work.statusLabel), kind: bound.text(work.kind), attention: work.attention,
-      details: [], activity: [] })), totalRecent: input.recent.length, assessment: assessmentBriefing(input.assessment), truncated: false };
+      details: [], activity: [] })), totalRecent: input.recent.length, assessment: assessmentBriefing(!profile.onboarding || input.orgId === undefined ? input.assessment : assessmentForOrg(input.assessment, input.orgId)), truncated: false };
   result.truncated = bound.truncated; return result;
 }

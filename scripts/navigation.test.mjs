@@ -18,6 +18,27 @@ const ready = { projectId: project.id, worktreeId: worktree.id, orgId: project.d
 const capability = (scope = { scope: "unbound" }) => ({ kind: "capability", title: "Write Apex", params: { surface: "code", capability: "apex", ...scope } });
 const destination = (canvas = capability(), target = UNBOUND_TARGET, surface = "code") => ({ version: 1, owner: "am", surface, target, canvas });
 
+test('work-item change canvases retain project ownership and connection, isolate items, and reject unavailable links', () => {
+  const input = { kind: 'work-item-change', title: 'Prepare change', params: { projectId: 'saved-plan', workItemId: 'item-one' } };
+  const captured = { projectId: 'saved-plan', worktreeId: null, orgId: 'uat' };
+  const saved = [{ id: 'saved-plan', workItems: [{ id: 'item-one' }, { id: 'item-two' }] }];
+  for (const workspace of [captured, { ...captured, orgId: 'prod' }, { ...UNBOUND_TARGET, orgId: 'prod' }]) {
+    const value = canvasDestination('sp', 'build', input, captured, workspace);
+    assert.deepEqual(value.target, workspace);
+    assert.deepEqual(destinationCanvasTarget(value), captured);
+    assert.deepEqual(readDestination(destinationHref(value)).value, value);
+    assert.equal(resolveDestination(destinationHref(value), 'sp', ['build', 'alm'], {}, saved).kind, 'available');
+    assert.equal(resolveDestination(destinationHref(value), 'sp', ['build', 'alm'], {}, []).kind, 'unavailable');
+  }
+  assert.notEqual(canvasId(input.kind, input.params), canvasId(input.kind, { ...input.params, workItemId: 'item-two' }));
+  assert.equal(parseCanvasInput({ ...input, params: { projectId: 'saved-plan' } }), null);
+  assert.equal(canvasVisibleInWorkspace(input, { ...captured, projectId: 'different-project' }, captured), false);
+  const missing = { ...input, params: { ...input.params, workItemId: 'missing' } };
+  assert.equal(resolveDestination(destinationHref(canvasDestination('sp', 'build', missing, captured, captured)), 'sp', ['build'], {}, saved).kind, 'unavailable');
+  const wrongSurface = { version: 1, owner: 'sp', surface: 'alm', target: captured, canvas: input };
+  assert.equal(readDestination('/alm?destination=' + encodeURIComponent(JSON.stringify(wrongSurface))).kind, 'invalid');
+});
+
 test('browsing a project record preserves the selected org while retaining its captured plan environment', () => {
   const { canvasDestination, destinationCanvasTarget } = modules.load('lib/navigation/model');
   const canvas = { kind: 'improvement-project', title: 'Saved plan', params: { projectId: 'plan' } };
@@ -176,7 +197,7 @@ test("separate canvas ownership cannot weaken project isolation or appear on a b
   const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
   const valid = canvasDestination("am", "code", input, ready, UNBOUND_TARGET);
   for (const bad of [
-    { ...valid, target: ready },
+    { ...valid, target: { ...ready, worktreeId: "another-worktree" } },
     { ...valid, canvas: undefined },
     { ...valid, canvasTarget: null },
     { ...valid, canvasTarget: UNBOUND_TARGET },
@@ -426,10 +447,10 @@ test("a newly created plan navigates from its authoritative result before any wo
   const { assessmentBriefing, liveAssessmentView } = modules.load("lib/chat/today-snapshot");
   assert.deepEqual(improvementProjectDestination("sp", liveAssessmentView(assessment.getSnapshot()).projects[0]), initial);
   assert.deepEqual(improvementProjectDestination("sp", assessmentBriefing(assessment.getSnapshot()).projects[0]), initial);
-  assert.equal(initial.target.orgId, saved.targetOrgId); assert.equal(initial.target.orgId, "sit"); assert.equal(initial.target.worktreeId, null);
-  assert.equal(readDestination(destinationHref(initial)).value.target.orgId, "sit");
+  assert.equal(saved.targetOrgId, "sit"); assert.equal(initial.target.orgId, null); assert.equal(initial.target.worktreeId, null);
+  assert.equal(readDestination(destinationHref(initial)).value.target.orgId, null);
   assert.deepEqual(improvementProjectDestination("sp", assessment.getSnapshot().projects[0]), initial);
-  const retired = improvementProjectDestination("sp", { ...saved, targetOrgId: "retired-sandbox" }); assert.equal(retired.target.orgId, "retired-sandbox");
+  const retired = improvementProjectDestination("sp", { ...saved, targetOrgId: "retired-sandbox" }); assert.equal(retired.target.orgId, null);
   const previousCapture = { ...initial.target, orgId: "uat" };
   assert.deepEqual(improvementProjectDestination("sp", saved, previousCapture).target, previousCapture, "existing captured target wins without being overwritten");
 });
@@ -444,4 +465,24 @@ test("database JSONB target key order cannot change destination identity or capt
   const plan = { id:"plan-jsonb",name:"Plan",targetOrgId:"sit" };
   assert.equal(improvementProjectDestination("sp",plan,{orgId:"sit",worktreeId:null,projectId:plan.id}).target.orgId,"sit");
   const store = new SurfaceCanvasStore("ordered");browser();assert.equal(store.captureTarget("code",id,databaseTarget),true);assert.equal(store.captureTarget("code",id,ready),true);
+});
+
+test("switching projects preserves the connected org independently of captured canvases and deployment targets", () => {
+  const { improvementProjectDestination, projectEntryDestination, destinationCanvasTarget } = modules.load("lib/navigation/model");
+  for (const deployment of [null, "sit", "retired-org"]) {
+    const project = { id: "plan", name: "Plan", targetOrgId: deployment };
+    const legacy = improvementProjectDestination("sp", project, { projectId: "plan", worktreeId: null, orgId: "uat" });
+    const entry = projectEntryDestination(legacy, "prod");
+    assert.equal(entry.target.orgId, "prod");
+    assert.equal(destinationCanvasTarget(entry).orgId, "uat", "Existing capture is preserved");
+    assert.equal(readDestination(destinationHref(entry)).kind, "destination");
+    assert.equal(projectEntryDestination(entry, null).target.orgId, null);
+  }
+  const input = capability({ scope: "project", projectId: project.id, worktreeId: worktree.id, orgId: ready.orgId });
+  const original = canvasDestination("am", "code", input, ready, ready);
+  const entry = projectEntryDestination(original, "prod");
+  assert.deepEqual(entry.canvas, original.canvas, "The project's saved editor is retained");
+  assert.deepEqual(destinationCanvasTarget(entry), ready, "Editor ownership is independent of the connection");
+  assert.equal(entry.target.orgId, "prod");
+  assert.equal(readDestination(destinationHref(entry)).kind, "destination");
 });

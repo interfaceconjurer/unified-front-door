@@ -1,10 +1,12 @@
 "use client";
 
-import { useId, useState, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, ShieldIcon } from "@/components/icons";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { PersistenceStatus } from "@/components/persistence/PersistenceStatus";
+import { assessmentForOrg } from "@/lib/assessment/selected-org";
+import { useWorkspace } from "@/components/workspace/workspace-context";
 import { assessmentCanvas, assessmentCanvasView } from "@/lib/assessment/canvas";
 import { applicationClient } from "@/lib/application/client";
 import { inactiveAgent } from "@/lib/agent/client";
@@ -22,25 +24,28 @@ export function OrgAssessmentCanvas({ spec }: { spec: CanvasOf<"org-assessment">
   const { openCanvas, navigateGlobalHome } = useNavigation();
   const agent = applicationClient.agent ?? inactiveAgent;
   const execution = useSyncExternalStore(agent.subscribe, agent.getSnapshot, agent.getServerSnapshot);
-  const view = assessmentCanvasView(spec.params, state);
+  const { target } = useWorkspace();
+  const selected = assessmentForOrg(state, target.orgId);
+  const view = assessmentCanvasView(spec.params, spec.params.runId ? state : assessmentForOrg(state, spec.params.orgId ?? target.orgId));
   if (!profile?.onboarding || view.kind === "unavailable") return <article className={styles.canvas}>
     <h2>Assessment unavailable</h2><p>{view.kind === "unavailable" ? view.reason : "Org assessment is unavailable for this profile."}</p>
     <button type="button" onClick={navigateGlobalHome}>Back to Today</button>
   </article>;
   const { run, finding, current, scopeOrgIds, status } = view;
-  const attempt = current && run ? execution.data.runs.filter(attempt => attempt.assessmentRunId === run.id).at(-1) : undefined;
+  const active = run?.id === state.currentRunId;
+  const attempt = active && run ? execution.data.runs.filter(attempt => attempt.assessmentRunId === run.id).at(-1) : undefined;
   const interrupted = attempt?.status === "failed" || attempt?.status === "cancelled";
   const openRun = (runId?: string | null, finding?: FindingSnapshot) => openCanvas("build", assessmentCanvas(spec.params, runId, finding));
   return <article className={styles.canvas} aria-label="Org assessment canvas" data-assessment-view-run={run?.id}>
     <div className={styles.toolbar}>
       <button type="button" onClick={navigateGlobalHome}><ChevronLeftIcon width={14} height={14} aria-hidden="true" />Back to Today</button>
-      {!current && state.currentRunId && <button type="button" onClick={() => openRun(state.currentRunId)}>View latest assessment<ChevronRightIcon width={14} height={14} aria-hidden="true" /></button>}
+      {!current && selected.currentRunId && <button type="button" onClick={() => openRun(selected.currentRunId)}>View latest assessment<ChevronRightIcon width={14} height={14} aria-hidden="true" /></button>}
       {finding && <button type="button" onClick={() => openRun(run!.id)}>All findings from this assessment</button>}
     </div>
     <header className={styles.header}>
       <span className={styles.icon}><ShieldIcon width={24} height={24} aria-hidden="true" /></span>
       <div><p className={styles.eyebrow}>BUILD & SETUP · ORG ASSESSMENT</p><h2>{finding?.title ?? "Org assessment"}</h2>
-        <p>{run?.startedAt ? <>Started <time dateTime={run.startedAt}>{new Date(run.startedAt).toLocaleString()}</time></> : "Choose connected orgs to begin."}</p></div>
+        <p>{run?.startedAt ? <>Started <time dateTime={run.startedAt}>{new Date(run.startedAt).toLocaleString()}</time></> : "Select a connected org to begin."}</p></div>
       <span className={styles.status}>{attempt?.status === "failed" ? "Could not complete" : attempt?.status === "cancelled" ? "Cancelled" : attempt?.status === "pending" ? "Queued" : status === "complete" ? "Complete" : status === "incomplete" ? "Earlier incomplete run" : status === "running" ? "Analyzing" : status === "paused" ? "Paused" : "Ready to start"}</span>
     </header>
     <p className={styles.quiet}>Read-only assessment · Simulated findings. Source orgs and captured evidence remain attached to this run.</p>
@@ -53,7 +58,7 @@ export function OrgAssessmentCanvas({ spec }: { spec: CanvasOf<"org-assessment">
         if (store.getSnapshot().currentRunId === run?.id) void agent.command({ kind: "retry", requestId: crypto.randomUUID(), runId: attempt.id });
       }}>Retry assessment</button>}
     </div>}
-    {current && status !== "complete" && attempt?.status !== "failed" && <section className={styles.section} aria-label="Assessment progress">
+    {active && status !== "complete" && attempt?.status !== "failed" && <section className={styles.section} aria-label="Assessment progress">
       <h3>{ASSESSMENT_STEPS[state.step]?.title ?? "Ready to assess"}</h3>
       <progress max={ASSESSMENT_STEPS.length} value={state.step} aria-label="Org assessment progress" />
       <div className={styles.toolbar}>{status === "running"
@@ -70,22 +75,13 @@ export function OrgAssessmentCanvas({ spec }: { spec: CanvasOf<"org-assessment">
       <h3>{run ? "Orgs in this assessment" : "Assessment scope"}</h3>
       <ul className={styles.scope}>{scopeOrgIds.map(id => { const org = orgAvailability(id, ASSESSMENT_ORGS); return <li key={id}><strong>{org.label}</strong><span>{org.available ? "Read access" : org.reason}</span></li>; })}</ul>
     </section>
-    <ScopeEditor key={run?.id ?? "initial"} initialScope={scopeOrgIds} onAnalyze={store.rescan} />
+    <section className={styles.section} aria-label="Assess connected org">
+      <h3>{selected.status === "idle" ? "Run an assessment" : "Start a new assessment"}</h3>
+      <p>Assess {ASSESSMENT_ORGS.find(org => org.id === target.orgId)?.label ?? "the org selected in the org selector"}. Earlier findings and saved projects stay available.</p>
+      {state.status === "running" && <p>An assessment is running. Let it finish or pause it before starting another.</p>}
+      <button type="button" className={styles.primary} disabled={!target.orgId || !accessibleScope([target.orgId]).length || state.status === "running"} onClick={() => { if (target.orgId) store.rescan([target.orgId]); }}>Run assessment</button>
+    </section>
   </article>;
-}
-
-function ScopeEditor({ initialScope, onAnalyze }: { initialScope: readonly string[]; onAnalyze: (orgIds: string[]) => void }) {
-  const [scope, setScope] = useState(() => accessibleScope(initialScope));
-  const id = useId();
-  return <section className={styles.section} aria-labelledby={`${id}-heading`}>
-    <h3 id={`${id}-heading`}>Start a new assessment</h3>
-    <p>Choose the connected orgs to include. Earlier findings and saved projects stay available.</p>
-    <fieldset className={styles.orgs}><legend>Org scope</legend>{ASSESSMENT_ORGS.map(org => <label key={org.id}>
-      <input type="checkbox" checked={scope.includes(org.id)} disabled={org.connection !== "connected"} onChange={event => setScope(current => event.target.checked ? [...current, org.id] : current.filter(id => id !== org.id))} />
-      <span><strong>{org.label}</strong><small>{org.connection === "connected" ? `${org.kind === "production" ? "Production" : "Sandbox"} · read access` : "Connection expired · excluded"}</small></span>
-    </label>)}</fieldset>
-    <button type="button" className={styles.primary} disabled={!accessibleScope(scope).length} onClick={() => onAnalyze(scope)}>Analyze selected orgs</button>
-  </section>;
 }
 
 function FindingEvidence({ finding }: { finding: FindingSnapshot }) {

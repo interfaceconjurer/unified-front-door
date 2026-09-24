@@ -37,7 +37,7 @@ after(async () => {
 async function scope(profileId="sp") { const boot=await transaction(c=>bootstrap(c));namespaces.push(boot.session.namespaceId); journalNamespaces();const session=await transaction(c=>changeSession(c,boot.token,{action:"select",profileId,generation:boot.session.generation,commandId:randomUUID()}));return{session,token:boot.token}; }
 const read = s=>transaction(async c=>{await c.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ");return readWorkspace(c,await requireSession(c,s.token,s.session.generation));});
 const run = (s,command)=>transaction(c=>executeCommand(c,s.token,s.session.generation,command));
-const command = (kind,expectedRevision,fields={})=>({kind,expectedRevision,commandId:randomUUID(),...fields});
+const command = (kind,expectedRevision,fields={})=>({kind,expectedRevision,commandId:randomUUID(),...(kind === "assessment.start" ? {orgId:"prod"} : {}),...fields});
 async function complete(s) { let snap=await read(s);await run(s,command("assessment.start",snap.assessmentRevision));const execution=(await transaction(c=>observeAgent(c,s.token,s.session.generation))).runs.find(r=>r.kind==="assessment");for(let step=0;step<12;step++){await workerTick({runId:execution.id,adapter:fastAdapter});snap=await read(s);if(snap.assessment.status==="complete")return snap;}throw Error("Assessment worker did not complete"); }
 async function draft(s) { const snap=await complete(s);await run(s,command("draft.begin",snap.assessmentRevision,{runId:snap.assessment.currentRunId,fields:{name:"Integration project",goal:"Preserve captured evidence",targetOrgId:"sit",findingIds:[snap.assessment.runs[0].findings[0].id]}}));return read(s); }
 async function createBriefProject(s, name) {
@@ -120,7 +120,7 @@ test("legacy deployed-app rows and receipts remain usable after their ALM surfac
 test("repeatable seed and concurrent same-command execution commit once; changed reuse conflicts",async()=>{
   const s=await scope();await transaction(async c=>{await seedWorkspace(c,s.session.namespaceId,"sp");await seedWorkspace(c,s.session.namespaceId,"sp");});
   const start=command("assessment.start",0);const results=await Promise.all(Array.from({length:8},()=>run(s,start)));for(const result of results)assert.deepEqual(result,results[0]);const snap=await read(s);assert.equal(snap.assessment.runs.length,1);assert.equal(snap.assessmentRevision,1);
-  await assert.rejects(run(s,{...start,kind:"assessment.pause"}),e=>e.code==="conflict");await assert.rejects(run(s,command("assessment.pause",0)),e=>e.code==="conflict");
+  await assert.rejects(run(s,{...start,orgId:"uat"}),e=>e.code==="conflict");await assert.rejects(run(s,command("assessment.pause",0)),e=>e.code==="conflict");
 });
 test("project creation consumes correct draft atomically and status+receipt roll back together",async()=>{
   const s=await scope(),snap=await draft(s),create=command("project.create",snap.assessmentRevision,{draftId:snap.assessment.draft.id,draftRevision:snap.assessment.draft.revision});
@@ -129,6 +129,31 @@ test("project creation consumes correct draft atomically and status+receipt roll
   const other=await scope();await assert.rejects(run(other,command("work.status",1,{projectId:p.id,itemId:item.id,status:"done"})),e=>e.code==="invalid");await assert.rejects(run(other,command("canvas.save",0,{canvas:{kind:"improvement-project",title:"foreign",params:{projectId:p.id}},target:{projectId:p.id,worktreeId:null,orgId:"sit"},surface:"alm",fields:{notes:"claim"}})),e=>e.code==="invalid");
   const reset={action:"reset",generation:s.session.generation,commandId:randomUUID()},oldEpoch=s.session.workspaceEpoch;s.session=await transaction(c=>changeSession(c,s.token,reset));assert.notEqual(s.session.workspaceEpoch,oldEpoch);assert.equal((await read(s)).assessment.projects.length,0);await run(s,command("assessment.start",0));const repeated=await transaction(c=>changeSession(c,s.token,reset));assert.equal(repeated.workspaceEpoch,s.session.workspaceEpoch);assert.equal((await read(s)).assessment.runs.length,1);
 });
+test('work-item change drafts persist independently and reject foreign or mismatched work items', async () => {
+  const s = await scope(), snapshot = await draft(s);
+  const project = (await run(s, command('project.create', snapshot.assessmentRevision, { draftId: snapshot.assessment.draft.id, draftRevision: snapshot.assessment.draft.revision }))).project;
+  const item = project.workItems[0];
+  const input = { kind: 'work-item-change', title: item.title, params: { projectId: project.id, workItemId: item.id } };
+  const captured = { projectId: project.id, worktreeId: null, orgId: 'uat' };
+  const edit = command('canvas.save', 0, { canvas: input, surface: 'build', target: captured, fields: { summary: 'Use incremental sync', path: 'config/integration.json', source: '{"mode":"incremental"}' } });
+  const result = await run(s, edit);
+  assert.deepEqual(await run(s, edit), result, 'Retry does not duplicate or overwrite the draft');
+  const saved = (await read(s)).canvases.find(canvas => canvas.id === canvasId(input.kind, input.params));
+  assert.deepEqual(saved.fields, edit.fields); assert.deepEqual(saved.target, captured);
+  assert.deepEqual((await read(s)).assessment.projects[0], project, 'Saving a change leaves work status and captured evidence intact');
+  const other = await scope();
+  await assert.rejects(run(other, { ...edit, commandId: randomUUID() }), error => error.code === 'invalid');
+  const otherProfile = await scope('kf');
+  await assert.rejects(run(otherProfile, { ...edit, commandId: randomUUID() }), error => error.code === 'invalid');
+  const another = await createBriefProject(s, 'Another project');
+  for (const params of [{ ...input.params, workItemId: 'missing' }, { ...input.params, projectId: another.id }]) {
+    await assert.rejects(run(s, { ...edit, commandId: randomUUID(), canvas: { ...input, params }, target: { ...captured, projectId: params.projectId } }), error => error.code === 'invalid');
+  }
+  await run(s, command('canvas.save', saved.revision, { canvas: input, surface: 'build', target: captured, fields: { source: '{"mode":"events"}' } }));
+  const resumed = (await read(s)).canvases.find(canvas => canvas.id === saved.id);
+  assert.equal(resumed.fields.summary, edit.fields.summary); assert.equal(resumed.fields.source, '{"mode":"events"}');
+});
+
 test("expired/revoked tokens and stale generations cannot claim namespace; reset epoch is read-only on reconnect",async()=>{
   const s=await scope(),original=s.session;const selected=await transaction(c=>changeSession(c,s.token,{action:"select",profileId:"am",generation:original.generation,commandId:randomUUID()}));await assert.rejects(run(s,command("assessment.start",0)),e=>e.code==="session_changed");s.session=selected;const observed=await transaction(c=>findSession(c,s.token));assert.equal(observed.workspaceEpoch,selected.workspaceEpoch);
   await transaction(c=>c.query("UPDATE demo_sessions SET revoked=true WHERE namespace_id=$1",[s.session.namespaceId]));await assert.rejects(read(s),e=>e.code==="unauthorized");const expired=await scope();await transaction(c=>c.query("UPDATE demo_sessions SET expires_at=now()-interval '1 second' WHERE namespace_id=$1",[expired.session.namespaceId]));assert.equal(await transaction(c=>findSession(c,expired.token)),null);
@@ -300,6 +325,41 @@ test("UTF8 quota boundary rejects excess without changing saved bytes or revisio
 test("actual transaction timeouts apply, rollback and leave pooled connections reusable",async()=>{
   const limits=await transaction(async c=>({statement:(await c.query("SHOW statement_timeout")).rows[0].statement_timeout,lock:(await c.query("SHOW lock_timeout")).rows[0].lock_timeout,idle:(await c.query("SHOW idle_in_transaction_session_timeout")).rows[0].idle_in_transaction_session_timeout}));assert.deepEqual(limits,{statement:"10s",lock:"5s",idle:"15s"});
   await assert.rejects(transaction(async c=>{await c.query("SET LOCAL statement_timeout='20ms'");await c.query("SELECT pg_sleep(0.1)");}),e=>e.code==="57014");assert.equal((await transaction(c=>c.query("SELECT 1 AS healthy"))).rows[0].healthy,1);
+});
+
+test("batched workspace reads see committed records after waiting for the workspace lock", async () => {
+  const s = await scope();
+  await run(s, save({ name: "Before" }));
+  let pending, queryCount = 0;
+  try {
+    await transaction(async writer => {
+      const writerPid = (await writer.query("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      const keys = [s.session.namespaceId, s.session.profileId];
+      await writer.query("UPDATE workspaces SET assessment_revision=assessment_revision+1 WHERE namespace_id=$1 AND profile_id=$2", keys);
+      await writer.query("UPDATE canvas_drafts SET fields=$3,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2", [...keys, { name: "After" }]);
+      pending = transaction(async reader => {
+        const session = await requireSession(reader, s.token, s.session.generation);
+        return readWorkspace({ query: (...args) => { queryCount++; return reader.query(...args); } }, session, true);
+      }).then(result => ({ result }), error => ({ error }));
+      let blocked = false;
+      for (let i = 0; i < 60; i++) {
+        const waiting = await writer.query("SELECT EXISTS(SELECT 1 FROM pg_locks WHERE NOT granted AND $1=ANY(pg_blocking_pids(pid))) AS blocked", [writerPid]);
+        if (waiting.rows[0].blocked) { blocked = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.equal(blocked, true, "The record batch must wait until the workspace lock is acquired");
+    });
+    const { result, error } = await pending;
+    assert.ifError(error);
+    assert.equal(queryCount, 2, "Workspace capture takes two round trips regardless of collection count");
+    assert.equal(result.assessmentRevision, 1);
+    assert.deepEqual(result.canvases[0].fields, { name: "After" });
+    assert.equal(result.canvases[0].revision, 2);
+    assert.deepEqual(result.assessment.projects, []);
+    assert.deepEqual(result.assessment.runs, []);
+    assert.equal(result.assessment.draft, null);
+    assert.deepEqual(result.imports, []);
+  } finally { if (pending) await pending; }
 });
 
 test("snapshot reads recover a concurrent session change and enforce its fresh generation or revocation", async () => {

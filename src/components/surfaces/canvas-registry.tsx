@@ -13,6 +13,7 @@ import { setupAreaForId } from "@/lib/org-resources/setup";
 const loadSetup = () => import("./OrgSetupCanvas").then(module => ({ default: module.OrgSetupCanvas }));
 const loadWork = () => import("./WorkCanvas").then(module => ({ default: module.WorkCanvas }));
 const loadImprovement = () => import("@/components/onboarding/ImprovementProject").then(module => ({ default: module.ImprovementProjectCanvas }));
+const loadWorkItemChange = () => import("./WorkItemChangeCanvas").then(module => ({ default: module.WorkItemChangeCanvas }));
 const loadCreation = () => import("@/components/onboarding/ProjectCreationCanvas").then(module => ({ default: module.ProjectCreationCanvas }));
 const loadCapability = () => import("./CapabilityDraftCanvas").then(module => ({ default: module.CapabilityDraftCanvas }));
 const loadAssessment = () => import("@/components/onboarding/OrgAssessmentCanvas").then(module => ({ default: module.OrgAssessmentCanvas }));
@@ -140,6 +141,7 @@ export function CanvasContent({ spec }: { spec: CanvasSpec }) {
     case "capability": return <CapabilityCanvas spec={spec} />;
     case "work": return <LazyFeature load={loadWork} properties={{ spec }} />;
     case "improvement-project": return <LazyFeature load={loadImprovement} properties={{ spec }} />;
+    case "work-item-change": return <LazyFeature load={loadWorkItemChange} properties={{ spec }} />;
     case "org-assessment": return <LazyFeature load={loadAssessment} properties={{ spec }} />;
     case "org-resource": return <LazyFeature load={loadResource} properties={{ spec }} />;
     case "project-file": return <LazyFeature load={loadProjectFile} properties={{ spec }} />;

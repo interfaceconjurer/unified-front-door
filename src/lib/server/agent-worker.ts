@@ -9,6 +9,7 @@ import { demoAdapter } from "../agent/demo";
 import { parseFinding } from "../assessment/codec";
 import { ASSESSMENT_STEPS } from "../onboarding/assessment";
 import { assessmentBriefing } from "../chat/today-snapshot";
+import { assessmentForOrg } from "../assessment/selected-org";
 import type { Conversation } from "../chat/conversation";
 import { readWorkspace, writeAssessment } from "./repository";
 import { assertAssessmentLimits, assertBytes } from "./quota";
@@ -76,11 +77,12 @@ async function validLease(client: PoolClient, lease: RunLease) {
   return valid ? owned : null;
 }
 async function refreshLiveBriefings(client: PoolClient, session: OwnedSession) {
-  const workspace = await readWorkspace(client, session), briefing = assessmentBriefing(workspace.assessment);
+  const workspace = await readWorkspace(client, session);
   const rows = (await client.query("SELECT id,conversation FROM agent_conversations WHERE namespace_id=$1 AND profile_id=$2 ORDER BY id FOR UPDATE", [session.namespaceId, session.profileId])).rows;
   for (const row of rows) {
     const conversation = row.conversation as Conversation, last = conversation.messages.at(-1);
     if (last?.role !== "today") continue;
+    const briefing = assessmentBriefing(last.snapshot.profile.onboarding ? assessmentForOrg(workspace.assessment, conversation.targetOrgId ?? null) : workspace.assessment);
     const next = { ...conversation, messages: [...conversation.messages.slice(0, -1), { ...last, snapshot: { ...last.snapshot, assessment: briefing } }] };
     assertBytes(next, AGENT_LIMITS.conversationBytes, "Conversation history");
     await client.query("UPDATE agent_conversations SET conversation=$4,revision=revision+1 WHERE namespace_id=$1 AND profile_id=$2 AND id=$3", [session.namespaceId, session.profileId, row.id, next]);

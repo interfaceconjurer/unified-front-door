@@ -67,11 +67,14 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
     <div className={styles.frontDoor} data-read-only={readOnly || undefined} data-retiring={!active && !readOnly || undefined} inert={!active && !readOnly}>
         <fieldset className={styles.content} disabled={readOnly} aria-label={active ? "Today" : "Earlier Today (read only)"}>
           <div ref={contentRef} className={styles.briefing} onFocusCapture={(event) => {
-            // Reveal a keyboard-focused row by completing its existing timeline.
-            // Toggling animation:none would restart it when focus leaves.
-            event.target.closest<HTMLElement>("[data-today-row]")?.getAnimations().forEach(animation => {
-              if (animation instanceof CSSAnimation && animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
-            });
+            // Finish the focused card/row's existing reveal, including Sam's
+            // opportunity cards. Removing an animation on :focus-within would
+            // recreate it (and hide the card) when focus moves elsewhere.
+            for (let element: HTMLElement | null = event.target; element && element !== event.currentTarget; element = element.parentElement) {
+              element.getAnimations().forEach(animation => {
+                if (animation instanceof CSSAnimation && animation.effect?.getComputedTiming().iterations !== Infinity) animation.finish();
+              });
+            }
           }}>
           {dayZero ? <DayZeroHome snapshot={readOnly ? snapshot.assessment : undefined} profile={snapshot.profile} /> : returning ? <ReturningHome active={!readOnly} snapshot={snapshot} onOpenWork={onOpenWork} /> : <>
           <header className={styles.hero}>

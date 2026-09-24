@@ -2,7 +2,7 @@
    single scrolling panel. min-height:100% lets a short overview still paint the
    full pane; min-width:0 keeps it from forcing the flex parent wider. */
 .host {
-  color-scheme: light dark;
+  color-scheme: var(--app-color-scheme, light dark);
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;

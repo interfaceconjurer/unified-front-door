@@ -25,7 +25,7 @@ export function editProjectDraft(draft: ProjectDraft, edit: DraftEdit): ProjectD
 export function planProject(draft: ProjectDraft, findings: readonly FindingSnapshot[], owner: string, commandId: string, now: string, id: string, scopeOrgIds: readonly string[]): ImprovementProject | null {
   const selected = findings.filter((finding) => draft.findingIds.includes(finding.id) && finding.runId === draft.runId);
   if (!draft.name.trim() || !draft.goal.trim() || !selected.length || selected.length !== new Set(draft.findingIds).size) return null;
-  return { id, name: draft.name.trim(), goal: draft.goal.trim(), owner, targetOrgId: draft.targetOrgId,
+  return { id, name: draft.name.trim(), goal: draft.goal.trim(), owner, targetOrgId: draft.targetOrgId || null,
     projectType: draft.projectType ?? "standard", ...(draft.context !== undefined ? { context: draft.context } : {}),
     scopeOrgIds: [...scopeOrgIds], createdAt: now,
     runId: draft.runId, sourceDraftId: draft.id, createCommandId: commandId, revision: 1,

@@ -54,8 +54,7 @@
   background: var(--slds-g-color-border-1, #c9c9c9);
 }
 
-/* The workspace-panel toggle — same square-icon-button shape as the
-   help/avatar buttons on the right, so it reads as chrome, not a destination. */
+/* Compact shell controls stay consistent with the profile button. */
 .panelToggle {
   display: inline-flex;
   flex: 0 0 auto;
@@ -173,20 +172,36 @@
   flex: 0 0 auto;
 }
 
-.helpButton {
+.themeSwitch {
+  position: relative;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: center;
-  width: 2rem;
+  justify-content: space-between;
+  width: 3.5rem;
   height: 2rem;
+  padding: 0 .5rem;
   border: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: var(--slds-g-radius-border-circle, 50%);
-  background: var(--slds-g-color-surface-1, #fff);
-  color: var(--slds-g-color-on-surface-2, #2e2e2e);
-  font: inherit;
-  font-weight: 700;
+  border-radius: 2rem;
+  background: var(--slds-g-color-surface-2, #f3f3f3);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
   cursor: pointer;
 }
+.themeSwitch::before {
+  content: "";
+  position: absolute;
+  left: .1875rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--slds-g-color-accent-2, #0176d3);
+  transition: transform 140ms ease;
+}
+.themeSwitch[aria-checked="true"]::before { transform: translateX(1.5rem); }
+.themeSwitch svg { position: relative; }
+.themeSwitch[aria-checked="false"] svg:first-child,
+.themeSwitch[aria-checked="true"] svg:last-child { color: var(--slds-g-color-on-accent-2, #fff); }
+.themeSwitch:hover { border-color: var(--slds-g-color-accent-2, #0176d3); }
 
 .previewButton {
   display: inline-flex;
@@ -232,8 +247,7 @@
 
   .homeLink,
   .divider,
-  .location,
-  .helpButton {
+  .location {
     display: none;
   }
 

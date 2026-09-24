@@ -5,7 +5,7 @@
   --chat-scroll-duration: 650ms;
   --chat-scroll-easing: cubic-bezier(0.45, 0, 0.2, 1);
   --chat-reveal-duration: 240ms;
-  color-scheme: light dark;
+  color-scheme: var(--app-color-scheme, light dark);
   container: agent / inline-size;
   display: flex;
   min-width: 0;

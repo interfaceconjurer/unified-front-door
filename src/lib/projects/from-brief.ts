@@ -16,7 +16,7 @@ export function projectFromBrief(saved: SavedCanvas, revision: number, owner: st
     catch { invalid("Use an HTTPS repository URL without credentials, or leave it blank."); }
   }
   return { id, name: name.trim(), goal: goal.trim(), projectType, context, owner,
-    targetOrgId: saved.target.orgId, scopeOrgIds: saved.target.orgId ? [saved.target.orgId] : [],
+    targetOrgId: null, scopeOrgIds: saved.target.orgId ? [saved.target.orgId] : [],
     createdAt: now, revision: 1, source: "brief", runId: null,
     sourceDraftId: briefSourceId(saved.id, revision), createCommandId: commandId,
     ...(repository.trim() ? { repository: repository.trim() } : {}), workItems: [],

@@ -4,7 +4,7 @@ export function strings(value: unknown): string[] { return Array.isArray(value) 
 export function date(value: unknown): value is string { return typeof value === "string" && Number.isFinite(Date.parse(value)); }
 export function parseFinding(value: unknown): FindingSnapshot | null {
   if (!record(value) || !["id", "runId", "sourceFindingId", "orgId", "orgLabel", "title", "summary", "metric", "metricLabel", "effort", "impact", "source", "hypothesis", "validation"].every((key) => typeof value[key] === "string") ||
-    !["High", "Medium", "Unknown"].includes(String(value.priority)) || !["Limits", "Automation", "Release readiness", "Unknown"].includes(String(value.category)) ||
+    !["High", "Medium", "Unknown"].includes(String(value.priority)) || !["Access", "Limits", "Automation", "Release readiness", "Unknown"].includes(String(value.category)) ||
     !record(value.provenance) || typeof value.provenance.adapter !== "string" || typeof value.provenance.version !== "string" || !["captured", "legacy-unavailable"].includes(String(value.provenance.evidence)) ||
     !(value.capturedAt === null || date(value.capturedAt)) || !Array.isArray(value.evidence) || !Array.isArray(value.steps)) return null;
   const fields = ["id", "runId", "sourceFindingId", "orgId", "orgLabel", "title", "summary", "metric", "metricLabel", "effort", "impact", "source", "hypothesis", "validation", "priority", "category", "capturedAt"];

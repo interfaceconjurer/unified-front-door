@@ -1,0 +1,14 @@
+.heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.875rem; }
+.heading h2 { margin: 0; color: var(--slds-g-color-on-surface-3, #03234d); font-size: 0.875rem; font-weight: 600; }
+.heading > span { color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.6875rem; }
+.frame { border: 1px solid var(--slds-g-color-border-1, #c9c9c9); border-radius: 0.625rem; overflow: hidden; }
+.table { width: 100%; border-collapse: collapse; table-layout: fixed; background: var(--slds-g-color-surface-1, #fff); color: var(--slds-g-color-on-surface-1, #5c5c5c); font-size: 0.75rem; text-align: start; }
+.table th, .table td { padding: 0.875rem 1rem; text-align: start; overflow-wrap: anywhere; }
+.table thead { background: var(--slds-g-color-surface-2, #f3f3f3); }
+.table thead th { font-size: 0.6875rem; font-weight: 600; }
+.table th:first-child { width: 48%; }
+.table tbody tr { border-top: 1px solid var(--slds-g-color-border-1, #c9c9c9); }
+.project { padding: 0; border: 0; border-radius: 0.25rem; background: transparent; color: var(--slds-g-color-accent-2, #0176d3); font: inherit; font-weight: 600; text-align: start; cursor: pointer; overflow-wrap: anywhere; }
+.project:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+.project:focus-visible { outline: 2px solid var(--slds-g-color-accent-2, #0176d3); outline-offset: 4px; }
+@media (max-width: 600px) { .table th, .table td { padding: 0.75rem 0.625rem; } }

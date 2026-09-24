@@ -144,3 +144,47 @@ test("day-zero reset clears cached progress when browser storage is blocked", ()
   store.reset();
   assert.deepEqual(store.getSnapshot(), parseAssessment(null));
 });
+
+test("new assessment commands capture exactly one selected org; org views preserve independent history", () => {
+  const { applyAssessmentCommand } = load("lib/application/assessment-commands");
+  const { INITIAL, decodeAssessment } = load("lib/assessment/state-codec");
+  const { assessmentForOrg } = load("lib/assessment/selected-org");
+  const { captureToday } = load("lib/chat/today-snapshot");
+  const { demoProfileById } = load("lib/demo-profiles");
+  let sequence = 0, state = structuredClone(INITIAL);
+  const apply = operation => { state = applyAssessmentCommand(state, { ...operation, commandId: `c-${++sequence}`, expectedRevision: 0 }, { id: () => `id-${sequence}`, now: "2026-09-23T12:00:00Z", owner: "Sam" }); };
+  assert.throws(() => apply({ kind: "assessment.start" }), /connected org/);
+  assert.throws(() => apply({ kind: "assessment.start", orgId: "scratch-hotfix" }), /connected org/);
+  apply({ kind: "assessment.start", orgId: "prod" });
+  assert.deepEqual(state.scopeOrgIds, ["prod"]);
+  assert.equal(assessmentForOrg(state, "uat").status, "idle");
+  assert.equal(assessmentForOrg(state, "prod").status, "running");
+  assert.throws(() => apply({ kind: "assessment.start", orgId: "uat" }), /another org/);
+  for (let i = 0; i < ASSESSMENT_STEPS.length; i++) apply({ kind: "assessment.advance" });
+  const original = structuredClone(state.runs[0]);
+  assert(original.findings.length > 1 && original.findings.every(f => f.orgId === "prod"));
+  const today = captureToday({ capturedAt: original.completedAt, profile: demoProfileById("sp"), hasProjects: false, working: 0, projectName: "", branch: "", recent: [], assessment: state, orgId: "prod" });
+  assert.throws(() => apply({ kind: "assessment.rescan", orgIds: ["prod", "uat"] }), /one connected org/);
+  apply({ kind: "assessment.rescan", orgIds: ["uat"] });
+  assert.equal(assessmentForOrg(state, "prod").status, "complete");
+  assert.equal(assessmentForOrg(state, "uat").status, "running");
+  for (let i = 0; i < ASSESSMENT_STEPS.length; i++) apply({ kind: "assessment.advance" });
+  assert.deepEqual(state.runs[0], original);
+  assert.deepEqual(assessmentForOrg(state, "prod").runs[0].findings, original.findings);
+  assert(assessmentForOrg(state, "uat").runs[0].findings.every(f => f.orgId === "uat"));
+  assert.equal(assessmentForOrg(state, "sit").status, "idle");
+  assert.equal(assessmentForOrg(state, null).runs.length, 0);
+  assert.deepEqual(today.assessment.findings, original.findings, "Previously captured Today remains unchanged");
+  assert.deepEqual(decodeAssessment(state).value, state, "Per-org runs survive persistence roundtrip");
+});
+
+test("legacy multi-org evidence is filtered for Today without changing its source or allocated projects", () => {
+  const { assessmentForOrg } = load("lib/assessment/selected-org");
+  const store = completedStore("legacy-multi");
+  const original = structuredClone(store.getSnapshot());
+  const selected = assessmentForOrg(original, "prod");
+  assert(selected.runs[0].findings.every(f => f.orgId === "prod"));
+  assert.deepEqual(selected.scopeOrgIds, ["prod"]);
+  assert(original.runs[0].findings.some(f => f.orgId === "uat"));
+  assert.equal(selected.runs[0].id, original.runs[0].id);
+});

@@ -11,6 +11,8 @@ import { isEditableObject } from "@/lib/org-resources/object-fields";
 import type { CanvasOf } from "@/lib/surface-canvas/model";
 import { SURFACES } from "@/lib/workspace/surfaces";
 import { RESOURCE_ICONS } from "./resource-icons";
+import { isEditablePermissions } from "@/lib/org-resources/permissions";
+import { PermissionsCanvas } from "./PermissionsCanvas";
 import { ObjectFields } from "./ObjectFields";
 import styles from "./OrgResourceCanvas.module.css";
 
@@ -21,6 +23,7 @@ export function OrgResourceCanvas({ spec }: { spec: CanvasOf<"org-resource"> }) 
   const org = orgs.find(org => org.id === spec.params.orgId && org.connection === "connected");
   const resource = org && findResource(spec.params);
   if (!resource || !org) return <article className={styles.canvas}><h2>Resource unavailable</h2><p>This resource is no longer available in its connected org.</p></article>;
+  if (isEditablePermissions(spec.params)) return <PermissionsCanvas key={spec.id} spec={spec} />;
   const type = RESOURCE_TYPES[resource.resourceType], Icon = RESOURCE_ICONS[type.group];
   const related = resource.related.flatMap(reference => {
     const item = findResource({ ...reference, orgId: org.id });

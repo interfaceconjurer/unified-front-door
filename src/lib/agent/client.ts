@@ -129,8 +129,8 @@ export class AgentClient {
       const incoming = await this.transport.read(); if (!this.active) return;
       const data = mergeAgentSnapshot(this.view.data, incoming);
       this.lastFullRead = Date.now();
-      const before = this.view.data.runs.filter(r => r.kind === "assessment").map(r => [r.id, r.sequence]);
-      const after = data.runs.filter(r => r.kind === "assessment").map(r => [r.id, r.sequence]);
+      const before = this.view.data.runs.filter(r => r.kind === "assessment" || r.context.canvas).map(r => [r.id, r.sequence]);
+      const after = data.runs.filter(r => r.kind === "assessment" || r.context.canvas).map(r => [r.id, r.sequence]);
       const changed = stableJson(before) !== stableJson(after);
       this.publish({ ready: true, data: stableJson(data) === stableJson(this.view.data) ? this.view.data : data, ...(this.readFailed && !this.blocked ? { error: "" } : {}) });
       this.readFailed = false;

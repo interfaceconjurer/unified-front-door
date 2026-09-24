@@ -8,7 +8,7 @@ const intent = (value: Record<string, unknown>) => ({
 export function parseProject(value: unknown, legacy: boolean): ImprovementProject | null {
   if (!record(value) || !["id", "name", "goal", "owner"].every((key) => typeof value[key] === "string") || !date(value.createdAt) || !Array.isArray(value.workItems)) return null;
   const fromBrief = value.source === "brief";
-  if (fromBrief ? value.runId !== null || value.targetOrgId !== null && typeof value.targetOrgId !== "string" || value.workItems.length !== 0 : typeof value.targetOrgId !== "string") return null;
+  if (value.targetOrgId !== null && typeof value.targetOrgId !== "string" || fromBrief && (value.runId !== null || value.workItems.length !== 0)) return null;
   const runId = fromBrief ? null : typeof value.runId === "string" ? value.runId : `legacy-project:${value.id}`;
   const items: PlannedWorkItem[] = [];
   for (const item of value.workItems) {

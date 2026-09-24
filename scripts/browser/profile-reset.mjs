@@ -45,9 +45,13 @@ try {
   out.checks.push('Four separately labeled clear actions; Cancel and Escape send no request and return focus');
 
   await sam.click(); hold = new Promise(resolve => { release = resolve; });
-  await dialog.getByRole('button', { name: 'Clear data', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: 'Clearing saved data' }).waitFor();
-  assert(await dialog.getByRole('button', { name: 'Clearing…', exact: true }).isDisabled());
+  const clear = dialog.getByRole('button', { name: 'Clear data', exact: true });
+  const confirmationText = await dialog.innerText();
+  await clear.click();
+  await dialog.locator('button[aria-busy="true"]').waitFor();
+  assert(await clear.locator('span[aria-hidden="true"]').isVisible(), 'Clearing progress stays inside the button');
+  assert.equal(await dialog.innerText(), confirmationText, 'Clearing adds no text to the modal and keeps the Clear data label');
+  assert(await clear.isDisabled());
   assert(await dialog.getByRole('button', { name: 'Cancel', exact: true }).isDisabled());
   await page.keyboard.press('Escape'); assert(await dialog.isVisible());
   release(); hold = undefined;
@@ -56,7 +60,7 @@ try {
   assert.equal(commands.length, 1); assert.equal(commands[0].action, 'reset-profile'); assert.equal(commands[0].profileId, 'sp');
   assert.equal(current.profileId, null); assert.equal(new URL(page.url()).pathname, '/login');
   assert.deepEqual(saved, { sp: [], jw: ['saved chat'], am: ['saved project'], kf: ['saved draft'] });
-  out.checks.push('One confirmed scoped request clears only its target, stays signed out on login, and disables duplicate input while pending');
+  out.checks.push('One confirmed scoped request clears only its target, stays signed out on login, and disables duplicate input with a spinner inside Clear data and no extra modal text while pending');
 
   const alex = page.getByRole('button', { name: 'Clear data for Alex Morgan', exact: true });
   await alex.click(); loseAck = true;

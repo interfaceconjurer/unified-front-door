@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, ViewTransition } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { NavigationProvider, useNavigation } from "@/components/navigation/NavigationProvider";
 import { AgentPanel } from "@/components/chat/AgentPanel";
@@ -49,7 +49,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, profile, resolved, router]);
   if (!resolved) return <SessionConnection />;
-  if (pathname === "/login") return children;
+  // A ready profile still waits for the redirect. Remounting LoginPage here
+  // would briefly expose its reset profile list before the workspace appears.
+  if (pathname === "/login") return profile ? <SessionConnection /> : children;
   if (!profile) return <SessionConnection signingOut />;
   return <Suspense fallback={<SessionConnection />}><WorkspaceProvider key={sessionKey}><SurfaceCanvasProvider><NavigationProvider><ShellContent>{children}</ShellContent></NavigationProvider></SurfaceCanvasProvider></WorkspaceProvider></Suspense>;
 }
@@ -198,17 +200,9 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 inert={!surfaceOpen}
               >
                 {surface ? (
-                  // Workspace changes dissolve; surface-only swaps retain
-                  // their movement without mounting duplicate live canvases.
-                  <ViewTransition key={surface.id} name="surface-canvas" default="none"
-                    share={{ "workspace-context": "workspace-dissolve", default: "surface-swap" }}
-                    update={{ "workspace-context": "workspace-dissolve", default: "none" }}
-                    enter={{ "workspace-context": "workspace-dissolve", default: "none" }}
-                    exit={{ "workspace-context": "workspace-dissolve", default: "none" }}>
-                    <div className={styles.surfaceInner}>
-                      <SurfaceCanvasHost surfaceId={surface.id}>{children}</SurfaceCanvasHost>
-                    </div>
-                  </ViewTransition>
+                  <div className={styles.surfaceInner}>
+                    <SurfaceCanvasHost key={surface.id} surfaceId={surface.id}>{children}</SurfaceCanvasHost>
+                  </div>
                 ) : (
                   <div className={styles.surfaceInner}>{children}</div>
                 )}

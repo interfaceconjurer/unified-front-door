@@ -6,17 +6,22 @@ import type { ProjectBriefContext } from "../projects/brief-context";
 import { parseTarget, type WorkspaceTarget } from "../workspace/context";
 import { isSurfaceId, type SurfaceId } from "../workspace/surfaces";
 import type { FindingSnapshot } from "../assessment/model";
+import { parseCanvasInput, type CanvasSpecInput } from "../surface-canvas/model";
+import { isEditablePermissions } from "../org-resources/permissions";
 import type { AgentNavigation } from "./navigation";
 
 export type RunStatus = "pending" | "running" | "streaming" | "completed" | "failed" | "cancelled";
 export type RunError = { code: "adapter_failed" | "recovery_exhausted" | "reconciliation_required" | "tool_denied" | "unconfigured" | "model_outcome_unknown" | "model_limit" | "model_busy" | "model_failed" | "model_refused" | "model_incomplete" | "model_rate_limited" | "model_timeout"; message: string; retryable: boolean; effects: "none" | "confirmed" | "unknown"; providerCost?: "unknown" };
-export type AgentContext = { target: WorkspaceTarget; surface: SurfaceId | "home" };
+export type AgentContext = { target: WorkspaceTarget; surface: SurfaceId | "home";
+  canvas?: Extract<CanvasSpecInput, { kind: "org-resource" }>; canvasRevision?: number;
+};
 export type CapturedContext = AgentContext & {
   profile: DemoProfile; capturedAt: string; threadKey: string; projectName: string; branch: string;
   worktreeLabel: string | null; orgLabel: string | null; hasProjects: boolean;
   assessmentNavigation?: { runId: string; findings: { id: string; title: string }[] };
   improvement: ImprovementProject | null; greeting: string | null;
   projectBrief?: ProjectBriefContext;
+  permissions?: { fields: Record<string, string>; revision: number };
 };
 export type RunInput = { kind: "chat"; text: string; context: CapturedContext; destination: SurfaceId | null }
   | { kind: "assessment"; assessmentRunId: string; orgIds: string[]; context: CapturedContext };
@@ -57,11 +62,16 @@ export type AgentPolicy = {
 export const AGENT_LIMITS = { conversations: 16, messages: 128, runs: 128, conversationBytes: 512 * 1024, inputBytes: 128 * 1024, responseBytes: 24 * 1024 * 1024, text: 8000 } as const;
 export function activeRun(status: RunStatus): boolean { return status === "pending" || status === "running" || status === "streaming"; }
 export function parseAgentContext(value: unknown): AgentContext {
-  if (!record(value)) invalid(); exact(value, ["target", "surface"]);
+  if (!record(value)) invalid(); exact(value, ["target", "surface", "canvas", "canvasRevision"]);
   if (!record(value.target)) invalid(); exact(value.target, ["projectId", "worktreeId", "orgId"]);
   const target = parseTarget(value.target);
   if (!target || Object.values(target).some(id => id !== null && id.length > 1000) || value.surface !== "home" && !isSurfaceId(value.surface)) invalid();
-  return { target, surface: value.surface as AgentContext["surface"] };
+  const canvas = value.canvas === undefined ? undefined : parseCanvasInput(value.canvas);
+  if (value.canvas !== undefined && (!canvas || canvas.kind !== "org-resource" || !isEditablePermissions(canvas.params)
+    || value.surface !== "build" || canvas.title.length > 200 || Object.values(canvas.params).some(value => typeof value === "string" && value.length > 1000))) invalid();
+  if (value.canvasRevision !== undefined && (!canvas || !Number.isSafeInteger(value.canvasRevision) || (value.canvasRevision as number) < 0)) invalid();
+  return { target, surface: value.surface as AgentContext["surface"], ...(canvas ? { canvas: canvas as AgentContext["canvas"] } : {}),
+    ...(value.canvasRevision !== undefined ? { canvasRevision: value.canvasRevision as number } : {}) };
 }
 export function parseAgentCommand(value: unknown): AgentCommand {
   if (!record(value) || !text(value.requestId, 200)) invalid();

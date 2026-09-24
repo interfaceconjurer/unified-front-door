@@ -1,4 +1,4 @@
-.root { position: relative; flex: 0 0 auto; margin-inline-start: .5rem; color-scheme: light dark; color: var(--slds-g-color-on-surface-2, #2e2e2e); }
+.root { position: relative; flex: 0 0 auto; margin-inline-start: .5rem; color-scheme: var(--app-color-scheme, light dark); color: var(--slds-g-color-on-surface-2, #2e2e2e); }
 .trigger { display: flex; align-items: center; gap: .4rem; min-height: 2rem; padding: .3rem .5rem; border: 1px solid transparent; border-radius: .4rem; background: transparent; color: var(--slds-g-color-on-surface-1, #5c5c5c); font: inherit; font-size: .75rem; white-space: nowrap; cursor: pointer; }
 .trigger:hover, .trigger[aria-expanded="true"] { border-color: var(--slds-g-color-border-1, #c9c9c9); background: var(--slds-g-color-surface-2, #f3f3f3); }
 .trigger[data-changed="true"] { color: var(--slds-g-color-on-surface-2, #2e2e2e); }

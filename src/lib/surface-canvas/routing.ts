@@ -6,6 +6,7 @@ import { workForCanvas } from "../workspace/returning-work";
  * Only the known former Build work route is aliased. Other wrong work routes
  * still fail validation, and builder capabilities retain their own surfaces. */
 export function canonicalCanvasSurface(surface: SurfaceId, canvas: CanvasSpecInput): SurfaceId {
+  if (canvas.kind === "work-item-change") return "build";
   if (surface === "govern" && canvas.kind === "org-assessment") return "build";
   if (canvas.kind === "preview") return "build";
   if (canvas.kind === "app") return "alm";
