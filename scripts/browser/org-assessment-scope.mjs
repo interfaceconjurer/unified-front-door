@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { expect } from 'playwright/test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -18,6 +19,12 @@ const page = await context.newPage();
 page.on('pageerror', error => out.errors.push(error.message));
 const destination = () => JSON.parse(new URL(page.url()).searchParams.get('destination'));
 const today = () => page.getByRole('group', { name: 'Today', exact: true });
+// A visit acknowledgement can replace Today after an earlier card was visible.
+// Read and retry the entire expected set together through that presentation handoff.
+const expectFindings = titles => expect.poll(async () =>
+  (await today().getByRole('checkbox', { name: /^Include / }).evaluateAll(choices => choices.map(choice => choice.getAttribute('aria-label')))).sort(),
+{ message: 'The live Today restores exactly the selected org’s unassigned opportunities' })
+  .toEqual(titles.map(title => `Include ${title}`).sort());
 const home = async () => {
   await page.getByRole('link', { name: 'Global home', exact: true }).click();
   await today().waitFor();
@@ -111,10 +118,7 @@ try {
   assert.deepEqual(state.snapshot.assessment.runs[0], production);
   await selectOrg('Acme Production', 'prod');
   await today().getByRole('button', { name: 'Run again', exact: true }).waitFor();
-  await today().getByRole('checkbox', { name: /^Include / }).first().waitFor();
-  assert.deepEqual((await today().getByRole('checkbox', { name: /^Include / }).evaluateAll(choices => choices.map(choice => choice.getAttribute('aria-label')))).sort(), [
-    'Include Give service representatives the access they need', 'Include Make room before data storage gets tight',
-  ].sort());
+  await expectFindings(['Give service representatives the access they need', 'Make room before data storage gets tight']);
   assert.equal(state.snapshot.assessment.runs.length, 2);
   await selectOrg('SIT Sandbox', 'sit');
   await today().getByRole('button', { name: 'Run assessment', exact: true }).waitFor();
@@ -122,11 +126,28 @@ try {
   await page.locator('[data-run-status="running"]').waitFor({ state: 'attached' });
   await complete();
   await today().getByRole('heading', { name: 'No findings in this demo scope', exact: true }).waitFor();
-  await selectOrg('UAT Sandbox', 'uat');
-  await today().getByRole('checkbox', { name: /^Include / }).first().waitFor();
-  assert.equal(await today().getByRole('checkbox', { name: /^Include / }).count(), uat.findings.length);
+  let releaseVisit;
+  const visitGate = new Promise(resolve => { releaseVisit = resolve; });
+  const isUatVisit = request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/agent'
+    && request.postDataJSON().command.kind === 'visit' && request.postDataJSON().command.context.target.orgId === 'uat';
+  await page.route('**/api/agent*', async route => {
+    if (isUatVisit(route.request())) await visitGate;
+    await route.fallback();
+  });
+  const visitStarted = page.waitForRequest(isUatVisit);
+  const visitAcknowledged = page.waitForResponse(response => isUatVisit(response.request()) && response.status() === 200);
+  try {
+    await selectOrg('UAT Sandbox', 'uat');
+    await visitStarted;
+    assert.equal(destination().target.orgId, 'uat', 'The connection switches before the delayed visit acknowledgement');
+  } finally { releaseVisit(); }
+  const acknowledgement = await (await visitAcknowledged).json();
+  const acknowledgedToday = acknowledgement.result.conversation.conversation.messages.at(-1);
+  assert.equal(acknowledgedToday.role, 'today');
+  await expect(page.locator(`[data-message-id="${acknowledgedToday.id}"]`).getByRole('group', { name: 'Today', exact: true })).toBeVisible();
+  await expectFindings(uat.findings.map(finding => finding.title));
   await page.screenshot({ path: outputPath(`${label}-org-assessment-scope.png`) });
-  out.checks.push('Each subsequent org has an explicit assessment action; switching back restores that org’s findings, including completed empty runs and allocated-card removal');
+  out.checks.push('Each subsequent org has an explicit assessment action; switching back restores exactly that org’s findings after a delayed visit acknowledgement, including completed empty runs and allocated-card removal');
   assert.deepEqual(out.errors, []);
 } catch (error) { out.errors.push(error.stack); await page.screenshot({ path: outputPath(`${label}-scope-failure.png`) }); writeFileSync(outputPath(`${label}-scope-failure.txt`), await page.locator("body").innerText()); }
 finally {

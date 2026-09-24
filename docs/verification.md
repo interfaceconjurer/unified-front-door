@@ -545,3 +545,16 @@ switch. The selected-org journey explicitly creates API and routing projects and
 checks that permissions/storage opportunities remain; the real-database journey
 selects an org and opportunity explicitly. These replace stale fixture assumptions
 without removing navigation, read-only-feature or durable-creation coverage.
+
+### Release assessment readiness (September 24)
+
+The merged-main release at `bb9cdf272665d7257ca6b4892ee094fc9007c99c`
+stopped before deployment when `org-assessment-scope` observed zero accessible
+checkboxes immediately after waiting for one. A visit acknowledgement can replace
+Today and temporarily hide the new entry during its presentation handoff, so those
+separate reads raced the refresh. The registered suite now retries one comparison
+of the exact expected opportunity labels. Its final org switch holds the visit
+response, verifies that the connection changes, then waits for the acknowledged
+Today entry and its findings. Existing selected-org, assigned-card removal,
+empty-assessment and project-connection coverage is retained; application code,
+release gating and the suite registry are unchanged.
