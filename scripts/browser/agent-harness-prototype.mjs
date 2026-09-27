@@ -23,21 +23,49 @@ async function checkReadableLayout(page) {
     const result = await page.evaluate(() => {
         const elements = [...document.querySelectorAll('body *')].filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
         const hasText = element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+        const paper = getComputedStyle(document.body).backgroundColor;
+        const ink = getComputedStyle(document.body).color;
+        const allowed = new Set([paper, ink, 'rgba(0, 0, 0, 0)', 'none']);
+        const extraPaint = elements.flatMap(element => {
+            const style = getComputedStyle(element);
+            const properties = ['color', 'backgroundColor'];
+            for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
+                if (parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== 'none') properties.push(`border${side}Color`);
+            }
+            if (element instanceof SVGElement) properties.push('fill', 'stroke');
+            const unexpected = properties.filter(property => !allowed.has(style[property]));
+            if (style.backgroundImage !== 'none') unexpected.push('backgroundImage');
+            if (style.boxShadow !== 'none') unexpected.push('boxShadow');
+            return unexpected.map(property => ({ element: element.getAttribute('class') || element.tagName, property, value: style[property] }));
+        });
         return {
+            distinctInkAndPaper: ink !== paper,
+            extraPaint,
             pageOverflow: document.documentElement.scrollWidth > innerWidth,
             small: elements.filter(element => hasText(element) && parseFloat(getComputedStyle(element).fontSize) < 13).map(element => element.className),
             overflow: elements.filter(element => element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 2 && !['auto', 'scroll'].includes(getComputedStyle(element).overflowX) && getComputedStyle(element).textOverflow !== 'ellipsis').map(element => element.className),
         };
     });
-    assert.deepEqual(result, { pageOverflow: false, small: [], overflow: [] });
+    assert.deepEqual(result, { distinctInkAndPaper: true, extraPaint: [], pageOverflow: false, small: [], overflow: [] });
 }
 
 try {
     const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', viewport: { width: 1440, height: 1100 } });
     const page = await context.newPage();
     page.on('pageerror', error => out.errors.push(error.message));
-    const response = await page.goto(entry.href + '#thread');
+    const response = await page.goto(entry.href);
     assert.equal(response.status(), 200);
+    assert.deepEqual(await page.locator('[data-action=study-view]').allTextContents(), ['Plugin model', 'Harness integration']);
+    assert(await page.locator('#model-study').isVisible());
+    assert.equal(await page.locator('[data-action=model-layer][data-value=plugin]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#model-palette-tab-plugins').getAttribute('aria-selected'), 'true');
+    await checkReadableLayout(page);
+    await page.reload();
+    assert.equal(new URL(page.url()).hash, '#model');
+    assert.equal(await page.locator('#model-palette-tab-plugins').getAttribute('aria-selected'), 'true');
+    out.checks.push('Plugin model precedes Harness integration and opens on Plugin with the Plugins palette, including reload');
+    await page.goto(entry.href + '#thread');
+    await page.reload();
     assert.equal(await page.locator('#demo-study .composition-label').textContent(), 'Plug-in capability presentation layers');
     assert.equal(await page.locator('#demo-study .study-choice').count(), 3);
     assert.equal(await page.locator('.story-review').count(), 0, 'Single-capability example has no nudge');
@@ -94,6 +122,7 @@ try {
     out.checks.push('Capabilities and Plugins stay separate; Plugins is last; ALM filtering, source links, keyboard tabs and personal settings remain accessible');
 
     await page.locator('[data-action=study-view][data-value=model]').click();
+    assert.equal(await page.locator('#model-palette-tab-plugins').getAttribute('aria-selected'), 'true');
     assert.deepEqual(await cardMetrics(page.locator('#model-study .composition-contributions')), demoMetrics);
     assert.equal(await page.locator('.model-edge').count(), 2);
     for (const edge of await page.locator('.model-edge').all()) {
@@ -149,7 +178,7 @@ try {
     assert(await current.count() > 0);
     const currentResponse = await context.request.get(new URL(await current.first().getAttribute('href'), page.url()).href);
     assert.equal(currentResponse.status(), 200);
-    out.checks.push('13px minimum and contained desktop/mobile layouts, keyboard choice activation, downloadable HTML and historical/current links');
+    out.checks.push('Two-color ink/paper styling without gradients or shadows, 13px minimum and contained desktop/mobile layouts, keyboard choice activation, downloadable HTML and historical/current links');
     await context.close();
 } catch (error) {
     out.errors.push(error.stack);
