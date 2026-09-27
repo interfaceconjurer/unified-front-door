@@ -91,6 +91,32 @@ try {
     assert(await page.locator('.surface-pane').isVisible());
     assert.equal(await page.locator('.surface-pane .rule-input').inputValue(), draft);
     assert.equal(await page.locator('#working-set').count(), 0);
+    const openSurfaceNames = () => page.locator('.workbench-artifacts [data-action=workbench-activate]').allTextContents();
+    assert.deepEqual(await openSurfaceNames(), ['Routing rule']);
+    await page.locator('.surface-pane .depth-section').nth(1).locator('summary').first().click();
+    await page.locator('.surface-pane .depth-related [data-value=trace]').click();
+    assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace']);
+    await page.locator('.surface-pane').getByRole('button', { name: 'Open capability' }).click();
+    await page.locator('#demo-tool-query').fill('Inspect access');
+    await page.locator('#tools-dialog [data-action=palette-invoke][data-value=open]').click();
+    assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace', 'Access inspection']);
+    await page.getByRole('button', { name: 'Hide workbench', exact: true }).click();
+    assert.equal(await page.locator('.surface-pane').count(), 0);
+    await page.locator('.conversation-controls [data-action=toggle-workbench]').click();
+    assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace', 'Access inspection']);
+    await page.getByRole('button', { name: 'Close Execution trace', exact: true }).click();
+    assert(await page.locator('.surface-pane [data-surface=access]').isVisible());
+    await page.locator('.workbench-artifacts [data-value=edit][data-action=workbench-activate]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('.surface-pane .rule-input').inputValue(), draft);
+    await page.getByRole('button', { name: 'Close Routing rule', exact: true }).click();
+    assert(await page.locator('.surface-pane [data-surface=access]').isVisible());
+    await page.getByRole('button', { name: 'Close Access inspection', exact: true }).click();
+    assert.equal(await page.locator('.surface-pane').count(), 0);
+    await page.locator('.story-artifact [data-action=workbench-surface][data-value=edit]').click();
+    assert.deepEqual(await openSurfaceNames(), ['Routing rule']);
+    assert.equal(await page.locator('.surface-pane .rule-input').inputValue(), draft);
+    out.checks.push('Workbench surfaces open in any order from related artifacts or the capability palette; closing active/inactive views and keyboard switching preserve shared drafts');
     await page.locator('#review-presentation [data-action=review-together]').click();
     assert.equal(await page.locator('.surface-pane').count(), 0);
     assert.equal(await page.locator('#working-set .rule-input').inputValue(), draft);
@@ -156,6 +182,10 @@ try {
             if (view === 'model') await page.locator('[data-action=model-layer][data-value=capability]').click();
             else await page.locator('[data-action=presentation][data-value=desk]').click();
             await checkReadableLayout(page);
+            if (view === 'demo') {
+                await page.locator('[data-action=presentation][data-value=beside]').click();
+                await checkReadableLayout(page);
+            }
         }
         await page.locator('#shell [data-action=tools]').first().click();
         await checkReadableLayout(page);

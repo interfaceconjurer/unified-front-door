@@ -569,6 +569,7 @@ PR shards and the full release gate. It exercises the static design study at
 | --- | --- |
 | Study navigation and entry | Plugin model precedes Harness integration; default entry and reload select Plugin and the Plugins palette; explicit integration links remain supported |
 | Single capability / working set / dedicated workbench | Correct defaults; summary expansion and workbench round trips preserve earlier messages, composer, and shared draft |
+| Flexible workbench surfaces | Tabs follow opened surfaces and capability-provided titles; related-artifact and palette entry; keyboard switching; active/inactive closing; closing/reopening preserves the shared draft |
 | Shared study controls | Matching compact card geometry and typography; 13px minimum text; arrow-only contribution connectors |
 | Blueprint styling | Both views, palettes, and settings render with ink and paper only; no gradients or shadows; selected states and keyboard focus remain available |
 | Plugin and capability discovery | Separate tabs with Plugins last; source links, installation, ALM filtering, and keyboard access |

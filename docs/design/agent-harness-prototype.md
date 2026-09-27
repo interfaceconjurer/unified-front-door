@@ -22,6 +22,15 @@ card; Review together closes the workbench and expands the collection again.
 Earlier conversation messages and the shared draft remain intact. Editing the
 draft invalidates its sample checks until evaluation runs again.
 
+The workbench lists only surfaces opened during the task, using titles supplied
+by their capabilities. Open capability adds a view from the palette; related
+artifacts can open alongside it. Views can be switched or closed in any order,
+and closing a view preserves its shared artifact. Closing the last view returns
+space to the conversation; hiding the workbench preserves its open views.
+Evidence, Draft, Checks, and Review are no longer fixed workbench tabs. The
+routing story remains sample content illustrating the generic host; each
+capability owns the controls and workflow inside its own surface.
+
 ## Contribution and discovery model
 
 A plugin packages a team's domain. It contributes discoverable capabilities,
