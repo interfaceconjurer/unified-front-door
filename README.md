@@ -63,6 +63,7 @@ for startup details and optional Anthropic configuration.
 | Guide | Contents |
 | --- | --- |
 | [Development](docs/development.md) | Setup, credentials, adding capabilities, source map, conventions |
+| [Agentic harness design study](docs/design/agent-harness-prototype.md) | Interactive conversation, working set, workbench, and plugin model prototype |
 | [Product behavior](docs/product-behavior.md) | Demo walkthrough, navigation, saved data, sessions, recovery |
 | [Agent runtime](docs/agent-runtime.md) | Conversations, workers, retries, optional Anthropic reasoning |
 | [Database and operations](docs/operations.md) | Configuration, migrations, deployment, rollback, capacity limits |

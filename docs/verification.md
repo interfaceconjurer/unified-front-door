@@ -558,3 +558,20 @@ response, verifies that the connection changes, then waits for the acknowledged
 Today entry and its findings. Existing selected-org, assigned-card removal,
 empty-assessment and project-connection coverage is retained; application code,
 release gating and the suite registry are unchanged.
+
+### Agentic harness design study
+
+`agent-harness-prototype` is registered in `scripts/browser/suites.mjs` for both
+PR shards and the full release gate. It exercises the static design study at
+`/prototypes/agent-harness.html`; production application suites remain unchanged.
+
+| Behavior | Browser evidence |
+| --- | --- |
+| Single capability / working set / dedicated workbench | Correct defaults; summary expansion and workbench round trips preserve earlier messages, composer, and shared draft |
+| Shared study controls | Matching compact card geometry and typography; 13px minimum text; arrow-only contribution connectors |
+| Plugin and capability discovery | Separate tabs with Plugins last; source links, installation, ALM filtering, and keyboard access |
+| Review interaction | Edits invalidate sample checks; evaluation enables the simulated review decision |
+| Narrow layouts and artifacts | Both views and palettes stay contained; current/download/historical links resolve |
+
+See the [design study guide](design/agent-harness-prototype.md) for entry links,
+simulation boundaries, and the baseline/content-diff retention record.
