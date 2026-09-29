@@ -72,7 +72,7 @@ try {
     }
     if (profileId !== 'am') {
       await page.goto(origin + '/code');
-      await page.getByText('This surface is unavailable for your demo profile.', { exact: true }).first().waitFor();
+      await page.getByText('This plugin is unavailable for your demo profile.', { exact: true }).first().waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Back to your code.', exact: true }).count(), 0);
     }
     assert(fixture.commands.every(command => command.kind !== 'submit'), 'Browsing scenarios never invokes a model');

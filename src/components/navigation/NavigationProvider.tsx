@@ -65,7 +65,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     if (decision.kind === "unavailable") { setProblem(decision.reason); return false; }
     if (source !== "capture" && destination.surface && destination.canvas
       && !(source === "restore" ? canvases.canViewCanvas(destination.surface, destination.canvas) : canvases.canOpenCanvas(destination.surface, destination.canvas))) {
-      setProblem("This surface already has 20 open tabs. Close a tab before opening another. Its saved draft will be preserved."); return false;
+      setProblem("This plugin already has 20 open views in the workbench. Close a view before opening another. Its saved draft will be preserved."); return false;
     }
     const id = destination.canvas ? canvasId(destination.canvas.kind, destination.canvas.params) : null;
     setProblem(null);
@@ -192,7 +192,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const id = canvasId(canvas.kind, canvas.params), store = getSurfaceCanvasStore(owner, target);
     const selected = sources.filter(source => source.sourceId !== id);
     if (!selected.length) { openProjectCreation(); return; }
-    if (!store.canOpenCanvas("alm", canvas)) { setProblem("Close an ALM tab before starting a project."); return; }
+    if (!store.canOpenCanvas("alm", canvas)) { setProblem("Close an ALM view before starting a project."); return; }
     store.captureTarget("alm", id, target); store.openCanvas("alm", canvas);
     store.updateDraft("alm", id, { transferSources: JSON.stringify(selected) });
     controller.navigate(canvasDestination(owner, "alm", canvas, target, target));
@@ -276,7 +276,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     },
     copyToSelectedScope: async (surface, id, input) => {
       if (!canvases.canOpenCanvas(surface, input)) {
-        setProblem("This surface already has 20 open tabs. Close a tab before copying this draft. Your original draft is preserved."); return false;
+        setProblem("This plugin already has 20 open views in the workbench. Close a view before copying this draft. Your original draft is preserved."); return false;
       }
       if (!await canvases.copyDraft(surface, id, input)) {
         setProblem("The draft could not be copied. A saved draft may already exist for this target, or edits may still be pending. Review saved changes before trying again."); return false;

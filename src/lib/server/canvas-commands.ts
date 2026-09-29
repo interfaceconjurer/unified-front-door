@@ -17,7 +17,7 @@ export async function canvasCommand(client: PoolClient, session: OwnedSession, c
   // Keep the original command intact: a retry's receipt hashes its old bytes.
   const surface = canonicalCanvasSurface(command.surface, command.canvas);
   const profile = demoProfileById(session.profileId!);
-  if (!profile.surfaceAccess.includes(surface)) invalid("This surface is unavailable for the current demo profile.");
+  if (!profile.surfaceAccess.includes(surface)) invalid("This plugin is unavailable for the current demo profile.");
   if (command.canvas.kind === "work") {
     const work = workForCanvas(command.canvas.params);
     if (!work || work.surfaceId !== surface || !workForProfile(profile.id).includes(work)) invalid("The work destination is unavailable.");

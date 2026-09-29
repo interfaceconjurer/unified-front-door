@@ -123,12 +123,12 @@ export function resolveDestination(href: string, owner: DemoProfileId, access: r
   const decoded = readDestination(href);
   if (decoded.kind === "absent") {
     const path = new URL(href, "http://workspace.local").pathname.slice(1);
-    return isSurfaceId(path) && !access.includes(path) ? { kind: "unavailable", reason: "This surface is unavailable for your demo profile." } : decoded;
+    return isSurfaceId(path) && !access.includes(path) ? { kind: "unavailable", reason: "This plugin is unavailable for your demo profile." } : decoded;
   }
   if (decoded.kind === "invalid") return { kind: "unavailable", reason: decoded.reason };
   const destination = decoded.value;
   if (destination.owner !== owner) return { kind: "unavailable", reason: "This link belongs to another demo profile. Choose a destination in your current workspace." };
-  if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This surface is unavailable for your demo profile." };
+  if (destination.surface && !access.includes(destination.surface)) return { kind: "unavailable", reason: "This plugin is unavailable for your demo profile." };
   if (destination.canvas?.kind === "work-item-change") {
     const { projectId, workItemId } = destination.canvas.params;
     if (!savedProjects.some(project => project.id === projectId && project.workItems.some(item => item.id === workItemId)))
