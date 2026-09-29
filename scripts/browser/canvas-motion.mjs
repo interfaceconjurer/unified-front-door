@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { install, href } from './fixtures.mjs';
+import { openOverview } from './workbench-helpers.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
@@ -35,9 +36,12 @@ try {
     await page.goto(origin + href);
     await page.getByRole('textbox', { name: 'Name', exact: true }).waitFor();
     const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
-    const tabs = page.getByRole('tablist', { name: 'Build & Setup canvases' });
+    // One workbench strip spans plugins; legacy per-surface tabs arrive in plugin order.
+    const tabs = page.getByRole('tablist', { name: 'Open views' });
     const tab = name => tabs.getByRole('tab', { name, exact: true });
-    const selected = name => page.waitForFunction(name => document.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim() === name, name);
+    const selected = name => page.waitForFunction(name => document.querySelector('[role="tablist"][aria-label="Open views"] [role="tab"][aria-selected="true"]')?.textContent.trim() === name, name);
+    assert.deepEqual(await tabs.getByRole('tab').allInnerTexts(), ['Build an automation', 'data-model', 'agent', 'experience', 'sfdx-project', 'react-app', 'apex'],
+      'Saved per-surface tabs restore into one workbench in plugin order');
     await composer.fill('Keep this draft while switching canvases');
     await settle(page);
     await composer.evaluate(node => { window.__composer = node; window.__composerBounds = node.getBoundingClientRect().toJSON(); });
@@ -61,8 +65,8 @@ try {
     await selected('experience');
     assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'experience');
     await page.keyboard.press('Home');
-    await selected('Build & Setup');
-    await page.keyboard.press('End');
+    await selected('Build an automation');
+    await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
     await selected('experience');
     await settle(page);
     await page.getByRole('tabpanel').evaluate(panel => {
@@ -79,21 +83,27 @@ try {
     // exit delay, opacity drop or temporary inert state.
     await page.keyboard.press('Delete');
     await tab('experience').waitFor({ state: 'detached' });
+    // The neighbor that slid into the closed view's slot is selected, even when
+    // it belongs to another plugin.
+    await selected('sfdx-project');
+    await settle(page);
+    await tab('agent').click();
     await selected('agent');
     await settle(page);
     assert(await page.evaluate(() => window.__closeFrames.every(frame => frame.opacity === 1 && !frame.inert)), 'Closing must not fade or disable the old canvas');
     assert.deepEqual(await page.evaluate(() => window.__canvasEffects), [], 'Closing must not schedule an exit animation');
-    assert.deepEqual(await page.evaluate(() => window.__canvasMotion), [], 'Keyboard selection, overview and closing are immediate');
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'agent');
+    await page.evaluate(() => { window.__canvasMotion = []; });
+    await tab('agent').focus();
     assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none'));
     await tab('Build an automation').click();
     await selected('Build an automation');
     await settle(page);
+    assert.deepEqual(await page.evaluate(() => window.__canvasMotion), [], 'Same-plugin keyboard selection and closing are immediate');
     await page.goBack();
     await selected('agent');
     await settle(page);
     assert.equal(await composer.inputValue(), 'Keep this draft while switching canvases');
-    out.checks.push(`${motion}: active-tab no-op, rapid arrows, instant overview and close, focus, Back, retained draft`);
+    out.checks.push(`${motion}: active-tab no-op, rapid arrows, instant same-plugin close, focus, Back, retained draft`);
 
     await tab('Build an automation').click();
     await selected('Build an automation');
@@ -104,35 +114,35 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'data-model');
     assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none' && getComputedStyle(node).opacity === '1'));
     await page.keyboard.press('Delete');
-    await tab('Build & Setup').click();
+    await tab('agent').click();
     await tab('data-model').waitFor({ state: 'detached' });
-    await selected('Build & Setup'); await settle(page);
-    assert.equal(await page.evaluate(() => document.activeElement?.textContent.trim()), 'Build & Setup');
+    await selected('agent'); await settle(page);
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent.trim()), 'agent');
     assert(await page.getByRole('tabpanel').evaluate(node => !node.inert && getComputedStyle(node).filter === 'none' && getComputedStyle(node).opacity === '1'));
     assert.equal(await composer.inputValue(), 'Keep this draft while switching canvases');
     assert.deepEqual(await page.evaluate(() => window.__canvasMotion), []);
     assert.deepEqual(await page.evaluate(() => window.__canvasEffects), []);
     out.checks.push(`${motion}: rapid close and selection keep the latest tab, focus and composer without animations`);
 
-    await page.getByRole('button', { name: 'Switch surface', exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'Code', exact: true }).click();
-    await page.getByRole('tablist', { name: 'Code canvases', exact: true }).waitFor();
+    await tab('apex').click();
+    await selected('apex');
     await settle(page);
     const surfaceAnimations = await page.evaluate(() => window.__canvasMotion);
     if (motion === 'no-preference') {
-      assert(surfaceAnimations.some(frame => frame.name === 'surface-recede' && frame.pseudo.includes('surface-canvas')), 'Whole surface still recedes');
-      assert(surfaceAnimations.some(frame => frame.name === 'surface-land' && frame.pseudo.includes('surface-canvas')), 'Whole surface still lands');
+      assert(surfaceAnimations.some(frame => frame.name === 'surface-recede' && frame.pseudo.includes('surface-canvas')), 'Changing plugin still recedes');
+      assert(surfaceAnimations.some(frame => frame.name === 'surface-land' && frame.pseudo.includes('surface-canvas')), 'Changing plugin still lands');
       assert(!surfaceAnimations.some(frame => frame.pseudo.includes('agent-conversation')), 'The continuous chat stays sharp');
     } else assert.deepEqual(surfaceAnimations, []);
-    out.checks.push(`${motion}: whole-surface switching retains its transition and respects reduced motion`);
+    out.checks.push(`${motion}: switching to another plugin's view retains the whole-view transition and respects reduced motion`);
+    await openOverview(page, 'Code'); await selected('Code overview'); await settle(page);
     await page.evaluate(() => { window.__canvasMotion = []; });
-    for (const name of ['apex', 'react-app', 'Code']) {
-      await page.getByRole('tab', { name, exact: true }).click();
+    for (const name of ['react-app', 'sfdx-project', 'Code overview']) {
+      await tab(name).click();
       await selected(name); await settle(page);
-      assert.deepEqual(await page.evaluate(() => window.__canvasMotion), [], 'Code canvases and the Code overview switch without a transition');
+      assert.deepEqual(await page.evaluate(() => window.__canvasMotion), [], 'Code views and the Code overview switch without a transition');
     }
     assert.equal(await composer.inputValue(), 'Keep this draft while switching canvases');
-    out.checks.push(`${motion}: Code tabs and the main Code overview change instantly and keep the chat draft`);
+    out.checks.push(`${motion}: Code views and the Code overview view change instantly and keep the chat draft`);
     await context.close();
   }
 } catch (error) {

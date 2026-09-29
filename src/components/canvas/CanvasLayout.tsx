@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import styles from "./CanvasLayout.module.css";
 
-/** Shared canvas gutters and left-aligned content column. SurfaceCanvasHost
+/** Shared canvas gutters and left-aligned content column. Workbench
  * supplies this for every overview and launched canvas; bodies pass content
  * without adding their own outer padding, width limits, or auto margins.
  * `wide` accommodates an inner side rail; `full` is for builder-owned chrome. */

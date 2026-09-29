@@ -151,8 +151,8 @@ try {
   await scoped.page.waitForURL(url => url.pathname === '/');
   await header.getByRole('button', { name: 'Search workspace', exact: true }).click();
   dialog = scoped.page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-  await choose(dialog, 'Build & Setup');
+  await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).click();
+  await choose(dialog, 'Build & Setup overview');
   await scoped.page.waitForURL(url => url.pathname === '/build');
   assert.deepEqual(currentDestination().target, { projectId: null, worktreeId: null, orgId: 'uat' });
   assert.equal(currentDestination().canvas, undefined, 'Home opens its own surface overview instead of inheriting the project canvas');

@@ -4,15 +4,15 @@ import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStor
 import { usePathname, useRouter } from "next/navigation";
 import { NavigationProvider, useNavigation } from "@/components/navigation/NavigationProvider";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { surfaceAppForPath } from "@/components/front-door/app-catalog";
-import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
+import { Workbench } from "@/components/surfaces/Workbench";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
+import { SurfaceCanvasProvider, useWorkbench } from "@/components/surfaces/surface-canvas-context";
+import { workbenchViews } from "@/lib/surface-canvas/persistence";
 import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { normalizeDestinationHref } from "@/lib/navigation/model";
 import { signInDestination } from "@/lib/navigation/sign-in";
-import { applicationClient, getActiveSelectionStore } from "@/lib/application/client";
+import { applicationClient, getActiveCanvasStore, getActiveSelectionStore } from "@/lib/application/client";
 import { connectedOrgForProfile } from "@/lib/workspace/orgs";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
@@ -58,7 +58,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { navigateSurface } = useNavigation();
+  const { selectView } = useNavigation();
+  const workbench = useWorkbench();
   const { profile } = useDemoProfile();
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
@@ -81,13 +82,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", finishResizeTransitions);
     return () => window.removeEventListener("resize", finishResizeTransitions);
   }, []);
-  // Which surface (if any) this route belongs to — drives whether the route
-  // content is wrapped in its per-surface canvas/tab host. The front door and
-  // any non-surface route render their content bare.
-  const surface = surfaceAppForPath(pathname);
+  // The workbench panel is open by explicit choice or by navigating to a view.
+  // Today starts with it closed; plugin routes reveal it unless it was hidden.
   const selectionStore = getActiveSelectionStore(profile?.id);
   const selection = useSyncExternalStore(selectionStore.subscribe, selectionStore.getSnapshot, selectionStore.getServerSnapshot);
-  const surfaceOpen = !isFrontDoor && (selection.surfacePanelOpen ?? true);
+  const surfaceOpen = selection.surfacePanelOpen ?? !isFrontDoor;
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -126,15 +125,18 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   }, [panelOpen, togglePanel]);
 
   const toggleSurfacePanel = useCallback(() => {
-    if (!surface) {
-      navigateSurface("build");
+    if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
+      document.getElementById("workbench-toggle")?.focus();
+    }
+    // Reopening from Today returns to the last active view, if any remain.
+    if (!surfaceOpen && !workbench.activeId && workbench.views.length) {
+      const store = getActiveCanvasStore(profile?.id, getActiveSelectionStore(profile?.id).getSnapshot().target);
+      const last = workbenchViews(store.getSnapshot()).active;
+      selectView(workbench.views.some(view => view.id === last) ? last! : workbench.views.at(-1)!.id);
       return;
     }
-    if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
-      document.getElementById("surface-panel-toggle")?.focus();
-    }
     selectionStore.setSurfacePanelOpen(!surfaceOpen);
-  }, [selectionStore, navigateSurface, surface, surfaceOpen]);
+  }, [selectionStore, surfaceOpen, workbench, selectView, profile?.id]);
 
   // ⌘⇧P opens the palette; ⌘B and ⌘⇧B toggle the left and right panels.
   useEffect(() => {
@@ -192,20 +194,18 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                   .surfaceVisible slides it in from the right (and the front door
                   parks it off-screen) so its content never reflows as it enters. */}
               <main
-                id="surface-panel"
+                id="workbench"
+                aria-label="Workbench"
                 data-workspace-motion
                 ref={surfacePaneRef}
                 className={`${styles.surfacePane} ${surfaceOpen ? styles.surfaceVisible : ""}`}
                 aria-hidden={!surfaceOpen}
                 inert={!surfaceOpen}
               >
-                {surface ? (
-                  <div className={styles.surfaceInner}>
-                    <SurfaceCanvasHost key={surface.id} surfaceId={surface.id}>{children}</SurfaceCanvasHost>
-                  </div>
-                ) : (
-                  <div className={styles.surfaceInner}>{children}</div>
-                )}
+                <div className={styles.surfaceInner}>
+                  <Workbench onChooseCapability={() => openPalette("capabilities")} />
+                  {children}
+                </div>
               </main>
             </div>
           </div>

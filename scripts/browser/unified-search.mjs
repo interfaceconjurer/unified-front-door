@@ -38,7 +38,7 @@ try {
     assert.equal(new Set(ids).size, ids.length, 'Mixed worktree/session identities must be unique');
     const categories = ids.map(id => id.split(':')[0].replace('cmd-all-', ''));
     assert.deepEqual(categories.filter((category, index) => category !== categories[index - 1]),
-      ['projects', 'resources', 'sessions', 'orgs', 'surfaces'], 'All prioritizes files before sessions and navigation');
+      ['projects', 'resources', 'sessions', 'orgs', 'capabilities', 'plugins'], 'All prioritizes files before sessions and navigation');
     assert.equal(await rows().first().getAttribute('aria-selected'), 'true', 'All starts at the top instead of scrolling to the current org/surface');
     await input().fill('Account');
     const beforeControls = page.url();
@@ -54,7 +54,7 @@ try {
     assert(await orgInput.evaluate(node => node === document.activeElement));
     assert(await rows().filter({ hasText: 'UAT Sandbox' }).isVisible());
     assert.equal(page.url(), beforeControls, 'Pill and clear only change palette state');
-    for (const [tab, query] of [['Surfaces', 'Code'], ['Projects', 'Trailblazer'], ['Sessions', 'lead routing'], ['Orgs', 'UAT']]) {
+    for (const [tab, query] of [['Capabilities', 'Code'], ['Projects', 'Trailblazer'], ['Sessions', 'lead routing'], ['Orgs', 'UAT']]) {
       await dialog.getByRole('tab', { name: tab, exact: true }).click();
       const search = dialog.getByRole('combobox', { name: `Search ${tab.toLowerCase()}…`, exact: true });
       await search.fill(query);
@@ -101,10 +101,10 @@ try {
     assert.equal(destination(page).target.projectId, 'trailblazer-crm');
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
     dialog = await open(page); await input().fill('Code');
-    await dialog.getByRole('button', { name: /^Code Surface ·/ }).click();
+    await dialog.getByRole('button', { name: /^Code overview Capability ·/ }).click();
     await dialog.waitFor({ state: 'detached' }); await page.waitForURL(url => url.pathname === '/code');
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
-    out.checks.push(`${motion}: resource and surface selections preserve the active project/worktree`);
+    out.checks.push(`${motion}: resource and plugin-overview selections preserve the active project/worktree`);
 
     dialog = await open(page); await input().fill('Trailblazer CRM');
     const projectFile = dialog.locator('[id="cmd-all-projects:trailblazer-crm"]');
@@ -236,7 +236,7 @@ try {
   await open(page);
   assert(await dialog.getByRole('button', { name: 'Browse orgs, resource org: UAT Sandbox', exact: true }).isVisible());
   await input.fill('LeadRoutingService'); assert.equal(await dialog.getByRole('listbox').getByRole('option').count(), 0);
-  await input.fill('Code'); assert.equal(await dialog.getByRole('button', { name: /^Code Surface ·/ }).count(), 0);
+  await input.fill('Code'); assert.equal(await dialog.getByRole('button', { name: /^Code overview Capability ·/ }).count(), 0);
   await input.fill('Account');
   assert((await dialog.getByRole('listbox').getByRole('option').first().innerText()).includes('Standard object · Account · UAT Sandbox'));
   assert(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth));

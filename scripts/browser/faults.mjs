@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview } from './workbench-helpers.mjs';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { install, href } from './fixtures.mjs';
@@ -95,7 +96,8 @@ try {
             await input.fill('P6_RENDER_FAULT_second');
             await page.getByRole('alert', { name: 'Canvas unavailable' }).waitFor();
             await page.evaluate(() => window.__injectCanvasFault = false);
-            await page.getByRole('tab', { name: 'Build & Setup', exact: true }).click();
+            // Leave the failed view for another plugin view, then return to it.
+            await openOverview(page, 'Build & Setup');
             await page.getByRole('alert', { name: 'Canvas unavailable' }).waitFor({ state: 'detached' });
             await page.getByRole('tab', { name: 'Build an automation', exact: true }).click();
             await input.waitFor();

@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview, workbenchTab } from './workbench-helpers.mjs';
 import { install, href } from './fixtures.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
@@ -35,9 +36,9 @@ try {
     await page.reload(); await expectTheme(page, system);
     await toggle.focus(); await page.keyboard.press('Space'); await expectTheme(page, opposite);
     await page.screenshot({ path: outputPath(`${label}-theme-switch-${opposite}.png`) });
-    await page.getByRole('button', { name: 'Switch surface', exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'ALM', exact: true }).click();
-    await page.getByRole('tab', { name: 'ALM', exact: true }).waitFor();
+    await openOverview(page, 'ALM');
+    await workbenchTab(page, 'ALM overview').waitFor();
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
     await expectTheme(page, opposite);
     await page.setViewportSize({ width: 390, height: 844 });
     assert(await toggle.isVisible(), 'The appearance switch remains available on narrow screens');

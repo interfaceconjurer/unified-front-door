@@ -3,24 +3,25 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
+import { openOverview } from './workbench-helpers.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
 const target = page => JSON.parse(new URL(page.url()).searchParams.get('destination')).target;
-const tab = (page, name) => page.getByRole('tab', { name, exact: true });
+const tab = (page, name) => page.getByRole('tablist', { name: 'Open views' }).getByRole('tab', { name, exact: true });
+const strip = page => page.locator('#workbench [role="tablist"][aria-label="Open views"] [role="tab"]').allTextContents();
+// Home hides the workbench; its toggle reopens this workspace's last active view.
+async function resume(page) { await page.getByRole('button', { name: 'Workbench', exact: true }).click(); }
 async function home(page) {
   await page.getByRole('link', { name: 'Global home', exact: true }).click();
   // Retiring Today cards remain enabled-but-inert until they leave view.
   // Wait for the live briefing, rather than matching one still scrolling away.
   await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
 }
+// Opening a plugin's overview view replaces choosing a surface.
 async function surface(page, name) {
-  await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-  await dialog.getByRole('option').filter({ has: page.getByText(name, { exact: true }) }).getByRole('button').click();
-  await dialog.waitFor({ state: 'detached' });
-  await tab(page, name).waitFor();
+  await openOverview(page, name);
+  await tab(page, `${name} overview`).waitFor();
 }
 async function project(page, name) {
   await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
@@ -41,7 +42,7 @@ try {
       await page.getByRole('button', { name: /^Data & Objects/ }).click();
       await page.getByRole('button', { name: 'Open Account', exact: true }).click();
       await page.getByRole('article', { name: 'Account resource' }).waitFor();
-      const globalTabs = await page.locator('#surface-panel [role="tab"]').allTextContents();
+      const globalTabs = await strip(page);
 
       await project(page, 'Trailblazer CRM');
       await surface(page, 'Build & Setup');
@@ -49,27 +50,27 @@ try {
       await page.getByRole('button', { name: /^Access & Permissions/ }).click();
       await page.getByRole('button', { name: 'Open Sales Operations', exact: true }).click();
       await page.getByRole('article', { name: 'Sales Operations resource' }).waitFor();
-      const projectTabs = await page.locator('#surface-panel [role="tab"]').allTextContents();
-      await home(page); await surface(page, 'Build & Setup');
+      const projectTabs = await strip(page);
+      await home(page); await resume(page);
       await page.getByRole('article', { name: 'Account resource' }).waitFor();
-      assert.deepEqual(await page.locator('#surface-panel [role="tab"]').allTextContents(), globalTabs);
+      assert.deepEqual(await strip(page), globalTabs);
       assert.equal(await tab(page, 'Sales Operations · UAT Sandbox').count(), 0);
       await page.reload(); await page.getByRole('article', { name: 'Account resource' }).waitFor();
-      assert.deepEqual(await page.locator('#surface-panel [role="tab"]').allTextContents(), globalTabs);
+      assert.deepEqual(await strip(page), globalTabs);
       await project(page, 'Trailblazer CRM');
       await page.getByRole('article', { name: 'Sales Operations resource' }).waitFor();
-      assert.deepEqual(await page.locator('#surface-panel [role="tab"]').allTextContents(), projectTabs);
-      await surface(page, 'Code'); await surface(page, 'Build & Setup');
+      assert.deepEqual(await strip(page), projectTabs);
+      await surface(page, 'Code'); await tab(page, 'Sales Operations · UAT Sandbox').click();
       await page.getByRole('article', { name: 'Sales Operations resource' }).waitFor();
       await project(page, 'feature/lead-routing'); await surface(page, 'Build & Setup');
       assert.equal(await tab(page, 'Sales Operations · UAT Sandbox').count(), 0, 'Another worktree has its own tab set');
-      await page.getByRole('tab', { name: 'Lead routing assistant', exact: true }).click();
+      await tab(page, 'Lead routing assistant').click();
       const notes = page.getByRole('textbox', { name: 'Your notes', exact: true });
       await notes.fill('Keep this worktree draft');
-      await home(page); await surface(page, 'Build & Setup');
+      await home(page); await resume(page);
       await page.getByRole('article', { name: 'Account resource' }).waitFor();
       assert.equal(await tab(page, 'Lead routing assistant').count(), 0);
-      out.checks.push(`${motion}: Global, project and worktree tabs/active canvases restore independently across surfaces, Home and reload`);
+      out.checks.push(`${motion}: Global, project and worktree tabs/active canvases restore independently across plugins, Home and reload`);
 
       // Explicit global inspection creates a Home tab, without taking over the
       // project's view or changing the saved draft's captured ownership.
@@ -88,7 +89,7 @@ try {
       assert.equal(target(page).worktreeId, 'lead-routing');
       await home(page); await surface(page, 'Build & Setup');
       assert.equal(await tab(page, 'Lead routing assistant').count(), 0, 'Returning from the project cannot reopen a closed global tab');
-      await page.reload(); await page.getByRole('article', { name: 'Account resource' }).waitFor();
+      await page.reload(); await tab(page, 'Account · UAT Sandbox').waitFor();
       assert.equal(await tab(page, 'Lead routing assistant').count(), 0);
       out.checks.push(`${motion}: Explicit global project-file inspection retains shared draft ownership; closing Home tab leaves project tab open and stays closed after return/reload`);
       await page.screenshot({ path: outputPath(`${label}-workspace-tabs-${motion}.png`) });

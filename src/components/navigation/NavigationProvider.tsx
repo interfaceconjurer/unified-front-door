@@ -14,9 +14,10 @@ import { conversationKey, homeTarget, sameTarget, UNBOUND_TARGET, type Workspace
 import { RESOURCE_TYPES, type OrgResource } from "@/lib/org-resources/model";
 import { primaryWorktree, sessionKey } from "@/lib/workspace/model";
 import { workCanvasInput } from "@/lib/workspace/returning-work";
-import { isSurfaceId, type SurfaceId } from "@/lib/workspace/surfaces";
 import { projectCreationCanvas } from "@/lib/projects/creation";
 import { canonicalCanvasSurface } from "@/lib/surface-canvas/routing";
+import { overviewPlugin, overviewViewId, workbenchViews } from "@/lib/surface-canvas/persistence";
+import { isSurfaceId, SURFACE_IDS, type SurfaceId } from "@/lib/workspace/surfaces";
 import type { TransferSource } from "@/lib/application/contracts";
 
 type PlanDestination = Pick<import("@/lib/projects/model").ImprovementProject, "id" | "name" | "targetOrgId">;
@@ -35,6 +36,11 @@ type Navigation = {
   openCanvas: (surface: SurfaceId, input: CanvasSpecInput) => void;
   openCanvasInProject: (surface: SurfaceId, input: CanvasSpecInput) => void;
   selectCanvas: (surface: SurfaceId, id: string) => void;
+  /** Workbench views span plugins: canonical canvas ids or `overview:<plugin>`. */
+  selectView: (viewId: string) => void;
+  /** Close a view (keeping its draft) and select its neighbor, or leave the
+   *  workbench empty when it was the last view. */
+  closeView: (viewId: string) => void;
   selectProject: (projectId: string, worktreeId?: string, surface?: SurfaceId | null) => void;
   selectOrg: (orgId: string) => void;
   copyToSelectedScope: (surface: SurfaceId, id: string, input: CanvasSpecInput) => Promise<boolean>;
@@ -69,6 +75,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       // Reload/profile re-entry retains a hidden pane. A different explicit
       // link or browser-history destination reveals the view being requested.
       if (previousHref !== destinationHref(destination)) selection.setSurfacePanelOpen(destination.surface !== null);
+      // A plugin route without a canvas addresses that plugin's overview view.
+      if (destination.surface && !destination.canvas) canvases.openOverview(destination.surface);
       return;
     }
     if (destination.surface && id) canvases.captureTarget(destination.surface, id, destinationCanvasTarget(destination));
@@ -77,7 +85,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     selection.setSurfacePanelOpen(destination.surface !== null);
     if (destination.surface) {
       if (destination.canvas) canvases.openCanvas(destination.surface, destination.canvas);
-      else canvases.setActiveCanvas(destination.surface, "overview");
+      else canvases.openOverview(destination.surface);
     }
   }, (href, replace) => {
     const from = readDestination(window.location.href), to = readDestination(href);
@@ -116,6 +124,12 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         return canvasDestination(owner, surface, canvas, captured, target);
     }
     return { version: 1, owner, surface, target };
+  }
+  /** The view addressed by this tab's URL, which owns the visible selection. */
+  function readActiveId(): string | null {
+    const decoded = readDestination(`${window.location.pathname}${window.location.search}`);
+    if (decoded.kind !== "destination" || !decoded.value.surface) return null;
+    return decoded.value.canvas ? canvasId(decoded.value.canvas.kind, decoded.value.canvas.params) : overviewViewId(decoded.value.surface);
   }
   const restore = useRef<(href: string, history?: boolean) => void>(() => {});
   useEffect(() => {
@@ -232,6 +246,21 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }),
     hrefForSurface: (surface) => destinationHref(surface === null ? globalHome : currentDestination(surface)),
     openCanvas, openCanvasInProject, openImprovementProject, openProjectCreation, openProjectCreationForChanges, selectProject, capabilityScope,
+    selectView: (viewId) => {
+      const plugin = overviewPlugin(viewId);
+      if (plugin) { controller.navigate({ version: 1, owner, surface: plugin, target: workspace.target }); return; }
+      const state = canvases.getSnapshot(), surface = SURFACE_IDS.find(item => state[item].canvases.some(canvas => canvas.id === viewId));
+      if (surface) currentActions.current.selectCanvas(surface, viewId);
+    },
+    closeView: (viewId) => {
+      const state = canvases.getSnapshot(), before = workbenchViews(state), active = before.active === viewId || readActiveId() === viewId;
+      canvases.closeView(viewId);
+      const after = workbenchViews(canvases.getSnapshot());
+      if (!active) return;
+      const index = before.views.indexOf(viewId), next = after.views[index] ?? after.views[index - 1];
+      if (next) currentActions.current.selectView(next);
+      else controller.navigate({ version: 1, owner, surface: null, target: workspace.target }, true);
+    },
     selectCanvas: (surface, id) => {
       const slice = canvases.getSnapshot()[surface];
       const canvas = slice.canvases.find((item) => item.id === id);
@@ -270,6 +299,8 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     openCanvas: (...args) => currentActions.current.openCanvas(...args),
     openCanvasInProject: (...args) => currentActions.current.openCanvasInProject(...args),
     selectCanvas: (...args) => currentActions.current.selectCanvas(...args),
+    selectView: (...args) => currentActions.current.selectView(...args),
+    closeView: (...args) => currentActions.current.closeView(...args),
     selectProject: (...args) => currentActions.current.selectProject(...args),
     selectOrg: (...args) => currentActions.current.selectOrg(...args),
     copyToSelectedScope: (...args) => currentActions.current.copyToSelectedScope(...args),

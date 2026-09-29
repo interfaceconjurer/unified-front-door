@@ -104,11 +104,15 @@ try {
     // At this width even the 40% chat pane exceeds the cap, exposing incorrect
     // centering when the surface is the only open panel.
     await page.setViewportSize({ width: 3200, height: 1000 });
+    // With no views, ⌘⇧B opens the empty workbench; it prompts for a capability.
     await page.keyboard.press('Control+Shift+b');
-    await page.waitForURL('**/build?**');
+    await page.getByRole('button', { name: 'Workbench', exact: true, pressed: true }).waitFor();
     await checkLayout(page, false);
-    await page.locator('summary').filter({ hasText: 'Start something new' }).click();
-    await page.getByRole('button', { name: 'Build an automation', exact: false }).click();
+    await page.locator('#workbench').getByRole('button', { name: 'Choose a capability', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('combobox', { name: 'Search capabilities…', exact: true }).fill('Build an automation');
+    await page.keyboard.press('Enter'); await dialog.waitFor({ state: 'detached' });
+    await page.waitForURL('**/build?**');
     await page.getByRole('tab', { name: 'Build an automation', exact: true }).waitFor();
     await checkLiveResize(page, { centered: false, sidebar: false, surface: true });
     await page.keyboard.press('Control+b');
@@ -120,7 +124,7 @@ try {
     await page.keyboard.press('Control+b');
     await checkLayout(page, true);
     assert.equal(await composer.inputValue(), 'Keep this draft and selection while panels move.');
-    out.checks.push(`${motion}: surface-only and both-panel layouts stay left-aligned; hiding both re-centers`);
+    out.checks.push(`${motion}: workbench-only and both-panel layouts stay left-aligned; hiding both re-centers`);
 
     await page.setViewportSize({ width: 390, height: 844 });
     await checkLayout(page, true);

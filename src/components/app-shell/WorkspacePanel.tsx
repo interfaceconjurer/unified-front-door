@@ -11,7 +11,7 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useWorkspace, type WorkspacePanelFilter } from "@/components/workspace/workspace-context";
-import { useSurfaceCanvases } from "@/components/surfaces/surface-canvas-context";
+import { useSurfaceCanvasActions } from "@/components/surfaces/surface-canvas-context";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
   allAppRows,
@@ -106,7 +106,7 @@ function AppRow({
 export function WorkspacePanel({ onClose }: { onClose: () => void }) {
   const { selectProject, openProjectCreation } = useNavigation();
   const { profile } = useDemoProfile();
-  const { openCanvas } = useSurfaceCanvases("alm");
+  const { openCanvas } = useSurfaceCanvasActions();
   const { projects, activeProject, activeWorktree, hasProjects, target,
     panelFilter: filter, setPanelFilter: setFilter, projectPanelRequest } =
     useWorkspace();
