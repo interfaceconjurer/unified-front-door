@@ -322,6 +322,8 @@ class RemoteCanvasStore {
     return this.canOpenCanvas(surface, input) || Object.hasOwn(slice.targets ?? {}, id) || Object.hasOwn(slice.closedDrafts ?? {}, id);
   };
   closeCanvas = (surface: SurfaceId, id: string) => this.prefs.closeCanvas(surface, id);
+  openOverview = (surface: SurfaceId) => this.prefs.openOverview(surface);
+  closeView = (viewId: string) => this.prefs.closeView(viewId);
   setActiveCanvas = (surface: SurfaceId, id: string) => this.prefs.setActiveCanvas(surface, id);
   captureTarget = (surface: SurfaceId, id: string, target: WorkspaceTarget): boolean => {
     const canvas = inputFromCanonicalId(id);
