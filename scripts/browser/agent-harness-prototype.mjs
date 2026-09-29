@@ -19,34 +19,41 @@ async function cardMetrics(section) {
     });
 }
 
+async function checkSharedEdges(page, study) {
+    const edges = await page.locator(study).evaluate(root => ['.composition-label', '.study-choice', '.composition-harness > :first-child'].map(selector => Math.round(root.querySelector(selector).getBoundingClientRect().left)));
+    assert.equal(new Set(edges).size, 1, `${study} label, choices, and harness frame share one left edge: ${edges}`);
+}
+
 async function checkReadableLayout(page) {
     const result = await page.evaluate(() => {
         const elements = [...document.querySelectorAll('body *')].filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
         const hasText = element => [...element.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-        const paper = getComputedStyle(document.body).backgroundColor;
-        const ink = getComputedStyle(document.body).color;
-        const allowed = new Set([paper, ink, 'rgba(0, 0, 0, 0)', 'none']);
-        const extraPaint = elements.flatMap(element => {
-            const style = getComputedStyle(element);
-            const properties = ['color', 'backgroundColor'];
-            for (const side of ['Top', 'Right', 'Bottom', 'Left']) {
-                if (parseFloat(style[`border${side}Width`]) > 0 && style[`border${side}Style`] !== 'none') properties.push(`border${side}Color`);
+        const rgba = value => (value.match(/[\d.]+/g) || []).map(Number);
+        const luminance = ([r, g, b]) => [r, g, b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+        const backdrop = element => {
+            for (let node = element; node; node = node.parentElement) {
+                const [r, g, b, a = 1] = rgba(getComputedStyle(node).backgroundColor);
+                if (a > 0.5) return [r, g, b];
             }
-            if (element instanceof SVGElement) properties.push('fill', 'stroke');
-            const unexpected = properties.filter(property => !allowed.has(style[property]));
-            if (style.backgroundImage !== 'none') unexpected.push('backgroundImage');
-            if (style.boxShadow !== 'none') unexpected.push('boxShadow');
-            return unexpected.map(property => ({ element: element.getAttribute('class') || element.tagName, property, value: style[property] }));
+            return rgba(getComputedStyle(document.documentElement).backgroundColor);
+        };
+        const lowContrast = elements.filter(element => hasText(element) && !element.closest('button:disabled, [inert]') && !element.closest('dialog:not([open])')).flatMap(element => {
+            const style = getComputedStyle(element);
+            if (parseFloat(style.opacity) < 1) return [];
+            const [r, g, b, a = 1] = rgba(style.color);
+            if (a < 1) return [{ element: element.className || element.tagName, color: style.color }];
+            const [light, dark] = [luminance([r, g, b]), luminance(backdrop(element))].sort((x, y) => y - x);
+            const ratio = (light + 0.05) / (dark + 0.05);
+            return ratio < 4.5 ? [{ element: element.className || element.tagName, ratio: Math.round(ratio * 100) / 100 }] : [];
         });
         return {
-            distinctInkAndPaper: ink !== paper,
-            extraPaint,
+            lowContrast,
             pageOverflow: document.documentElement.scrollWidth > innerWidth,
             small: elements.filter(element => hasText(element) && parseFloat(getComputedStyle(element).fontSize) < 13).map(element => element.className),
             overflow: elements.filter(element => element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 2 && !['auto', 'scroll'].includes(getComputedStyle(element).overflowX) && getComputedStyle(element).textOverflow !== 'ellipsis').map(element => element.className),
         };
     });
-    assert.deepEqual(result, { distinctInkAndPaper: true, extraPaint: [], pageOverflow: false, small: [], overflow: [] });
+    assert.deepEqual(result, { lowContrast: [], pageOverflow: false, small: [], overflow: [] });
 }
 
 try {
@@ -60,6 +67,7 @@ try {
     assert.equal(await page.locator('[data-action=model-layer][data-value=plugin]').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#model-palette-tab-plugins').getAttribute('aria-selected'), 'true');
     await checkReadableLayout(page);
+    await checkSharedEdges(page, '#model-study');
     await page.reload();
     assert.equal(new URL(page.url()).hash, '#model');
     assert.equal(await page.locator('#model-palette-tab-plugins').getAttribute('aria-selected'), 'true');
@@ -69,20 +77,35 @@ try {
     assert.equal(await page.locator('#demo-study .composition-label').textContent(), 'Plug-in capability presentation layers');
     assert.equal(await page.locator('#demo-study .study-choice').count(), 3);
     assert.equal(await page.locator('.story-review').count(), 0, 'Single-capability example has no nudge');
+    await checkSharedEdges(page, '#demo-study');
+    assert.equal(await page.locator('#shell .conversation-tools, #shell [data-action=working-set]:not(#working-set *)').count(), 0, 'No conversation toolbar or expand-working-set action');
+    assert.equal(await page.locator('#shell').getByRole('button', { name: /Open workbench|Close workbench|Expand working set/ }).count(), 0);
     const demoMetrics = await cardMetrics(page.locator('.demo-presentations'));
     await page.locator('#steer-input').fill('Keep this direction while changing presentations');
     await page.evaluate(() => { window.__priorArtifact = document.querySelector('.story-artifact'); });
     await page.locator('[data-action=presentation][data-value=desk]').click();
-    assert(await page.locator('#working-set').isVisible(), '02 opens expanded');
+    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible(), '02 opens on the review summary');
+    assert.equal(await page.locator('#working-set').count(), 0);
+    assert.equal(new URL(page.url()).hash, '#working-set');
     assert.equal(await page.locator('#steer-input').inputValue(), 'Keep this direction while changing presentations');
     assert(await page.evaluate(() => window.__priorArtifact === document.querySelector('.story-artifact')));
-    await page.locator('#working-set [data-action=working-set]').click();
-    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible());
-    assert.equal(new URL(page.url()).hash, '#working-set-summary');
     await page.reload();
-    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible());
+    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible(), 'Summary default survives reload');
+    await page.locator('#review-presentation [data-action=review-together]').click();
+    assert(await page.locator('#working-set').isVisible());
+    assert.equal(new URL(page.url()).hash, '#working-set-expanded');
+    await page.reload();
+    assert(await page.locator('#working-set').isVisible(), 'Expanded link survives reload');
+    for (const hash of ['desk', 'working-set-summary']) {
+        await page.goto(`${entry.href}#${hash}`);
+        await page.reload();
+        assert(await page.locator('#review-presentation [data-action=review-together]').isVisible(), `#${hash} opens on the review summary`);
+    }
+    await page.locator('#review-presentation [data-action=review-together]').click();
     await page.locator('#reset-example').click();
-    assert(await page.locator('#working-set').isVisible(), 'Reset restores the expanded default');
+    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible(), 'Reset restores the summary default');
+    await page.locator('#review-presentation [data-action=review-together]').click();
+    assert(await page.locator('#working-set').isVisible());
     const draft = 'Request and validate the missing region before assigning the owner.';
     await page.locator('#working-set .rule-input').fill(draft);
     assert.equal(await page.locator('.story-artifact .rule-input').inputValue(), draft);
@@ -96,13 +119,18 @@ try {
     await page.locator('.surface-pane .depth-section').nth(1).locator('summary').first().click();
     await page.locator('.surface-pane .depth-related [data-value=trace]').click();
     assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace']);
-    await page.locator('.surface-pane').getByRole('button', { name: 'Open capability' }).click();
+    assert.equal(await page.locator('.surface-pane').getByRole('button', { name: /Open capability|Hide workbench/ }).count(), 0, 'The panel has no open-capability or close controls of its own');
+    assert.equal(await page.locator('#shell [data-workbench-toggle]').getAttribute('aria-pressed'), 'true');
+    await page.locator('#shell [data-action=tools]').first().click();
     await page.locator('#demo-tool-query').fill('Inspect access');
     await page.locator('#tools-dialog [data-action=palette-invoke][data-value=open]').click();
     assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace', 'Access inspection']);
-    await page.getByRole('button', { name: 'Hide workbench', exact: true }).click();
+    await page.locator('#shell [data-workbench-toggle]').click();
     assert.equal(await page.locator('.surface-pane').count(), 0);
-    await page.locator('.conversation-controls [data-action=toggle-workbench]').click();
+    assert.equal(await page.locator('#shell [data-workbench-toggle]').getAttribute('aria-pressed'), 'false');
+    await page.locator('#shell [data-workbench-toggle]').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#shell [data-workbench-toggle]').getAttribute('aria-pressed'), 'true');
     assert.deepEqual(await openSurfaceNames(), ['Routing rule', 'Execution trace', 'Access inspection']);
     await page.getByRole('button', { name: 'Close Execution trace', exact: true }).click();
     assert(await page.locator('.surface-pane [data-surface=access]').isVisible());
@@ -165,15 +193,29 @@ try {
         assert.equal(await page.locator(`[data-action=model-layer][data-value=${layer}]`).getAttribute('aria-pressed'), 'true');
         assert.deepEqual(await page.locator('.model-detail-tokens span').allTextContents(), tokens);
         if (tab) assert.equal(await page.locator(`#model-palette-tab-${tab}`).getAttribute('aria-selected'), 'true');
-        else assert(await page.locator('.map-surface').isVisible());
+        else {
+            assert(await page.locator('#harness-map .surface-pane.is-callout').isVisible(), 'Surface calls out the workbench panel');
+            assert.equal(await page.locator('#harness-map [data-workbench-toggle]').getAttribute('aria-pressed'), 'true');
+        }
     }
+    const headerShape = selector => page.locator(`${selector} .unified-header`).evaluate(header => [...header.querySelectorAll('.studio-brand, .top-session, .header-context, .header-capabilities, [aria-label="Capability settings"], .avatar, [data-workbench-toggle]')].map(element => element.className.split(' ')[0] || element.tagName));
+    const modelHeader = await headerShape('#harness-map');
+    assert.equal(await page.locator('#harness-map .surface-pane').getByRole('button', { name: /Open capability|Hide workbench|Dismiss/ }).count(), 0);
+    await page.locator('#harness-map [data-workbench-toggle]').click();
+    assert.equal(await page.locator('#harness-map .surface-pane').count(), 0, 'The model toggle closes the panel');
+    assert.equal(await page.locator('#harness-map [data-workbench-toggle]').getAttribute('aria-pressed'), 'false');
+    await page.locator('#harness-map [data-workbench-toggle]').click();
+    assert(await page.locator('#harness-map .surface-pane').isVisible(), 'The same toggle reopens it');
+    await page.locator('[data-action=study-view][data-value=demo]').click();
+    assert.deepEqual(await headerShape('#shell'), modelHeader, 'Both views use the same harness header');
+    await page.locator('[data-action=study-view][data-value=model]').click();
     await page.locator('[data-action=model-layer][data-value=plugin]').click();
     await page.locator('[data-launcher=model] [data-action=palette-plugin-filter][data-value=available]').click();
     assert.match(await page.locator('[data-launcher=model] .launcher-preview h2').innerText(), /Plugin C/);
     await page.locator('[data-launcher=model] [data-action=palette-install]').click();
     await page.locator('[data-launcher=model] [data-action=palette-plugin-capabilities]').click();
     assert.deepEqual(await page.locator('[data-launcher=model] .command-copy strong').allTextContents(), ['Capability E', 'Capability F']);
-    out.checks.push('Both tabs share compact card geometry/type; contribution arrows remain; model details retain metadata; installing a plugin contributes discoverable capabilities');
+    out.checks.push('Both tabs share compact card geometry/type and one harness UI; the top-bar workbench icon alone opens and closes the panel; contribution arrows remain; model details retain metadata; installing a plugin contributes discoverable capabilities');
 
     for (const width of [1440, 1024, 768, 390, 320]) {
         await page.setViewportSize({ width, height: 1000 });
@@ -183,6 +225,8 @@ try {
             else await page.locator('[data-action=presentation][data-value=desk]').click();
             await checkReadableLayout(page);
             if (view === 'demo') {
+                await page.locator('#review-presentation [data-action=review-together]').click();
+                await checkReadableLayout(page);
                 await page.locator('[data-action=presentation][data-value=beside]').click();
                 await checkReadableLayout(page);
             }
@@ -195,7 +239,7 @@ try {
     await page.locator('[data-action=presentation][data-value=thread]').focus();
     await page.keyboard.press('Tab');
     await page.keyboard.press('Enter');
-    assert(await page.locator('#working-set').isVisible());
+    assert(await page.locator('#review-presentation [data-action=review-together]').isVisible());
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: outputPath(`${label}-agent-harness-prototype.png`) });
     const download = page.locator('a[download]');
@@ -208,8 +252,36 @@ try {
     assert(await current.count() > 0);
     const currentResponse = await context.request.get(new URL(await current.first().getAttribute('href'), page.url()).href);
     assert.equal(currentResponse.status(), 200);
-    out.checks.push('Two-color ink/paper styling without gradients or shadows, 13px minimum and contained desktop/mobile layouts, keyboard choice activation, downloadable HTML and historical/current links');
+    out.checks.push('Text meets 4.5:1 contrast against its background, 13px minimum and contained desktop/mobile layouts, keyboard choice activation, downloadable HTML and historical/current links');
     await context.close();
+
+    const darkContext = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', colorScheme: 'dark', viewport: { width: 1440, height: 1100 } });
+    const dark = await darkContext.newPage();
+    dark.on('pageerror', error => out.errors.push(error.message));
+    const pageColors = () => dark.evaluate(() => ({ theme: document.documentElement.dataset.theme ?? null, background: getComputedStyle(document.body).backgroundColor, pressed: document.querySelector('#theme-toggle').getAttribute('aria-pressed') }));
+    await dark.goto(entry.href);
+    const systemDark = await pageColors();
+    assert.deepEqual([systemDark.theme, systemDark.pressed], [null, 'true'], 'Dark system preference is followed without a saved choice');
+    for (const hash of ['model', 'thread', 'working-set', 'beside']) {
+        await dark.goto(`${entry.href}#${hash}`);
+        await dark.reload();
+        await checkReadableLayout(dark);
+    }
+    await dark.locator('#shell [data-action=tools]').first().click();
+    await checkReadableLayout(dark);
+    await dark.keyboard.press('Escape');
+    await dark.locator('#theme-toggle').click();
+    const chosenLight = await pageColors();
+    assert.deepEqual([chosenLight.theme, chosenLight.pressed], ['light', 'false']);
+    assert.notEqual(chosenLight.background, systemDark.background);
+    await checkReadableLayout(dark);
+    await dark.reload();
+    assert.deepEqual(await pageColors(), chosenLight, 'Chosen appearance persists across reload');
+    await dark.locator('#theme-toggle').focus();
+    await dark.keyboard.press('Enter');
+    assert.equal((await pageColors()).background, systemDark.background);
+    await darkContext.close();
+    out.checks.push('Appearance follows the system in light and dark, the toggle is keyboard operable and persists, and dark views and the palette keep 4.5:1 text contrast');
 } catch (error) {
     out.errors.push(error.stack);
 } finally {

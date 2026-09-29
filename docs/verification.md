@@ -568,10 +568,12 @@ PR shards and the full release gate. It exercises the static design study at
 | Behavior | Browser evidence |
 | --- | --- |
 | Study navigation and entry | Plugin model precedes Harness integration; default entry and reload select Plugin and the Plugins palette; explicit integration links remain supported |
-| Single capability / working set / dedicated workbench | Correct defaults; summary expansion and workbench round trips preserve earlier messages, composer, and shared draft |
+| Single capability / working set / dedicated workbench | Correct defaults, with the working set opening on its summary and legacy/expanded links honored; summary expansion and workbench round trips preserve earlier messages, composer, and shared draft |
+| Unified harness UI | Plugin model and Harness integration share one harness header; the top-bar workbench icon alone opens and closes the panel (pointer and keyboard); the panel has no close or Open capability controls; no conversation toolbar or Expand working set action |
 | Flexible workbench surfaces | Tabs follow opened surfaces and capability-provided titles; related-artifact and palette entry; keyboard switching; active/inactive closing; closing/reopening preserves the shared draft |
 | Shared study controls | Matching compact card geometry and typography; 13px minimum text; arrow-only contribution connectors |
-| Blueprint styling | Both views, palettes, and settings render with ink and paper only; no gradients or shadows; selected states and keyboard focus remain available |
+| Blueprint styling | Both views, palettes, and settings keep all text at 4.5:1 contrast or better; section label, choice cards, and harness preview share one left edge; selected states and keyboard focus remain available |
+| Light and dark appearance | Follows the system appearance; the header toggle is keyboard operable and its choice persists across reloads; dark views and the palette keep 4.5:1 text contrast |
 | Plugin and capability discovery | Separate tabs with Plugins last; source links, installation, ALM filtering, and keyboard access |
 | Review interaction | Edits invalidate sample checks; evaluation enables the simulated review decision |
 | Narrow layouts and artifacts | Both views and palettes stay contained; current/download/historical links resolve |
