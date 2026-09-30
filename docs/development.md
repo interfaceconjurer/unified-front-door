@@ -105,16 +105,17 @@ has been performed by this phase.
 
 ## Adding a capability or destination
 
-The active extension path is the surface canvas registry:
+The active extension path is the plugin catalog plus the canvas registry:
 
-1. Define a capability and its fields in
-   `src/components/surfaces/surface-capabilities.tsx`. Shared surface IDs live in
-   `src/lib/workspace/surfaces.ts`.
+1. Define a capability and its fields in `src/lib/surface-canvas/capabilities.ts`
+   (icons in `src/components/surfaces/surface-capabilities.tsx`), and give it ALM
+   stage tags in `src/lib/plugins/catalog.ts`. Plugin ids are the shared surface
+   IDs in `src/lib/workspace/surfaces.ts`.
 2. Use the discriminated inputs and runtime codec in
    `src/lib/surface-canvas/model.ts`. Capture scope explicitly; display labels do
    not establish identity.
 3. Render the typed input through
-   `src/components/surfaces/canvas-registry.tsx`. `SurfaceCanvasHost` supplies the
+   `src/components/surfaces/canvas-registry.tsx`. `Workbench` supplies the
    shared layout.
 4. Issue navigation through `useNavigation` or `useSurfaceCanvases`; do not add
    component effects that independently rewrite workspace selection.

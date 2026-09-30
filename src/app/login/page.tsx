@@ -76,7 +76,7 @@ export default function LoginPage() {
                   {PROFILE_SCENARIOS[profile.id].label} · {PROFILE_SCENARIOS[profile.id].phase}
                 </span>
                 <span>{PROFILE_SCENARIOS[profile.id].description}</span>
-                <span className={styles.surfaces}>{profile.surfaceAccess.map(surface => <span key={surface} className={styles.surface}>{SURFACES[surface].label}</span>)}</span>
+                <span className={styles.surfaces} aria-label="Plugins">{profile.surfaceAccess.map(surface => <span key={surface} className={styles.surface}>{SURFACES[surface].label}</span>)}</span>
               </span>
             </button>
             <button type="button" className={styles.clear} disabled={!resolved || busy}

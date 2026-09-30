@@ -54,7 +54,32 @@ export type SurfaceCanvasSlice = {
 /** The whole persisted store: one slice per surface. Always fully populated
  *  (see `emptyState`/`parseState`), so consumers can index any `SurfaceId`
  *  without a hole check. */
-export type PersistedCanvases = Record<SurfaceId, SurfaceCanvasSlice>;
+export type PersistedCanvases = Record<SurfaceId, SurfaceCanvasSlice> & { workbench?: Workbench };
+
+/** One workbench across plugins: view order and the single active view. Views
+ *  are canonical canvas ids or `overview:<plugin>`. Per-plugin slices keep
+ *  their existing tab, draft, target and recovery semantics, so older builds
+ *  that ignore this field still read every saved tab. */
+export type Workbench = { views: string[]; active: string | null };
+const OVERVIEW_PREFIX = "overview:";
+export function overviewViewId(plugin: SurfaceId): string { return `${OVERVIEW_PREFIX}${plugin}`; }
+export function overviewPlugin(viewId: string): SurfaceId | null {
+  const plugin = viewId.startsWith(OVERVIEW_PREFIX) ? viewId.slice(OVERVIEW_PREFIX.length) : null;
+  return plugin && (SURFACE_IDS as readonly string[]).includes(plugin) ? plugin as SurfaceId : null;
+}
+/** Stored order, or (for data saved before the workbench) plugin order then
+ *  each plugin's tab order. Open tabs missing from a stored order are appended. */
+export function workbenchViews(state: PersistedCanvases): Workbench {
+  const open = SURFACE_IDS.flatMap(surface => state[surface].canvases.map(canvas => canvas.id));
+  const stored = state.workbench?.views ?? [];
+  const views = [...stored.filter((id, index) => stored.indexOf(id) === index && (overviewPlugin(id) !== null || open.includes(id))), ...open.filter(id => !stored.includes(id))];
+  const active = state.workbench ? state.workbench.active : null;
+  return { views, active: active !== null && views.includes(active) ? active : null };
+}
+function parseWorkbench(value: unknown): Workbench | undefined {
+  if (!isRecord(value) || !Array.isArray(value.views) || !(value.active === null || typeof value.active === "string")) return undefined;
+  return { views: value.views.filter((id): id is string => typeof id === "string"), active: value.active };
+}
 
 const STORAGE_KEY = "ufd.surface-canvas.v1";
 export const OPEN_CANVAS_LIMIT = 20;
@@ -64,7 +89,7 @@ function emptySlice(): SurfaceCanvasSlice {
 }
 
 export function emptyState(): PersistedCanvases {
-  return Object.fromEntries(SURFACE_IDS.map((id) => [id, emptySlice()])) as PersistedCanvases;
+  return Object.fromEntries(SURFACE_IDS.map((id) => [id, emptySlice()])) as unknown as PersistedCanvases;
 }
 
 /** Fixed default, one shared reference — this is what SSR and the client's first
@@ -174,7 +199,9 @@ export function parseState(parsed: unknown): Decoded<PersistedCanvases> {
       if (!target || !input || !sameTarget(canvasTarget(input, target), target)) return { error: "invalid" };
     }
   }
-  return { value: migrateCanvasSurfaces(Object.fromEntries(SURFACE_IDS.map((id) => [id, parseSlice(parsed[id], id)])) as PersistedCanvases) };
+  const workbench = parseWorkbench(parsed.workbench);
+  const slices = Object.fromEntries(SURFACE_IDS.map((id) => [id, parseSlice(parsed[id], id)])) as unknown as PersistedCanvases;
+  return { value: migrateCanvasSurfaces(workbench ? { ...slices, workbench } : slices) };
 }
 
 /** Move view preferences, never canvas identity or captured scope. If both old
@@ -238,9 +265,39 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
   private updateSlice(
     surfaceId: SurfaceId,
     update: (slice: SurfaceCanvasSlice) => SurfaceCanvasSlice,
+    workbench?: (current: Workbench) => Workbench,
   ): void {
-    this.update((current) => ({ ...current, [surfaceId]: update(current[surfaceId]) }));
+    this.update((current) => {
+      const slice = update(current[surfaceId]);
+      if (!workbench) return slice === current[surfaceId] ? current : { ...current, [surfaceId]: slice };
+      return { ...current, [surfaceId]: slice, workbench: workbench(workbenchViews(current)) };
+    });
   }
+  private static show(id: string) { return (current: Workbench): Workbench => ({ views: current.views.includes(id) ? current.views : [...current.views, id], active: id }); }
+  private static hide(id: string) {
+    return (current: Workbench): Workbench => {
+      const index = current.views.indexOf(id);
+      if (index < 0) return current;
+      const views = current.views.filter(view => view !== id);
+      return { views, active: current.active === id ? views[index] ?? views[index - 1] ?? null : current.active };
+    };
+  }
+
+  /** Open a plugin's overview as an ordinary, closable workbench view. */
+  openOverview = (surfaceId: SurfaceId): void => {
+    this.updateSlice(surfaceId, (slice) => slice.activeCanvasId === OVERVIEW_CANVAS_ID ? slice : { ...slice, activeCanvasId: OVERVIEW_CANVAS_ID }, SurfaceCanvasStore.show(overviewViewId(surfaceId)));
+  };
+  /** Close any workbench view. Canvas views close through `closeCanvas`, so
+   *  their drafts and captured targets are retained exactly as before. */
+  closeView = (viewId: string): void => {
+    const plugin = overviewPlugin(viewId);
+    if (!plugin) {
+      const owner = SURFACE_IDS.find(surface => this.getSnapshot()[surface].canvases.some(canvas => canvas.id === viewId));
+      if (owner) this.closeCanvas(owner, viewId);
+      return;
+    }
+    this.update(current => ({ ...current, workbench: SurfaceCanvasStore.hide(viewId)(workbenchViews(current)) }));
+  };
 
   /** Open a canvas from a launch-pad affordance. Idempotent by kind+params: if
    *  a matching tab already exists it's focused rather than duplicated;
@@ -271,7 +328,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
         activeCanvasId: id,
         closedDrafts: Object.fromEntries(Object.entries(slice.closedDrafts ?? {}).filter(([closedId]) => closedId !== id)),
       };
-    });
+    }, SurfaceCanvasStore.show(id));
     return true;
   };
 
@@ -295,7 +352,7 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
     const source = open ?? (recovered && Object.hasOwn(slice.closedDrafts ?? {}, sourceId) ? { ...recovered, draft: slice.closedDrafts?.[sourceId] } : null);
     if (!source || source.kind === "overview" || !canCopyCanvasToProject(source, valid)
       || slice.canvases.some((canvas) => canvas.id === id) || Object.hasOwn(slice.closedDrafts ?? {}, id)) return false;
-    this.updateSlice(surfaceId, (current) => ({ ...current, canvases: [...current.canvases, { ...valid, id, draft: { ...(source.draft ?? slice.closedDrafts?.[sourceId]) } }], activeCanvasId: id }));
+    this.updateSlice(surfaceId, (current) => ({ ...current, canvases: [...current.canvases, { ...valid, id, draft: { ...(source.draft ?? slice.closedDrafts?.[sourceId]) } }], activeCanvasId: id }), SurfaceCanvasStore.show(id));
     return true;
   };
 
@@ -336,17 +393,18 @@ export class SurfaceCanvasStore extends BrowserPersistenceStore<PersistedCanvase
         activeCanvasId,
         closedDrafts: draft ? { ...slice.closedDrafts, [id]: draft } : slice.closedDrafts,
       };
-    });
+    }, SurfaceCanvasStore.hide(id));
   };
 
   /** Focus a tab. Ignores ids that don't exist (guards against a stale click
    *  racing a close), except the always-present overview. */
   setActiveCanvas = (surfaceId: SurfaceId, id: string): void => {
     surfaceId = surfaceForId(surfaceId, id);
-    this.updateSlice(surfaceId, (slice) => {
-      if (id !== OVERVIEW_CANVAS_ID && !slice.canvases.some((c) => c.id === id)) return slice;
-      return { ...slice, activeCanvasId: id };
-    });
+    const slice = this.getSnapshot()[surfaceId];
+    if (id !== OVERVIEW_CANVAS_ID && !slice.canvases.some((c) => c.id === id)) return;
+    const view = id === OVERVIEW_CANVAS_ID ? overviewViewId(surfaceId) : id;
+    this.updateSlice(surfaceId, (current) => ({ ...current, activeCanvasId: id }),
+      (current) => current.views.includes(view) ? { ...current, active: view } : current);
   };
 }
 

@@ -1,21 +1,20 @@
 "use client";
 
-import type { SurfaceId } from "@/lib/workspace/model";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Modal } from "@/components/interaction/Modal";
-import { usePathname } from "next/navigation";
 import {
   ChevronRightIcon,
   CloseIcon,
   DatabaseIcon,
-  HomeIcon,
   LayersIcon,
   PlusIcon,
+  PuzzleIcon,
   SearchIcon,
   type IconComponent,
 } from "@/components/icons";
-import { surfaceAppForPath, surfaceApps } from "@/components/front-door/app-catalog";
+import { surfaceAppById } from "@/components/front-door/app-catalog";
+import { usePlugins } from "@/components/plugins/use-plugins";
+import { ALM_STAGES, ALM_STAGE_LABEL, PLUGINS, PLUGIN_IDS, capabilityCatalog, type AlmStage, type CatalogCapability, type PluginId } from "@/lib/plugins/catalog";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
@@ -33,51 +32,35 @@ import { RESOURCE_ICONS } from "@/components/surfaces/resource-icons";
 import styles from "./CommandPalette.module.css";
 import orgStyles from "@/components/workspace/OrgKind.module.css";
 
-type Destination = {
-  id: string;
-  label: string;
-  description: string;
-  href: string;
-  Icon: IconComponent;
-};
-
-// The front door plus every surface, as jump targets. This is the same set the
-// old top-bar <select> offered, now reachable from a Spotlight-style palette.
-const HOME_DESTINATION: Destination = {
-  id: "home",
-  label: "Front Door",
-  description: "Start from an outcome and let the agent route you.",
-  href: "/",
-  Icon: HomeIcon,
-};
-
-export type CommandPaletteTab = "all" | "surfaces" | "projects" | "sessions" | "orgs" | "resources";
+export type CommandPaletteTab = "all" | "capabilities" | "projects" | "sessions" | "orgs" | "resources" | "plugins";
 type Tab = CommandPaletteTab;
 type Category = Exclude<Tab, "all">;
 
-const CATEGORIES: readonly Category[] = ["surfaces", "projects", "sessions", "orgs", "resources"];
+const CATEGORIES: readonly Category[] = ["capabilities", "projects", "sessions", "orgs", "resources", "plugins"];
 const TAB_ORDER: readonly Tab[] = ["all", ...CATEGORIES];
-const ALL_RESULT_ORDER: readonly Category[] = ["projects", "resources", "sessions", "orgs", "surfaces"];
+const ALL_RESULT_ORDER: readonly Category[] = ["projects", "resources", "sessions", "orgs", "capabilities", "plugins"];
 const TAB_LABEL: Record<Tab, string> = {
   all: "All",
-  surfaces: "Surfaces",
+  capabilities: "Capabilities",
   projects: "Projects",
   sessions: "Sessions",
   orgs: "Orgs",
   resources: "Resources",
+  plugins: "Plugins",
 };
 const TAB_PLACEHOLDER: Record<Tab, string> = {
   all: "Search everything…",
-  surfaces: "Search surfaces…",
+  capabilities: "Search capabilities…",
   projects: "Search projects…",
   sessions: "Search sessions…",
   orgs: "Search orgs…",
   resources: "Search resources…",
+  plugins: "Search plugins…",
 };
-// What ↵ does, in this tab's own vocabulary — surfaces "open" (navigate),
+// What ↵ does, in this tab's own vocabulary — capabilities "open" a view,
 // projects and orgs "switch" context, sessions "go" to their saved work.
-const TAB_ENTER_HINT: Record<Tab, string> = { all: "open", surfaces: "open", projects: "switch", sessions: "go", orgs: "switch", resources: "open" };
-const CATEGORY_LABEL: Record<Category, string> = { surfaces: "Surface", projects: "Project", sessions: "Session", orgs: "Org", resources: "Resource" };
+const TAB_ENTER_HINT: Record<Tab, string> = { all: "open", capabilities: "open", projects: "switch", sessions: "go", orgs: "switch", resources: "open", plugins: "details" };
+const CATEGORY_LABEL: Record<Category, string> = { capabilities: "Capability", projects: "Project", sessions: "Session", orgs: "Org", resources: "Resource", plugins: "Plugin" };
 const ORG_KIND_LABEL: Record<OrgKind, string> = {
   devhub: "Dev Hub",
   scratch: "Scratch",
@@ -109,6 +92,9 @@ type PaletteItem = {
   status?: AgentSessionStatus;
   orgKind?: OrgKind;
   surfaceLabel?: string;
+  /** Detail pane subject for capability and plugin rows. */
+  capability?: CatalogCapability;
+  plugin?: PluginId;
 };
 
 // Stable ordering keeps all other destinations in their existing order.
@@ -140,9 +126,11 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
   onExited: () => void;
 }) {
   const { navigateSurface, selectProject, selectOrg, openResource, openProjectCreation, openCanvas, capabilityScope } = useNavigation();
-  const pathname = usePathname();
   const { profile } = useDemoProfile();
-  const currentSurfaceId = surfaceAppForPath(pathname)?.id;
+  const plugins = usePlugins();
+  const [stage, setStage] = useState<AlmStage | "all">("all");
+  const [pluginFilter, setPluginFilter] = useState<"installed" | "available">("installed");
+  const [notice, setNotice] = useState("");
   const { projects, activeProject, activeWorktree, hasProjects,
     orgs, activeOrg, destination } =
     useWorkspace();
@@ -155,6 +143,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
   const [resourceType, setResourceType] = useState<ResourceType | "all">("all");
   const resourceOrg = orgs.find(org => org.id === resourceOrgId && org.connection === "connected");
   const currentCanvas = destination.kind === "available" ? destination.destination.canvas : undefined;
+  const currentPlugin = destination.kind === "available" ? destination.destination.surface : null;
   const resourceInventory = useMemo(() => orgs.some(org => org.id === resourceOrgId && org.connection === "connected")
     ? resourcesForOrg(resourceOrgId).filter(resource => profile && canAccessSurface(profile, RESOURCE_TYPES[resource.resourceType].surface)) : [], [orgs, resourceOrgId, profile]);
 
@@ -162,31 +151,31 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     const matchesQuery = (...parts: string[]) => matchesPaletteQuery(query, ...parts);
     // All opens project records as canvases; Projects explicitly changes workspace.
     function categoryItems(category: Category): PaletteItem[] {
-      if (category === "surfaces") {
-        const destinations = [
-          HOME_DESTINATION,
-          ...surfaceApps
-            .filter((surface) => profile && canAccessSurface(profile, surface.id))
-            .map((surface) => ({
-              id: surface.id,
-              label: surface.label,
-              description: surface.description,
-              href: surface.href,
-              Icon: surface.Icon,
-            })),
-        ];
-        return destinations.filter((d) => matchesQuery(d.label, d.description)).map((d) => ({
-          id: d.id,
-          label: d.label,
-          description: d.description,
-          Icon: d.Icon,
-          isCurrent: d.id === (currentSurfaceId ?? "home"),
-          select: () => {
-            if (d.id !== (currentSurfaceId ?? "home")) navigateSurface(d.id === "home" ? null : d.id as SurfaceId);
-          },
-        })).sort((a, b) =>
-          Number(b.id === "home") - Number(a.id === "home") || currentFirst(a, b),
-        );
+      if (category === "capabilities") {
+        return capabilityCatalog(plugins.installed)
+          // All already lists org setup areas as org-scoped resources; avoid a duplicate row.
+          .filter(item => !(tab === "all" && item.group === "setup" && resourceOrg))
+          .filter(item => (tab !== "capabilities" || stage === "all" || item.stages.includes(stage))
+            && matchesQuery(item.name, item.description, PLUGINS[item.plugin].name, ...item.stages.map(key => ALM_STAGE_LABEL[key])))
+          .map(item => {
+            const current = item.capability === "overview" ? currentCanvas === undefined && currentPlugin === item.plugin
+              : currentCanvas?.kind === "capability" && currentCanvas.params.surface === item.plugin && currentCanvas.params.capability === item.capability && !currentCanvas.params.section;
+            return {
+              id: `${item.plugin}:${item.capability}`, label: item.name, description: item.description,
+              Icon: item.capability === "overview" ? surfaceAppById(item.plugin).Icon : capabilityForCanvas(item.plugin, item.capability)?.Icon ?? PuzzleIcon,
+              surfaceLabel: PLUGINS[item.plugin].name, isCurrent: !!current, capability: item,
+              select: () => item.capability === "overview" ? navigateSurface(item.plugin, "overview")
+                : openCanvas(item.plugin, { kind: "capability", title: item.name, params: { ...capabilityScope, surface: item.plugin, capability: item.capability } }),
+            };
+          });
+      }
+
+      if (category === "plugins") {
+        const wanted = tab === "plugins" ? pluginFilter : "installed";
+        return PLUGIN_IDS.filter(id => plugins.access.includes(id) && plugins.isInstalled(id) === (wanted === "installed"))
+          .filter(id => matchesQuery(PLUGINS[id].name, PLUGINS[id].description, PLUGINS[id].publisher))
+          .map(id => ({ id, label: PLUGINS[id].name, description: `${PLUGINS[id].publisher} · ${PLUGINS[id].version}`,
+            Icon: surfaceAppById(id).Icon, isCurrent: false, plugin: id, select: () => {} }));
       }
 
       // Org connections exist before the user has created a project.
@@ -332,13 +321,16 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     tab,
     query,
     profile,
+    plugins,
+    stage,
+    pluginFilter,
+    currentPlugin,
     projects,
     hasProjects,
     activeProject,
     activeWorktree?.id,
     navigateSurface,
     selectProject,
-    currentSurfaceId,
     orgs,
     activeOrg?.id,
     selectOrg,
@@ -371,6 +363,23 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
   function switchTab(next: Tab) {
     setTab(next);
     setActive(null);
+    setNotice("");
+  }
+  /** Plugin detail actions keep the palette open; they don't navigate. */
+  function showPlugin(id: PluginId) {
+    const filter = plugins.isInstalled(id) ? "installed" : "available";
+    setPluginFilter(filter); setTab("plugins"); setQuery(""); setNotice("");
+    const list = PLUGIN_IDS.filter(item => plugins.access.includes(item) && plugins.isInstalled(item) === (filter === "installed"));
+    setActive(Math.max(0, list.indexOf(id)));
+  }
+  function showCapability(item: CatalogCapability) {
+    setTab("capabilities"); setStage("all"); setQuery(item.name); setActive(0); setNotice("");
+  }
+  function togglePlugin(id: PluginId) {
+    const count = capabilityCatalog([id]).length;
+    if (plugins.isInstalled(id)) { plugins.uninstall(id); setNotice(`${PLUGINS[id].name} uninstalled. Its capabilities are hidden; drafts are kept.`); }
+    else if (plugins.install(id)) { setNotice(`${PLUGINS[id].name} installed. ${count} capabilities added.`); setPluginFilter("installed"); }
+    setActive(null);
   }
 
   function clearSearch() {
@@ -389,7 +398,8 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
     } else if (event.key === "Enter") {
       event.preventDefault();
       const item = items[safeActive];
-      if (item) onClose(item.select);
+      if (item?.plugin) showPlugin(item.plugin);
+      else if (item) onClose(item.select);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
@@ -404,7 +414,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
 
   return (
     <Modal className={styles.overlay} open={open} onDismiss={() => onClose()} onExited={onExited}
-      initialFocus={inputRef} label="Search surfaces, projects, sessions, orgs, and resources">
+      initialFocus={inputRef} label="Search capabilities, projects, sessions, orgs, resources, and plugins">
       <div className={styles.palette} data-modal-motion>
         <div className={styles.tabs} role="tablist" aria-label="Palette section">
           {TAB_ORDER.map((t) => (
@@ -492,6 +502,17 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
             : "Choose an org to include its resources."}</p>
         </div>}
 
+        {tab === "capabilities" && <div className={styles.stageFilters} role="group" aria-label="ALM stage">
+          {(["all", ...ALM_STAGES] as const).map(key => <button key={key} type="button" aria-pressed={stage === key}
+            onClick={() => { setStage(key); setActive(null); }}>{key === "all" ? "All stages" : ALM_STAGE_LABEL[key]}</button>)}
+        </div>}
+
+        {tab === "plugins" && <div className={styles.stageFilters} role="group" aria-label="Plugin availability">
+          {(["installed", "available"] as const).map(key => <button key={key} type="button" aria-pressed={pluginFilter === key}
+            onClick={() => { setPluginFilter(key); setActive(null); }}>{key === "installed" ? "Installed" : "Available"}</button>)}
+        </div>}
+        {notice && <p className={styles.contextHint} role="status">{notice}</p>}
+
         {tab === "resources" && <>
           <div className={styles.resourceFilters}>
             <label>Org<select aria-label="Resource org" value={resourceOrgId} onChange={event => { setResourceOrgId(event.target.value); setActive(null); }}>
@@ -510,7 +531,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
         {!showGuidedEmpty && <ul ref={resultsRef} key={`${tab}:${query}:${resourceOrgId}:${resourceType}`} className={styles.results} id="command-palette-results" role="listbox" aria-label={TAB_LABEL[tab]}>
           {items.length === 0 && (
             <li className={styles.empty}>
-              {tab === "resources" ? !resourceOrgId ? "Choose an org above to explore its objects, flows, permissions, and more." : query.trim() ? `No resources match “${query}” with these filters.` : "No resources of this type are available in this demo org." : `No ${tab === "all" ? "results" : tab} match “${query}”.`}
+              {tab === "plugins" && !query.trim() ? pluginFilter === "available" ? "No other plugins are available for your workspace." : "No plugins are installed. Install one from Available." : tab === "resources" ? !resourceOrgId ? "Choose an org above to explore its objects, flows, permissions, and more." : query.trim() ? `No resources match “${query}” with these filters.` : "No resources of this type are available in this demo org." : `No ${tab === "all" ? "results" : tab} match “${query}”.`}
             </li>
           )}
           {items.map((item, index) => {
@@ -524,7 +545,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
                     item.indent ? styles.resultIndent : ""
                   } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
-                  onClick={() => onClose(item.select)}
+                  onClick={() => item.plugin ? showPlugin(item.plugin) : onClose(item.select)}
                 >
                   <span
                     className={`${styles.resultIcon} ${item.status ? styles.resultIconPlain : ""} ${item.orgKind ? styles.resultOrg : ""}`}
@@ -537,7 +558,7 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
                     )}
                   </span>
                   <span className={styles.resultCopy}>
-                    <span className={styles.resultLabel}>{item.label}</span>
+                    <span className={styles.resultLabel} data-result-label>{item.label}</span>
                     {item.description && (
                       <span className={styles.resultDescription}>{item.description}</span>
                     )}
@@ -561,6 +582,9 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
             );
           })}
         </ul>}
+        {(tab === "capabilities" || tab === "plugins") && items[safeActive] && <PaletteDetails item={items[safeActive]}
+          installed={plugins.installed} onShowPlugin={showPlugin} onShowCapability={showCapability} onTogglePlugin={togglePlugin}
+          onOpen={() => onClose(items[safeActive]!.select)} />}
 
         </div>
         <div className={styles.footer}>
@@ -582,4 +606,39 @@ export function CommandPalette({ initialTab = "all", open, onClose, onExited }: 
       </div>
     </Modal>
   );
+}
+
+/** Detail pane: a capability links back to its plugin; a plugin shows its
+ *  package details, install state and contributed capabilities. */
+function PaletteDetails({ item, installed, onShowPlugin, onShowCapability, onTogglePlugin, onOpen }: {
+  item: PaletteItem; installed: readonly PluginId[];
+  onShowPlugin: (id: PluginId) => void; onShowCapability: (item: CatalogCapability) => void;
+  onTogglePlugin: (id: PluginId) => void; onOpen: () => void;
+}) {
+  if (item.capability) {
+    const capability = item.capability, plugin = PLUGINS[capability.plugin];
+    return <section className={styles.details} aria-label="Capability details">
+      <button type="button" className={styles.detailsLink} onClick={() => onShowPlugin(capability.plugin)} aria-label={`View ${plugin.name} in Plugins`}>From {plugin.name} ↗</button>
+      <h2>{capability.name}</h2>
+      <p>{capability.description}</p>
+      <dl><dt>Stages</dt><dd>{capability.stages.map(stage => ALM_STAGE_LABEL[stage]).join(", ")}</dd><dt>Opens</dt><dd>A view in the workbench</dd></dl>
+      <button type="button" className="slds-button slds-button_brand" onClick={onOpen}>Open {capability.name}</button>
+    </section>;
+  }
+  if (!item.plugin) return null;
+  const plugin = PLUGINS[item.plugin], isInstalled = installed.includes(item.plugin), contributes = capabilityCatalog([item.plugin]);
+  return <section className={styles.details} aria-label="Plugin details">
+    <span className={styles.detailsStatus}>{isInstalled ? "Installed" : "Available"}</span>
+    <h2>{plugin.name}</h2>
+    <p>{plugin.description}</p>
+    <dl><dt>Publisher</dt><dd>{plugin.publisher}</dd><dt>Version</dt><dd>{plugin.version}</dd><dt>Workspace</dt><dd>{isInstalled ? "Installed here" : "Not installed"}</dd></dl>
+    <h3>Contributes {contributes.length} capabilities</h3>
+    <ul className={styles.detailsList}>{contributes.map(capability => <li key={capability.capability}>
+      {isInstalled ? <button type="button" onClick={() => onShowCapability(capability)}>{capability.name}<small>View in Capabilities</small></button>
+        : <span>{capability.name}<small>Available after installation</small></span>}
+    </li>)}</ul>
+    <button type="button" className={`slds-button ${isInstalled ? "slds-button_neutral" : "slds-button_brand"}`} onClick={() => onTogglePlugin(item.plugin!)}>
+      {isInstalled ? `Uninstall ${plugin.name}` : `Install ${plugin.name}`}
+    </button>
+  </section>;
 }

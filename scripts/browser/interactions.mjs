@@ -36,13 +36,13 @@ try {
             }
         await composer.evaluate(n => n.focus());
         assert(await dialog.evaluate(n => n.contains(document.activeElement)), 'Background focused while modal');
-        const surfaces = dialog.getByRole('tab', { name: 'Surfaces', exact: true });
-        await surfaces.focus();
+        const capabilities = dialog.getByRole('tab', { name: 'Capabilities', exact: true });
+        await capabilities.focus();
         await page.keyboard.press('ArrowRight');
         assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Projects');
         assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Projects');
         await page.keyboard.press('End');
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Resources');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Plugins');
         await page.keyboard.press('Home');
         assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
         await page.keyboard.press('Escape');
@@ -98,7 +98,7 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('button', { name: /^Code Surface ·/ }).click();
+        await dialog.getByRole('button', { name: /^Code overview Capability ·/ }).click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
         assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Surface selection preserves the workspace');

@@ -120,7 +120,7 @@ hidden in the project transcript. An empty project thread gets a one-time
 introduction based on its saved plan or existing work. No GitHub synchronization
 is claimed: project records do not yet include a repository connection.
 
-Project surface overviews and canvas tabs include work from the selected worktree
+Project plugin overviews and workbench views include work from the selected worktree
 plus project-wide resources. Selecting or closing a tab cannot switch projects
 or worktrees. Project-wide apps retain their saved ownership without clearing
 the selected worktree. Global
@@ -155,15 +155,37 @@ evidence through its existing context capture. GitHub sync, automatic commits,
 and importing edited context files are not implemented. Deleted projects cannot
 continue to expose stale file contents.
 
-Click the pinned surface tab's icon or name to return directly to its overview.
-Its separate chevron opens a quick switcher for the profile's accessible surfaces.
-The chevron is independently keyboard accessible; opening or dismissing its menu
-leaves the current canvas selected.
-Choosing another surface restores its last canvas within the current workspace;
-project, worktree, and org selection remain intact. Choosing the current surface
-opens its overview. The menu supports arrows, Home/End, Enter/Space, Escape, Tab,
-and outside-click dismissal. Left/Right navigation within the canvas tabs keeps
-its existing behavior.
+## Plugins, capabilities, and the workbench
+
+A **plugin** is a team's versioned package (name, publisher, version, install
+state, description). Build & Setup, Code, Govern & Observe, and ALM are the
+first-party plugins; their ids are the former surface ids, so saved drafts, open
+views, links, access rules and server records keep their existing identities.
+A **capability** is a named unit of work from a plugin, tagged with ALM stages
+(Planning, Building, Testing, Releasing, Observing). Opening one presents its
+**surface** — the interactive view — in the **workbench**. Each plugin also
+contributes an overview capability with its former overview content; a bare
+plugin route (`/build`, `/code`, `/govern`, `/alm`) opens that overview view.
+Other views (resources, work, files, previews, apps, project plans, work-item
+changes and assessments) belong to the plugin they already routed through.
+
+The workbench is the right panel. It lists only the views opened in the current
+workspace, across plugins, titled by their capability. Each view shows its
+plugin, capability, and context (org, project/worktree or Unbound, and the
+resource target where there is one). Views switch or close in any order;
+closing keeps the draft, and closing the last view leaves an empty workbench that
+prompts **Choose a capability**, which opens the palette's Capabilities tab. The
+workbench has no close or open-capability controls of its own. The top-bar
+**Workbench** icon (⌘⇧B / Ctrl+Shift+B) is a pressed/unpressed toggle; hiding it
+keeps the open views, and showing it from Today returns to the last active view.
+View tabs use one roving tab stop with Arrow/Home/End and Delete/Backspace.
+Home and each project/worktree keep separate workbench view lists.
+
+Plugin installation is simulated per profile in browser storage. A profile's
+accessible plugins start installed; plugins outside its access are not offered.
+Uninstalling hides that plugin's capabilities and views without deleting drafts
+or captured targets; reinstalling restores them. Access continues to come from
+each profile's existing rules (`surfaceAccess`), including server checks.
 
 ## Project previews
 
@@ -187,7 +209,11 @@ sample preview do not expose the action.
 ## Navigator search
 
 The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
-project records, resources, sessions, connected orgs, and surfaces in that order.
+project records, resources, sessions, connected orgs, capabilities and installed
+plugins in that order. Tabs are All, Capabilities, Projects, Sessions, Orgs,
+Resources, Plugins. Capabilities filters by ALM stage; its details link back to
+the source plugin. Plugins lists Installed or Available packages with their
+details, contributed capabilities, and Install/Uninstall.
 Within each category, exact names and API names rank ahead of prefixes, partial
 names, and descriptive matches. All initially highlights the first result.
 In the Projects tab, project/worktree groups remain connected. Result
@@ -255,16 +281,16 @@ or cancelled replies retain their status and recovery controls. Static greetings
 and completed history appear immediately, without simulated streaming. Long
 replies follow into view until the reader scrolls away.
 
-Switching between surfaces uses a separate 500ms canvas swap: the incoming surface
-lands in front while the outgoing surface recedes, blurs, and fades away. The agent
+Switching to a view from another plugin uses a separate 500ms swap: the incoming
+view lands in front while the outgoing view recedes, blurs, and fades away. The agent
 and composer stay in place. Next's view-transition integration captures the outgoing
 canvas without keeping a second live surface mounted; browsers without support and
 reduced-motion users get an immediate swap. Browser Back/Forward restores the
 addressed workspace destination without replaying the surface animation. The home
 transition remains separate.
 
-Opening, switching and closing canvas tabs within the same surface are immediate,
-including returning to the surface overview. There is no recede/land effect,
+Opening, switching and closing views within the same plugin are immediate,
+including its overview view. There is no recede/land effect,
 blur, crossfade or exit delay. The tab strip, chat and composer stay sharp;
 keyboard selection advances from the focused tab. Closing selects the neighboring
 tab and restores focus while preserving the saved draft. Browser Back/Forward
@@ -272,7 +298,7 @@ also restores the addressed canvas immediately. Project/worktree changes still
 use the conversation dissolve, even when both destinations use the same surface.
 
 Canvas content shares `src/components/canvas/CanvasLayout.tsx`: responsive gutters
-and a left-aligned inner column capped at 72rem. `SurfaceCanvasHost` supplies it
+and a left-aligned inner column capped at 72rem. `Workbench` supplies it
 once for every overview and launched tab, so canvas bodies provide content without
 their own outer padding, centering, or width limits.
 
@@ -380,7 +406,7 @@ existing separate lifetimes.
 
 Historical Today cards render the same layout from their captured snapshots without
 interactive actions or live assessment, workspace, or agent subscriptions.
-**Explore surfaces** remains in history as disabled text in the same arrangement. Canvas
+**Explore capabilities** remains in history as disabled text in the same arrangement. Canvas
 actions have stable identities, and selected surface/draft subscriptions avoid
 unrelated canvas updates.
 

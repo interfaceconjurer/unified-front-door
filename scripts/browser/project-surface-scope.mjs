@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
+import { openOverview, workbenchTab } from './workbench-helpers.mjs';
 
 const modules = testModules(), { planProject } = modules.load('lib/projects/model');
 const { projectFromBrief } = modules.load('lib/projects/from-brief');
@@ -11,9 +12,10 @@ const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] }, cleanups = [];
 const main = { projectId: 'trailblazer-crm', worktreeId: 'main', orgId: 'uat' };
 const destination = page => JSON.parse(new URL(page.url()).searchParams.get('destination'));
-const tab = (page, name) => page.getByRole('tab', { name, exact: true });
+const tab = (page, name) => workbenchTab(page, name);
+// A plugin's overview is a workbench view opened from Capabilities.
 async function overview(page, label) {
-  await tab(page, label).click();
+  await openOverview(page, label);
   await page.waitForFunction(() => !JSON.parse(new URL(location.href).searchParams.get('destination')).canvas);
   await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
 }
@@ -71,11 +73,9 @@ try {
     await page.reload();
     await page.getByText('Deployed app · Trailblazer CRM', { exact: true }).waitFor();
     assert.deepEqual(destination(page), captured);
-    await page.getByRole('button', { name: 'Switch surface', exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'Code', exact: true }).click();
+    await openOverview(page, 'Code');
     await page.waitForURL(url => url.pathname === '/code');
-    await page.getByRole('button', { name: 'Switch surface', exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'ALM', exact: true }).click();
+    await tab(page, 'Partner Portal').click();
     await page.getByText('Deployed app · Trailblazer CRM', { exact: true }).waitFor();
     assert.deepEqual(destination(page), captured);
     await page.getByRole('button', { name: 'Close Partner Portal', exact: true }).click();

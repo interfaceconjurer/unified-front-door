@@ -18,7 +18,7 @@ export function SurfaceNav({ revealOrder, readOnly = false, profile: capturedPro
 
   return (
     <nav className={styles.nav} aria-labelledby={headingId}>
-      <h2 id={headingId} className={styles.heading} {...(revealOrder === undefined ? {} : todayRow(revealOrder))}>Explore surfaces</h2>
+      <h2 id={headingId} className={styles.heading} {...(revealOrder === undefined ? {} : todayRow(revealOrder))}>Explore capabilities</h2>
       <div className={styles.links} {...(revealOrder === undefined ? {} : todayRow(revealOrder + 1))}>
         {surfaceApps.filter((surface) => profile && canAccessSurface(profile, surface.id)).map((surface) => {
           const content = <>

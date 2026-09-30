@@ -89,15 +89,15 @@ export function TopBar({ onOpenPalette, onOpenProjects, panelOpen, onTogglePanel
         {profileMenu}
         <button
           type="button"
-          id="surface-panel-toggle"
+          id="workbench-toggle"
           className={`${styles.panelToggle} ${surfaceOpen ? styles.panelToggleActive : ""}`}
           onClick={onToggleSurface}
-          aria-controls="surface-panel"
+          aria-controls="workbench"
           aria-expanded={surfaceOpen}
           aria-pressed={surfaceOpen}
-          aria-label={surfaceOpen ? "Hide surfaces" : "Show surfaces"}
+          aria-label="Workbench"
           aria-keyshortcuts="Meta+Shift+B Control+Shift+B"
-          title={surfaceOpen ? "Hide surfaces (⌘⇧B)" : "Show surfaces (⌘⇧B)"}
+          title={surfaceOpen ? "Hide workbench (⌘⇧B)" : "Show workbench (⌘⇧B)"}
         >
           <PanelIcon className={styles.rightPanelIcon} width={16} height={16} />
         </button>

@@ -33,5 +33,7 @@ export function projectCanvases(previous: PersistedCanvases, preferences: Persis
     if (next === previous) next = { ...previous };
     next[surface] = { ...prefs, canvases, targets, closedDrafts };
   }
+  // Workbench order is a view preference; it carries no draft content.
+  if (preferences.workbench !== previous.workbench) next = { ...next, workbench: preferences.workbench };
   return next;
 }

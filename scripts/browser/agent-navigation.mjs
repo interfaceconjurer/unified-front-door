@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview } from './workbench-helpers.mjs';
 import { install, session } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -63,10 +64,7 @@ try {
     await page.getByRole('button', { name: 'Send message', exact: true }).click();
     await page.locator('[data-run-status="running"]').waitFor();
     if (scenario === 'stale') {
-      await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-      await dialog.getByRole('option').filter({ has: page.getByText('ALM', { exact: true }) }).getByRole('button').click();
+      await openOverview(page, 'ALM');
       await page.waitForURL(url => url.pathname === '/alm');
     }
     if (scenario === 'reload') {

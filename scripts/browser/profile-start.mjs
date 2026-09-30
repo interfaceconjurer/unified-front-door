@@ -8,7 +8,7 @@ const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
 const panels = async (page, left, right) => {
   assert.equal(await page.locator('#workspace-panel-toggle').getAttribute('aria-pressed'), String(left));
-  assert.equal(await page.locator('#surface-panel-toggle').getAttribute('aria-pressed'), String(right));
+  assert.equal(await page.locator('#workbench-toggle').getAttribute('aria-pressed'), String(right));
 };
 try {
   for (const profileId of ['sp', 'kf', 'jw', 'am']) {
@@ -55,7 +55,7 @@ try {
       await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
       const canvasUrl = page.url();
       await page.locator('#workspace-panel-toggle').click();
-      await page.getByRole('button', { name: 'Hide surfaces', exact: true }).click();
+      await page.getByRole('button', { name: 'Workbench', exact: true }).click();
       await panels(page, true, false);
       await page.reload();
       await page.getByRole('button', { name: `User menu for ${fixture.profile.name}`, exact: true }).waitFor();
@@ -63,7 +63,7 @@ try {
       await signOut(); await signIn();
       await page.waitForURL(canvasUrl);
       await panels(page, true, false);
-      await page.getByRole('button', { name: 'Show surfaces', exact: true }).click();
+      await page.getByRole('button', { name: 'Workbench', exact: true }).click();
       await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
       await panels(page, true, true);
       await signOut();
