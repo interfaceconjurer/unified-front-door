@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
-import { workbenchTab } from './workbench-helpers.mjs';
+import { openTodayOverview, workbenchTab } from './workbench-helpers.mjs';
 import { install, session } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -99,7 +99,7 @@ try {
       await page.reload();
       await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
       if (id === 'kf') {
-        await page.getByRole('group', { name: 'Today', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+        await openTodayOverview(page, 'Build & Setup');
         await workbenchTab(page, 'Build & Setup overview').waitFor();
         await page.locator('#workspace-panel-toggle').click();
         const previousView = destination(page);

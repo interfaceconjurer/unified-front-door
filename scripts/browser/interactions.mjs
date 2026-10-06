@@ -25,7 +25,7 @@ try {
         await search.evaluate(n => n.setSelectionRange(2, 2));
         await page.keyboard.press('ArrowLeft');
         assert.equal(await search.evaluate(n => n.selectionStart), 1);
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Capabilities');
         await page.keyboard.press('ArrowRight');
         assert.equal(await search.evaluate(n => n.selectionStart), 2);
         await search.fill('');
@@ -44,16 +44,16 @@ try {
         await page.keyboard.press('End');
         assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Plugins');
         await page.keyboard.press('Home');
-        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'All');
+        assert.equal(await dialog.getByRole('tab', { selected: true }).innerText(), 'Capabilities');
         await page.keyboard.press('Escape');
         await dialog.waitFor({ state: 'detached' });
         assert(await trigger.evaluate(n => n === document.activeElement));
         out.checks.push(motion + ': caret, tab roving, bidirectional containment, background inert, Escape/tab, focus restoration');
-        for (const kind of ['input', 'result', 'scope']) {
+        for (const kind of ['input', 'result', 'tab']) {
             await trigger.click();
             await dialog.waitFor();
-            if (kind === 'scope') {
-                await dialog.getByRole('button', { name: /Browse orgs|Choose an org/ }).focus();
+            if (kind === 'tab') {
+                await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).focus();
             }
             else if (kind === 'result') {
                 await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
@@ -64,7 +64,7 @@ try {
             await dialog.waitFor({ state: 'detached' });
             assert(await trigger.evaluate(n => n === document.activeElement));
         }
-        out.checks.push(motion + ': Escape input/result/org-scope and trigger restore');
+        out.checks.push(motion + ': Escape input/result/tab and trigger restore');
         if (motion === 'no-preference') {
             await trigger.click();
             await dialog.waitFor();
@@ -98,7 +98,7 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('button', { name: /^Code overview Capability ·/ }).click();
+        await dialog.getByRole('button', { name: /^Code overview/ }).click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
         assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Surface selection preserves the workspace');

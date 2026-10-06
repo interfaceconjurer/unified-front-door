@@ -7,6 +7,7 @@ import { SparklesIcon } from "@/components/icons";
 import { activeRun, type RunView, type AgentCommand } from "@/lib/agent/contracts";
 import type { Message, ConversationStore } from "@/lib/chat/conversation";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import styles from "./AgentPanel.module.css";
 import { StreamingText } from "./StreamingText";
 type Props = {
@@ -15,9 +16,10 @@ type Props = {
   runs: readonly RunView[]; suggestions: readonly string[];
   startStarter: (starter: StarterId) => void; resumeWork: (work: ReturningWork) => void;
   openDestination: (destination: Destination) => void;
+  exploreCapabilities: (plugin: SurfaceId) => void;
   send: (text: string) => void; command: (command: AgentCommand) => void;
 };
-export const Transcript = memo(function Transcript({ messages, startIndex, total, sessionKey, isHome, presentation, runs, suggestions, startStarter, resumeWork, send, command, openDestination }: Props) {
+export const Transcript = memo(function Transcript({ messages, startIndex, total, sessionKey, isHome, presentation, runs, suggestions, startStarter, resumeWork, send, command, openDestination, exploreCapabilities }: Props) {
   return <>{messages.map((message, visibleIndex) => {
             const index = startIndex + visibleIndex;
             const run = message.role === "agent" && message.runId ? runs.find(run => run.id === message.runId) : null;
@@ -33,7 +35,7 @@ export const Transcript = memo(function Transcript({ messages, startIndex, total
                   {" · "}{new Date(message.snapshot.capturedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
                 </time>
               </header>
-              <FrontDoor snapshot={message.snapshot} active={isHome && index === total - 1} onStart={startStarter} onOpenWork={resumeWork} />
+              <FrontDoor snapshot={message.snapshot} active={isHome && index === total - 1} onStart={startStarter} onOpenWork={resumeWork} onExploreCapabilities={exploreCapabilities} />
             </article> : message.role === "context" ? <div className={styles.contextMarker}><span>{message.text}</span></div>
               : <div className={`${styles.message} ${message.role === "user" ? styles.user : ""}`}><div className={message.role === "user" ? styles.bubble : styles.agentReply}>{run ? <StreamingText key={`${run.id}:${run.turnId}`} text={message.text} active={activeRun(run.status)} /> : message.text}{run && <div className={styles.runStatus} data-run-id={run.id} data-run-status={run.status}>
                 <span role="status">{run.status === "pending" ? "Waiting for agent…" : run.status === "running" ? "Preparing reply…" : run.status === "streaming" ? "Replying…" : run.status === "completed" ? "Completed" : run.status === "cancelled" ? "Cancelled" : "Could not complete"}</span>

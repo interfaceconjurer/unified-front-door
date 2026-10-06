@@ -1,20 +1,21 @@
 "use client";
 
-import Link from "next/link";
-import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useId } from "react";
 import { ChevronRightIcon } from "@/components/icons";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { canAccessSurface, type DemoProfile } from "@/lib/demo-profiles";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import { surfaceApps } from "./app-catalog";
 import { todayRow } from "./today-reveal";
 import styles from "./SurfaceNav.module.css";
 
-export function SurfaceNav({ revealOrder, readOnly = false, profile: capturedProfile }: { revealOrder?: number; readOnly?: boolean; profile?: DemoProfile } = {}) {
+export function SurfaceNav({ revealOrder, readOnly = false, profile: capturedProfile, onExploreCapabilities }: {
+  revealOrder?: number; readOnly?: boolean; profile?: DemoProfile;
+  onExploreCapabilities?: (plugin: SurfaceId) => void;
+} = {}) {
   const { profile: liveProfile } = useDemoProfile();
   const profile = capturedProfile ?? liveProfile;
   const headingId = useId();
-  const { hrefForSurface, navigateSurface } = useNavigation();
 
   return (
     <nav className={styles.nav} aria-labelledby={headingId}>
@@ -26,17 +27,16 @@ export function SurfaceNav({ revealOrder, readOnly = false, profile: capturedPro
             <span>{surface.label}</span>
             <ChevronRightIcon className={styles.arrow} width={16} height={16} aria-hidden="true" />
           </>;
-          return readOnly ? <span key={surface.id} className={styles.link} data-today-container aria-disabled="true">{content}</span> : <Link
+          return readOnly || !onExploreCapabilities ? <span key={surface.id} className={styles.link} data-today-container aria-disabled="true">{content}</span> : <button
             key={surface.id}
-            href={hrefForSurface(surface.id)}
-            scroll={false}
-            onNavigate={(event) => { event.preventDefault(); navigateSurface(surface.id); }}
+            type="button"
+            onClick={() => onExploreCapabilities(surface.id)}
             className={styles.link}
             data-today-container
             title={surface.description}
           >
             {content}
-          </Link>
+          </button>
         })}
       </div>
     </nav>

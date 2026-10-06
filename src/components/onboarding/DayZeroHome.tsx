@@ -16,14 +16,17 @@ import { useStartImprovementProject } from "./use-start-improvement-project";
 import { useAssessment } from "./use-assessment";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import type { DemoProfile } from "@/lib/demo-profiles";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import type { RunView } from "@/lib/agent/contracts";
 import styles from "./onboarding.module.css";
 
-export function DayZeroHome({ snapshot, profile }: { snapshot?: AssessmentBriefing; profile?: DemoProfile }) {
-  return snapshot ? <DayZeroView state={snapshot} profile={profile} snapshot /> : <LiveDayZeroHome />;
+export function DayZeroHome({ snapshot, profile, onExploreCapabilities }: {
+  snapshot?: AssessmentBriefing; profile?: DemoProfile; onExploreCapabilities?: (plugin: SurfaceId) => void;
+}) {
+  return snapshot ? <DayZeroView state={snapshot} profile={profile} snapshot /> : <LiveDayZeroHome onExploreCapabilities={onExploreCapabilities} />;
 }
 
-function LiveDayZeroHome() {
+function LiveDayZeroHome({ onExploreCapabilities }: { onExploreCapabilities?: (plugin: SurfaceId) => void }) {
   const { profile } = useDemoProfile();
   const { state: liveState, store } = useAssessment();
   const agent = applicationClient.agent ?? inactiveAgent;
@@ -35,15 +38,16 @@ function LiveDayZeroHome() {
   const run = execution.data.runs.filter(run => run.assessmentRunId === state.currentRunId).at(-1);
   return <DayZeroView key={capabilityScope.orgId ?? "unbound"} state={state} profile={profile ?? undefined} store={store} blockedByOtherRun={blockedByOtherRun} run={run} openProject={openImprovementProject} startProject={startProject} startingProject={startingProject} continueProject={openProjectCreation}
     openAssessment={finding => openCanvas("build", assessmentCanvas(capabilityScope, finding?.runId ?? state.currentRunId, finding))}
-    retryRun={() => { if (run) void agent.command({ kind: "retry", requestId: crypto.randomUUID(), runId: run.id }); }} />;
+    retryRun={() => { if (run) void agent.command({ kind: "retry", requestId: crypto.randomUUID(), runId: run.id }); }} onExploreCapabilities={onExploreCapabilities} />;
 }
 
-function DayZeroView({ state, profile, snapshot = false, store, run, openProject, retryRun, openAssessment, startProject, startingProject, continueProject, blockedByOtherRun }: {
+function DayZeroView({ state, profile, snapshot = false, store, run, openProject, retryRun, openAssessment, startProject, startingProject, continueProject, blockedByOtherRun, onExploreCapabilities }: {
   state: AssessmentBriefing; profile?: DemoProfile; snapshot?: boolean; blockedByOtherRun?: boolean;
   store?: ReturnType<typeof useAssessment>["store"]; run?: RunView;
   startProject?: (findings: Finding[]) => Promise<void>; startingProject?: boolean; continueProject?: () => void;
   openAssessment?: (finding?: Finding) => void;
   openProject?: ReturnType<typeof useNavigation>["openImprovementProject"]; retryRun?: () => void;
+  onExploreCapabilities?: (plugin: SurfaceId) => void;
 }) {
   const id = useId();
   const [selected, setSelected] = useState<string[] | null>(null);
@@ -143,7 +147,7 @@ function DayZeroView({ state, profile, snapshot = false, store, run, openProject
         <LayersIcon width={20} height={20} aria-hidden="true" /><span><strong>{project.name}</strong><small>{project.workItemCount} work items · {project.completedCount} complete</small></span><ChevronRightIcon width={16} height={16} aria-hidden="true" />
       </button>)}</section>}
     </fieldset>
-    <div className={styles.explore}><p>You can also explore your workspace while your agent gets to know it.</p><SurfaceNav readOnly={snapshot} profile={profile} /></div>
+    <div className={styles.explore}><p>You can also explore your workspace while your agent gets to know it.</p><SurfaceNav readOnly={snapshot} profile={profile} onExploreCapabilities={onExploreCapabilities} /></div>
   </div>;
 }
 

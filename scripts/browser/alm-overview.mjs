@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
-import { workbenchTab } from './workbench-helpers.mjs';
+import { openTodayOverview, workbenchTab } from './workbench-helpers.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
@@ -41,7 +41,7 @@ try {
       await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
       await page.waitForFunction(() => document.querySelector('fieldset[aria-label="Today"]')?.getAnimations({ subtree: true })
         .every(animation => animation.effect?.getTiming().iterations === Infinity || animation.playState === 'finished'));
-      await today.getByRole('link', { name: 'ALM', exact: true }).click();
+      await openTodayOverview(page, 'ALM');
     } else await page.goto(href('alm'));
     await checkOverview(page);
     assert.equal(fixture.state.snapshot.assessment.projects.length, 0);

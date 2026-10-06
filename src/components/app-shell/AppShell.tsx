@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { NavigationProvider, useNavigation } from "@/components/navigation/NavigationProvider";
 import { AgentPanel } from "@/components/chat/AgentPanel";
@@ -14,6 +14,7 @@ import { normalizeDestinationHref } from "@/lib/navigation/model";
 import { signInDestination } from "@/lib/navigation/sign-in";
 import { applicationClient, getActiveCanvasStore, getActiveSelectionStore } from "@/lib/application/client";
 import { connectedOrgForProfile } from "@/lib/workspace/orgs";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -87,20 +88,54 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const selectionStore = getActiveSelectionStore(profile?.id);
   const selection = useSyncExternalStore(selectionStore.subscribe, selectionStore.getSnapshot, selectionStore.getServerSnapshot);
   const surfaceOpen = selection.surfacePanelOpen ?? !isFrontDoor;
+  const [surfaceVisible, setSurfaceVisible] = useState(surfaceOpen);
+  const waitingForTodayScroll = useRef(false);
+  const openedByToggle = useRef(false);
+  if (!surfaceOpen && surfaceVisible) setSurfaceVisible(false);
+  useLayoutEffect(() => {
+    if (!surfaceOpen) {
+      waitingForTodayScroll.current = false;
+      openedByToggle.current = false;
+      return;
+    }
+    if (surfaceVisible || waitingForTodayScroll.current) return;
+    // A navigation launched over Today holds the wide chat until its new
+    // transcript entry has scrolled the briefing out of sight.
+    const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
+    const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
+    const card = today?.getBoundingClientRect(), viewport = log?.getBoundingClientRect();
+    if (!openedByToggle.current && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
+      waitingForTodayScroll.current = true;
+      return;
+    }
+    openedByToggle.current = false;
+    const frame = requestAnimationFrame(() => setSurfaceVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [surfaceOpen, surfaceVisible]);
+  const releaseSurfaceGate = useCallback(() => {
+    if (!waitingForTodayScroll.current) return false;
+    waitingForTodayScroll.current = false;
+    setSurfaceVisible(true);
+    return true;
+  }, []);
+  const shownSurfaceOpen = surfaceOpen && surfaceVisible;
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
+  const [palettePlugin, setPalettePlugin] = useState<SurfaceId | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteClosing = useRef(false);
   const paletteAction = useRef<(() => void) | undefined>(undefined);
-  const openPalette = useCallback((tab: CommandPaletteTab) => {
+  const openPalette = useCallback((tab: CommandPaletteTab, plugin: SurfaceId | null = null) => {
     if (!paletteTab) {
       setPaletteTab(tab);
     }
+    setPalettePlugin(plugin);
     // Reopening during dismissal reverses the dissolve and cancels its action.
     paletteClosing.current = false;
     paletteAction.current = undefined;
     setPaletteOpen(true);
   }, [paletteTab]);
+  const exploreCapabilities = useCallback((plugin: SurfaceId) => openPalette("capabilities", plugin), [openPalette]);
   const closePalette = useCallback((action?: () => void) => {
     if (paletteClosing.current) return;
     paletteClosing.current = true;
@@ -113,6 +148,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     paletteClosing.current = false;
     paletteAction.current = undefined;
     setPaletteTab(null);
+    setPalettePlugin(null);
     action?.();
   }, []);
   const { panelOpen, togglePanel } = useWorkspacePanel();
@@ -129,6 +165,13 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       document.getElementById("workbench-toggle")?.focus();
     }
     // Reopening from Today returns to the last active view, if any remain.
+    if (!surfaceOpen) {
+      openedByToggle.current = true;
+      setSurfaceVisible(true);
+    } else {
+      openedByToggle.current = false;
+      setSurfaceVisible(false);
+    }
     if (!surfaceOpen && !workbench.activeId && workbench.views.length) {
       const store = getActiveCanvasStore(profile?.id, getActiveSelectionStore(profile?.id).getSnapshot().target);
       const last = workbenchViews(store.getSnapshot()).active;
@@ -148,7 +191,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       if (event.shiftKey && key === "p") {
         event.preventDefault();
         if (paletteOpen) closePalette();
-        else openPalette("all");
+        else openPalette("capabilities");
       } else if (key === "b") {
         event.preventDefault();
         if (event.shiftKey) toggleSurfacePanel();
@@ -164,7 +207,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
       <div className={styles.shell} ref={shellRef}>
         <TopBar
-          onOpenPalette={() => openPalette("all")}
+          onOpenPalette={() => openPalette("capabilities")}
           onOpenProjects={() => openPalette("projects")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
@@ -183,11 +226,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${shownSurfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !shownSurfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
-                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
+                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} releaseSurfaceGate={releaseSurfaceGate} exploreCapabilities={exploreCapabilities} />
                 </div>
               </div>
               {/* The surface is an overlay pinned at its final 60% width: adding
@@ -197,10 +240,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
                 id="workbench"
                 aria-label="Workbench"
                 data-workspace-motion
+                data-awaiting-scroll={surfaceOpen && !shownSurfaceOpen}
                 ref={surfacePaneRef}
-                className={`${styles.surfacePane} ${surfaceOpen ? styles.surfaceVisible : ""}`}
-                aria-hidden={!surfaceOpen}
-                inert={!surfaceOpen}
+                className={`${styles.surfacePane} ${shownSurfaceOpen ? styles.surfaceVisible : ""}`}
+                aria-hidden={!shownSurfaceOpen}
+                inert={!shownSurfaceOpen}
               >
                 <div className={styles.surfaceInner}>
                   <Workbench onChooseCapability={() => openPalette("capabilities")} />
@@ -211,7 +255,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
-        {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
+        {paletteTab && <CommandPalette key={`${paletteTab}:${palettePlugin ?? "all"}`} initialTab={paletteTab} initialPlugin={palettePlugin} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
 
   );

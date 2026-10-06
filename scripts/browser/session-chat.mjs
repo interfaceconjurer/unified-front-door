@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { install, session } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
+import { openTodayOverview } from './workbench-helpers.mjs';
 
 const modules = testModules(), { updateConversation } = modules.load('lib/chat/conversation');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
@@ -60,7 +61,7 @@ try {
     out.checks.push(`${motion}: reload restores the exact message anchor, including an older history page`);
     await page.getByRole('button', { name: 'Latest messages', exact: true }).click();
     await page.locator('[data-message-id="81"]').waitFor();
-    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore capabilities', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+    await openTodayOverview(page, 'Build & Setup');
     await page.waitForURL(url => url.pathname === '/build');
     await page.getByText('What would you like to build?', { exact: true }).waitFor();
     await page.waitForFunction(() => document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');

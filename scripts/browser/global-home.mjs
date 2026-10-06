@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
-import { openOverview } from './workbench-helpers.mjs';
+import { openOverview, openTodayOverview } from './workbench-helpers.mjs';
 import { install, session, assessment } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -323,7 +323,7 @@ try {
     await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
     const beforeAlm = await page.evaluate(() => window.__contextMotion.length);
-    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore capabilities', exact: true }).getByRole('link', { name: 'ALM', exact: true }).click();
+    await openTodayOverview(page, 'ALM');
     await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).waitFor();
     await page.getByRole('tab', { name: 'Lead routing → UAT', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');

@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
-import { openOverview } from './workbench-helpers.mjs';
+import { openOverview, openTodayOverview } from './workbench-helpers.mjs';
 import { install } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -36,7 +36,7 @@ try {
     const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
     await composer.fill('Keep this draft while navigation waits');
     hold = true; const readsBefore = reads;
-    await page.getByRole('navigation', { name: 'Explore capabilities', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+    await openTodayOverview(page, 'Build & Setup');
     await activity.getByText('Updating conversation…', { exact: true }).waitFor();
     const indicator = await activity.evaluate(node => {
       const heading = node.parentElement.querySelector('h1').getBoundingClientRect();

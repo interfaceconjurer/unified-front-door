@@ -68,7 +68,7 @@ try {
   await page.waitForFunction(() => JSON.parse(new URL(location.href).searchParams.get('destination')).canvas.params.orgId === 'uat');
   assert.equal(await area.getByLabel('Setup org', { exact: true }).inputValue(), 'uat');
   assert(!fixture.stats.commands.some(command => command.kind === 'canvas.save'));
-  out.checks.push('Feature status and review, All search discovery, separate captured org tabs, no draft writes');
+  out.checks.push('Feature status and review, Resources discovery, separate captured org tabs, no draft writes');
   await context.close(); fixture.cleanup();
 
   const project = { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' };

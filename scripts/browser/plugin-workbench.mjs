@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
+import { exploreToday } from './workbench-helpers.mjs';
 
 // Plugin → capability → workbench model: palette tabs and plugins, one
 // workbench across plugins, view identity/context, the single top-bar toggle,
 // the empty prompt, saved drafts and legacy per-surface tab preferences.
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] }, cleanups = [];
-const TABS = ['All', 'Capabilities', 'Projects', 'Sessions', 'Orgs', 'Resources', 'Plugins'];
+const TABS = ['Capabilities', 'Projects', 'Sessions', 'Orgs', 'Resources', 'Plugins'];
 const home = (owner, orgId = 'uat') => '/?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner, surface: null, target: { projectId: null, worktreeId: null, orgId } }));
 const idFor = c => `canvas:v2:${JSON.stringify([c.kind, Object.entries(c.params).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)])}`;
 const settle = page => page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
@@ -31,7 +32,7 @@ const selected = (page, name) => page.waitForFunction(name => document.querySele
 try {
   for (const motion of ['no-preference', 'reduce']) {
     // Alex: all four first-party plugins.
-    const context = await browser.newContext({ httpCredentials, reducedMotion: motion, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ httpCredentials, reducedMotion: motion, colorScheme: motion === 'no-preference' ? 'dark' : 'light', viewport: { width: 1440, height: 1000 } });
     const fixture = await installAssessment(context, { profileId: 'am' }); cleanups.push(fixture.cleanup);
     const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
     await page.goto(origin + home('am'));
@@ -63,17 +64,18 @@ try {
     // Palette tabs, order and keyboard; Surfaces is gone.
     dialog = await openPalette(page, true);
     assert.deepEqual(await dialog.getByRole('tablist', { name: 'Palette section' }).getByRole('tab').allInnerTexts(), TABS);
-    await dialog.getByRole('tab', { name: 'All', exact: true }).focus();
+    assert.equal(await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).getAttribute('aria-selected'), 'true');
+    await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).focus();
     for (const name of TABS.slice(1)) {
       await page.keyboard.press('ArrowRight');
       assert.equal(await dialog.getByRole('tab', { name, exact: true }).getAttribute('aria-selected'), 'true');
       assert(await dialog.getByRole('tab', { name, exact: true }).evaluate(node => node === document.activeElement));
     }
     await page.keyboard.press('Home');
-    assert.equal(await dialog.getByRole('tab', { name: 'All', exact: true }).getAttribute('aria-selected'), 'true');
+    assert.equal(await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).getAttribute('aria-selected'), 'true');
     await page.keyboard.press('End');
     assert.equal(await dialog.getByRole('tab', { name: 'Plugins', exact: true }).getAttribute('aria-selected'), 'true');
-    out.checks.push(`${motion}: palette tabs are All, Capabilities, Projects, Sessions, Orgs, Resources, Plugins with Arrow/Home/End support`);
+    out.checks.push(`${motion}: palette defaults to Capabilities; six tabs retain Arrow/Home/End support`);
 
     // Plugins: installed first-party packages with details and contributions.
     const rows = () => dialog.getByRole('listbox').getByRole('option');
@@ -85,6 +87,11 @@ try {
     for (const text of ['Installed', 'Publisher', 'Version', '1.0.0']) assert(await details.getByText(text, { exact: true }).first().isVisible(), `Plugin details show ${text}`);
     await details.getByRole('button', { name: /^Review security/ }).scrollIntoViewIfNeeded();
     assert(await details.getByRole('button', { name: /^Review security/ }).isVisible(), 'Plugin details list contributed capabilities');
+    await rows().filter({ hasText: 'Code' }).hover();
+    await details.getByRole('heading', { name: 'Code', exact: true }).waitFor();
+    assert.equal(await dialog.locator('[data-palette-preview]').evaluate(node => node.scrollTop), 0, 'Selecting another plugin starts its preview at the top');
+    await rows().filter({ hasText: 'Govern & Observe' }).hover();
+    await details.getByRole('heading', { name: 'Govern & Observe', exact: true }).waitFor();
 
     // Uninstall hides its capabilities; reinstall restores them.
     await details.getByRole('button', { name: 'Uninstall Govern & Observe', exact: true }).click();
@@ -114,13 +121,32 @@ try {
     const testing = await rows().locator('[data-result-label]').allInnerTexts();
     assert(testing.includes('Create & run tests') && testing.includes('Validate a change') && !testing.includes('Write Apex'), `Testing filter: ${testing}`);
     await stages.getByRole('button', { name: 'All stages', exact: true }).click();
-    await search.fill('Write Apex');
+    await search.fill('Model your data');
+    await rows().filter({ hasText: 'Model your data' }).hover();
     const capabilityDetails = dialog.getByRole('region', { name: 'Capability details' });
+    await capabilityDetails.getByRole('heading', { name: 'Model your data', exact: true }).waitFor();
+    const layout = await dialog.evaluate(node => {
+      const box = selector => node.querySelector(selector).getBoundingClientRect();
+      const list = box('[role="listbox"]'), preview = box('[data-palette-preview]');
+      const action = box('[data-palette-preview] .slds-button_brand'), palette = box('[data-modal-motion]');
+      return { list: { right: list.right }, preview: { left: preview.left, right: preview.right, top: preview.top, bottom: preview.bottom },
+        action: { top: action.top, bottom: action.bottom }, palette: { right: palette.right, bottom: palette.bottom } };
+    });
+    assert(layout.preview.left >= layout.list.right - 1, 'Capability preview is beside the results');
+    assert(layout.preview.right <= layout.palette.right + 1 && layout.preview.bottom < layout.palette.bottom, 'Preview fits inside the palette above its footer');
+    assert(layout.action.top >= layout.preview.top && layout.action.bottom <= layout.preview.bottom, 'The capability action is fully visible in the preview');
+    await page.screenshot({ path: outputPath(`${label}-palette-preview-${motion}.png`) });
+    await search.fill('Build');
+    assert(await rows().count() > 1, 'Several Build capabilities are available for selection');
+    const firstPreview = await capabilityDetails.getByRole('heading').innerText();
+    await search.focus(); await page.keyboard.press('ArrowDown');
+    assert.notEqual(await capabilityDetails.getByRole('heading').innerText(), firstPreview, 'Keyboard selection updates the right-hand preview');
+    await search.fill('Write Apex');
     await capabilityDetails.getByRole('heading', { name: 'Write Apex', exact: true }).waitFor();
     await capabilityDetails.getByRole('button', { name: 'View Code in Plugins', exact: true }).click();
     assert.equal(await dialog.getByRole('tab', { name: 'Plugins', exact: true }).getAttribute('aria-selected'), 'true');
     await details.getByRole('heading', { name: 'Code', exact: true }).waitFor();
-    out.checks.push(`${motion}: Capabilities filter by ALM stage and link back to their source plugin`);
+    out.checks.push(`${motion}: Capabilities filter by ALM stage; selection updates a fully visible right-hand preview that links to its source plugin`);
 
     // Open a capability from the palette: it becomes a workbench view.
     await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).click();
@@ -182,14 +208,27 @@ try {
     assert.equal(await page.getByRole('textbox', { name: 'Name', exact: true }).inputValue(), 'Lead intake automation');
     out.checks.push(`${motion}: hiding the workbench keeps its views; ⌘⇧B toggles; reload restores views, order and draft`);
 
-    // Today's plugin links open that plugin's overview as a view.
+    // Today opens each plugin's section inside Capabilities. An overview is
+    // still available there as an explicit result.
     await page.getByRole('link', { name: 'Global home', exact: true }).click();
     await page.getByRole('group', { name: 'Today', exact: true }).waitFor(); await settle(page);
-    const explore = page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore capabilities', exact: true });
-    await explore.getByRole('link', { name: 'ALM', exact: true }).click(); await settle(page);
+    const todayUrl = page.url(), beforeViews = await views(page).getByRole('tab').allInnerTexts();
+    for (const plugin of ['Build & Setup', 'Code', 'Govern & Observe', 'ALM']) {
+      dialog = await exploreToday(page, plugin);
+      assert.equal(await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).getAttribute('aria-selected'), 'true');
+      const filter = dialog.getByRole('group', { name: 'Capability plugin', exact: true });
+      assert.equal(await filter.getByRole('button', { name: plugin, exact: true }).getAttribute('aria-pressed'), 'true');
+      const owners = await dialog.getByRole('option').evaluateAll(nodes => nodes.map(node => node.querySelector('[class*="surfaceLabel"]')?.textContent));
+      assert(owners.length > 0 && owners.every(owner => owner === plugin), `${plugin} filter shows only its capabilities: ${owners}`);
+      assert.equal(page.url(), todayUrl, 'Exploring capabilities leaves Today in place');
+      assert.deepEqual(await views(page).getByRole('tab').allInnerTexts(), beforeViews, 'Exploring does not open a workbench view');
+      if (plugin !== 'ALM') { await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' }); }
+    }
+    await dialog.getByRole('option').filter({ has: page.locator('[data-result-label]', { hasText: 'ALM overview' }) }).getByRole('button').click();
+    await dialog.waitFor({ state: 'detached' }); await settle(page);
     await view(page, 'ALM overview').waitFor();
     assert.equal(await header(page).getAttribute('data-plugin'), 'ALM');
-    out.checks.push(`${motion}: Today’s Explore capabilities links open plugin overviews in the workbench`);
+    out.checks.push(`${motion}: Today’s Explore capabilities triggers filter the palette by plugin without navigation; an overview remains an explicit result`);
     await context.close();
   }
 
@@ -236,6 +275,35 @@ try {
     await dialog.getByRole('combobox', { name: 'Search capabilities…', exact: true }).fill('Write Apex');
     await dialog.getByText('No capabilities match “Write Apex”.', { exact: true }).waitFor();
     out.checks.push('Karen sees only her accessible plugins and capabilities; unavailable plugins cannot be installed');
+    await context.close();
+  }
+
+  // On narrow screens the preview stacks below the results and stays inside
+  // the palette, with its action reachable by scrolling only that pane.
+  {
+    const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', viewport: { width: 390, height: 844 } });
+    const fixture = await installAssessment(context, { profileId: 'am' }); cleanups.push(fixture.cleanup);
+    const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
+    await page.goto(origin + home('am'));
+    await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+    const dialog = await openPalette(page);
+    await dialog.getByRole('combobox', { name: 'Search capabilities…', exact: true }).fill('Model your data');
+    const preview = dialog.locator('[data-palette-preview]');
+    await preview.getByRole('heading', { name: 'Model your data', exact: true }).waitFor();
+    const action = preview.getByRole('button', { name: 'Open Model your data', exact: true });
+    await action.scrollIntoViewIfNeeded();
+    const bounds = await dialog.evaluate(node => {
+      const box = selector => node.querySelector(selector).getBoundingClientRect();
+      const list = box('[role="listbox"]'), preview = box('[data-palette-preview]');
+      const action = box('[data-palette-preview] .slds-button_brand'), palette = box('[data-modal-motion]');
+      return { listBottom: list.bottom, previewTop: preview.top, previewBottom: preview.bottom,
+        actionBottom: action.bottom, paletteBottom: palette.bottom, paletteRight: palette.right };
+    });
+    assert(bounds.previewTop >= bounds.listBottom - 1, 'Narrow preview stacks below results');
+    assert(bounds.previewBottom < bounds.paletteBottom && bounds.actionBottom <= bounds.previewBottom, 'Narrow preview and its action remain in view');
+    assert(bounds.paletteRight <= 390, 'Narrow palette stays inside the viewport');
+    await page.screenshot({ path: outputPath(`${label}-palette-preview-mobile.png`) });
+    out.checks.push('Narrow palette stacks the preview below results and keeps its action reachable without clipping');
     await context.close();
   }
 } catch (error) {

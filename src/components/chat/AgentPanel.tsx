@@ -18,6 +18,7 @@ import { useOpenWork } from "@/components/workspace/RecentWorkList";
 import { editComposerDraft, type ComposerDraftState } from "@/lib/chat/composer-drafts";
 import { ConversationStore, type Message } from "@/lib/chat/conversation";
 import { conversationKey, sameTarget } from "@/lib/workspace/context";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import { applicationClient } from "@/lib/application/client";
 import { canvasId } from "@/lib/surface-canvas/model";
 import { isEditablePermissions, PERMISSION_SUGGESTIONS } from "@/lib/org-resources/permissions";
@@ -70,9 +71,11 @@ function scopeForPath(pathname: string): Scope {
 }
 
 /** Global Home owns Today; each project/worktree retains its own conversation. */
-export function AgentPanel({ waitForLayout, layoutKey }: {
+export function AgentPanel({ waitForLayout, layoutKey, releaseSurfaceGate, exploreCapabilities }: {
   waitForLayout: (signal: AbortSignal) => Promise<void>;
   layoutKey: string;
+  releaseSurfaceGate: () => boolean;
+  exploreCapabilities: (plugin: SurfaceId) => void;
 }) {
   const pathname = usePathname();
   const { navigateSurface, captureIntent, openAgentDestination, openCanvas } = useNavigationActions();
@@ -207,6 +210,37 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
       conversationStore.advancePresentation(pending!.revision, "scrolling");
       await nextFrame(signal);
       if (entry) await scrollToEntry(container, entry, signal);
+      if (releaseSurfaceGate()) {
+        // Today has left the viewport at full width. Keep the new message at
+        // the same screen position while its old card reflows in the narrower
+        // chat column, so that card cannot come back into view.
+        const originalAnchor = container.style.overflowAnchor;
+        container.style.overflowAnchor = "none";
+        let frame = 0;
+        const align = () => {
+          if (entry) {
+            const inset = parseFloat(getComputedStyle(container).scrollPaddingBlockStart) || 0;
+            container.scrollTop += entry.getBoundingClientRect().top - container.getBoundingClientRect().top - inset;
+          }
+        };
+        const pin = () => {
+          align();
+          frame = requestAnimationFrame(pin);
+        };
+        // ResizeObserver runs after each layout and before paint, including
+        // frames where a responsive Today row changes height abruptly.
+        const observer = new ResizeObserver(align);
+        if (threadRef.current) observer.observe(threadRef.current);
+        pin();
+        try {
+          await nextFrame(signal);
+          await waitForLayout(signal);
+        } finally {
+          cancelAnimationFrame(frame);
+          observer.disconnect();
+          container.style.overflowAnchor = originalAnchor;
+        }
+      }
       conversationStore.advancePresentation(pending!.revision, "revealing");
       await waitForMotion(() => Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]"))
         .filter((element) => Number(element.dataset.messageId) > pending!.afterId)
@@ -216,11 +250,12 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
     void present().catch((error) => {
       if (!signal.aborted) {
         conversationStore.advancePresentation(pending.revision, "complete");
+        releaseSurfaceGate();
         console.error("Could not complete the conversation transition", error);
       }
     });
     return () => { controller.abort(); };
-  }, [scrollRevision, sessionKey, scope.key, layoutKey, waitForLayout, conversationStore]);
+  }, [scrollRevision, sessionKey, scope.key, layoutKey, waitForLayout, releaseSurfaceGate, conversationStore]);
 
   // Measurement only: resizing must never snap to the incoming message.
   useEffect(() => {
@@ -280,6 +315,9 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
     if (pending?.phase !== "scrolling") return;
     sequence.current?.abort();
     conversationStore.advancePresentation(pending.revision, "complete");
+    // An explicit reader interruption ends the scroll-first handoff too. The
+    // destination must remain reachable even if Today stays in view.
+    releaseSurfaceGate();
   }
 
   const resumeWork = useCallback((work: ReturningWork) => {
@@ -369,7 +407,7 @@ export function AgentPanel({ waitForLayout, layoutKey }: {
         <div className={styles.thread} ref={threadRef} data-workspace-motion>
           <Transcript messages={visibleThread} startIndex={startIndex} total={thread.length} sessionKey={sessionKey} isHome={isHome && !target.projectId}
             presentation={presentation} runs={remote.data.runs} suggestions={scope.suggestions} startStarter={startStarter}
-            resumeWork={resumeWork} send={sendText} command={issueCommand} openDestination={openAgentDestination} />
+            resumeWork={resumeWork} send={sendText} command={issueCommand} openDestination={openAgentDestination} exploreCapabilities={exploreCapabilities} />
         </div></FeatureBoundary>
       </div>
       </ViewTransition>

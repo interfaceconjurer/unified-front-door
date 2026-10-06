@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
+import { openTodayOverview } from './workbench-helpers.mjs';
 import { testModules } from '../test-modules.mjs';
 const modules = testModules(), { destinationHref } = modules.load('lib/navigation/model');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
@@ -103,7 +104,7 @@ try {
     await delayed.page.getByRole('button', { name: 'Shape a project', exact: true }).click();
     await began;
     if (delayedKind === 'draft.begin') {
-      await delayed.page.getByRole('link', { name: 'Build & Setup', exact: true }).click();
+      await openTodayOverview(delayed.page, 'Build & Setup');
       await delayed.page.waitForURL(url => url.pathname === '/build');
     } else {
       await delayed.page.waitForURL(url => url.pathname === '/alm');
