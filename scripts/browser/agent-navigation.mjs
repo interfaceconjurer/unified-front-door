@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { openOverview } from './workbench-helpers.mjs';
-import { install, session } from './fixtures.mjs';
+import { install, session, assessment } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
 const modules = testModules();
 const { navigationOptions } = modules.load('lib/agent/navigation');
 const { demoProfileById } = modules.load('lib/demo-profiles');
+const { captureToday } = modules.load('lib/chat/today-snapshot');
 const { destinationHref } = modules.load('lib/navigation/model');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
@@ -104,6 +105,57 @@ try {
       }
     }
     out.checks.push(scenario + ': scoped navigation and replay rules pass');
+    await context.close();
+  }
+  {
+    const context = await browser.newContext({ httpCredentials, reducedMotion: 'no-preference', viewport: { width: 1440, height: 1000 } });
+    const { state } = await install(context, { drafts: 0, messages: 0 });
+    const profile = demoProfileById('am'), target = { projectId: null, worktreeId: null, orgId: null };
+    const action = { ...navigationOptions({ profile, target, surface: 'home', improvement: null })
+      .find(option => option.id === 'capability:alm:project'), toolCallId: 'toolu_project' };
+    assert(action.destination);
+    const saved = state.agent.conversations[0];
+    saved.conversation = { scopeKey: 'home', messages: [{ id: 1, role: 'today', snapshot: captureToday({
+      capturedAt: '2026-10-02T12:00:00Z', profile, scope: 'global', projectName: 'All projects', branch: '', hasProjects: false,
+      recent: [], working: 0, assessment,
+    }) }] };
+    let run;
+    await context.route('**/api/agent*', route => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        const runId = new URL(request.url()).searchParams.get('runId');
+        return route.fulfill({ json: runId ? { run, events: [] } : state.agent });
+      }
+      const command = request.postDataJSON().command;
+      if (command.kind === 'visit') return route.fulfill({ json: { result: { conversationId: saved.id, conversation: saved } } });
+      assert.equal(command.kind, 'submit'); assert.equal(command.text, 'I want to start a project');
+      run = { id: 'project-navigation-run', requestId: command.requestId, turnId: 'project-navigation-turn',
+        conversationId: saved.id, retryOf: null, kind: 'chat', status: 'running', sequence: 1, checkpoint: 0,
+        result: null, error: null, context: { target, surface: 'home' }, assessmentRunId: null,
+        createdAt: '2026-10-02T12:00:00Z', updatedAt: '2026-10-02T12:00:00Z',
+        execution: { provider: 'anthropic', model: 'fixture' } };
+      state.agent.runs.push(run);
+      saved.conversation.messages.push({ id: 2, role: 'user', text: command.text, turnId: run.turnId, runId: run.id },
+        { id: 3, role: 'agent', text: '', turnId: run.turnId, runId: run.id });
+      saved.revision++;
+      return route.fulfill({ json: { result: { conversationId: saved.id, runId: run.id, turnId: run.turnId } } });
+    });
+    const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
+    await page.goto(origin + destinationHref({ version: 1, owner: 'am', surface: null, target }));
+    await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
+    await page.getByRole('textbox', { name: 'Message the agent', exact: true }).fill('I want to start a project');
+    await page.getByRole('button', { name: 'Send message', exact: true }).click();
+    await page.locator('[data-run-status="running"]').waitFor();
+    run.status = 'completed'; run.sequence++; run.result = 'Let’s start with your project brief.';
+    saved.conversation.messages.at(-1).text = run.result;
+    saved.conversation.messages.at(-1).navigation = structuredClone(action);
+    saved.revision++;
+    await page.waitForURL(url => url.pathname === '/alm' && JSON.parse(url.searchParams.get('destination')).canvas?.params.capability === 'project');
+    const opened = JSON.parse(new URL(page.url()).searchParams.get('destination'));
+    assert.deepEqual(opened.target, target);
+    assert.equal(opened.canvas.kind, 'capability');
+    assert.equal(state.snapshot.assessment.projects.length, 0, 'Opening the capability does not create a project');
+    out.checks.push('Today prompt starts the project creation capability after the agent reply without creating a project');
     await context.close();
   }
   assert.deepEqual(out.errors, []);

@@ -13,7 +13,7 @@ export const MODEL_POLICY = Object.freeze({
 export type ModelPolicy = Omit<typeof MODEL_POLICY, "promptVersion"> & { promptVersion: "workspace-explainer-v1" | "workspace-navigator-v2" | "workspace-planner-v3" };
 export type ModelSettings = { policy: ModelPolicy; globalDailyCalls: number; namespaceDailyCalls: number };
 export type ModelMessage = { role: "user" | "assistant"; content: string };
-export type ModelPrompt = { messages: ModelMessage[]; navigation?: NavigationOption[] };
+export type ModelPrompt = { messages: ModelMessage[]; navigation?: NavigationOption[]; requiredNavigation?: true };
 export type ModelCompletion = {
   navigation?: AgentNavigation;
   text: string; model: ModelPolicy["model"]; messageId: string; requestId?: string;
@@ -80,7 +80,7 @@ export function validateModelPolicy(policy: unknown): asserts policy is ModelPol
 }
 export function serializeModelRequest(prompt: ModelPrompt, policy: ModelPolicy): string {
   validateModelPolicy(policy);
-  if (!object(prompt) || Object.keys(prompt).some(key => !["messages", "navigation"].includes(key)) || !Array.isArray(prompt.messages)
+  if (!object(prompt) || Object.keys(prompt).some(key => !["messages", "navigation", "requiredNavigation"].includes(key)) || !Array.isArray(prompt.messages)
     || prompt.messages.length < 1 || prompt.messages.length > 25
     || prompt.messages[0]?.role !== "user" || prompt.messages.at(-1)?.role !== "user"
     || prompt.messages.some(message => !object(message) || Object.keys(message).length !== 2
@@ -89,10 +89,13 @@ export function serializeModelRequest(prompt: ModelPrompt, policy: ModelPolicy):
     || !Array.isArray(prompt.navigation) || prompt.navigation.length > 128
     || prompt.navigation.some(option => !object(option) || typeof option.id !== "string" || typeof option.label !== "string" || !object(option.destination))))
     throw new ModelProviderError("input_limit");
+  if (prompt.requiredNavigation !== undefined && (prompt.requiredNavigation !== true || policy.promptVersion !== "workspace-planner-v3"
+    || prompt.navigation?.length !== 1 || !prompt.navigation[0]?.id.startsWith("capability:")
+    || prompt.navigation[0].destination.canvas?.kind !== "capability")) throw new ModelProviderError("input_limit");
   const tools = (["open_surface", "open_canvas"] as const).flatMap(name => {
     const options = prompt.navigation?.filter(option => !!option.destination.canvas === (name === "open_canvas")) ?? [];
     return options.length ? [{ name,
-      description: `Open one existing ${name === "open_surface" ? "surface overview" : "canvas"} in the current workspace ${policy.promptVersion === "workspace-planner-v3" ? "only when the current user request explicitly asks to navigate to it" : "when the user asks to navigate or the view directly helps their request"}. This only changes the UI; it does not create or edit data. Select only an available destination. Available destinations: ${JSON.stringify(options.map(({ id, label }) => ({ id, label })))}`,
+      description: `Open one existing ${name === "open_surface" ? "surface overview" : "canvas"} in the current workspace ${prompt.requiredNavigation ? "when the current user directly asks to start its capability" : policy.promptVersion === "workspace-planner-v3" ? "only when the current user request explicitly asks to navigate to it" : "when the user asks to navigate or the view directly helps their request"}. This only changes the UI; it does not create or edit data. Select only an available destination. Available destinations: ${JSON.stringify(options.map(({ id, label }) => ({ id, label })))}`,
       input_schema: { type: "object", properties: { destinationId: { type: "string", enum: options.map(option => option.id) } },
         required: ["destinationId"], additionalProperties: false },
     }] : [];
@@ -102,9 +105,16 @@ export function serializeModelRequest(prompt: ModelPrompt, policy: ModelPolicy):
     "You have no tools, external browsing, org access, or ability to execute changes. Never claim to have inspected a live org, created a project, changed a file, or performed an action.",
     "You may use open_surface or open_canvas to request one UI navigation from the provided catalog. Preserve the captured project, worktree and org. These are terminal UI handoffs; the app opens the destination after your reply completes, unless the user has since navigated elsewhere. Say what the view is for, without claiming it is already open. You cannot browse externally, inspect live orgs, create projects, or change files or data. If no destination matches, explain the limitation or ask a focused question.",
   ) : baseSystem;
+  const requestSystem = prompt.requiredNavigation ? system.replace(
+    "Only use a navigation tool when the current user request explicitly asks to open or view a destination.",
+    "Use a navigation tool when the current user directly asks to start the named capability.",
+  ) + "\nOpen that view with open_canvas. Opening the view does not create a project or change workspace data." : system;
   const body = JSON.stringify({ model: policy.model, max_tokens: policy.maxOutputTokens,
-    system, messages: prompt.messages, thinking: { type: "disabled" }, stream: true,
-    ...(tools.length ? { tools, tool_choice: { type: "auto", disable_parallel_tool_use: true } } : {}) });
+    system: requestSystem,
+    messages: prompt.messages, thinking: { type: "disabled" }, stream: true,
+    ...(tools.length ? { tools, tool_choice: prompt.requiredNavigation
+      ? { type: "tool", name: "open_canvas", disable_parallel_tool_use: true }
+      : { type: "auto", disable_parallel_tool_use: true } } : {}) });
   if (Buffer.byteLength(body, "utf8") > policy.maxRequestBytes) throw new ModelProviderError("input_limit");
   return body;
 }
@@ -300,7 +310,9 @@ export async function completeModel(prompt: ModelPrompt, policy: ModelPolicy, si
       if (!reader || !/^text\/event-stream(?:\s*;|$)/i.test(response.headers.get("content-type") ?? "")) {
         void reader?.cancel().catch(() => {}); throw new ModelProviderError("invalid_response", true);
       }
-      return readStream(reader, policy, response.headers.get("request-id"), controller.signal, dependencies.onText, prompt.navigation);
+      const result = await readStream(reader, policy, response.headers.get("request-id"), controller.signal, dependencies.onText, prompt.navigation);
+      if (prompt.requiredNavigation && result.navigation?.id !== prompt.navigation?.[0]?.id) throw new ModelProviderError("invalid_response", true);
+      return result;
     })()]);
   } catch (error) {
     if (error instanceof ModelProviderError) throw error;

@@ -294,6 +294,21 @@ test("navigation catalog exposes scoped tools without exposing raw URLs or permi
   assert.throws(() => serializeModelRequest(navigationPrompt, legacy), errorCode("input_limit", false));
 });
 
+test("a direct capability start requires its single captured canvas destination", async () => {
+  const project = navigation.find(option => option.id === "capability:alm:project");
+  assert(project);
+  const direct = { ...prompt, navigation: [project], requiredNavigation: true };
+  const body = JSON.parse(serializeModelRequest(direct, MODEL_POLICY));
+  assert.deepEqual(body.tools.map(tool => tool.name), ["open_canvas"]);
+  assert.deepEqual(body.tool_choice, { type: "tool", name: "open_canvas", disable_parallel_tool_use: true });
+  assert.deepEqual(body.tools[0].input_schema.properties.destinationId.enum, [project.id]);
+  const result = await completeModel(direct, MODEL_POLICY, new AbortController().signal,
+    { env, fetch: async () => stream(toolEvents(toolCall(project.id, "open_canvas"))) });
+  assert.equal(result.navigation.id, project.id);
+  assert.equal(result.navigation.destination.canvas.params.capability, "project");
+  assert.throws(() => serializeModelRequest({ ...direct, navigation }, MODEL_POLICY), errorCode("input_limit", false));
+});
+
 test("fragmented tool JSON becomes one scoped navigation only after validated message_stop", async () => {
   for (const [id, name] of [["surface:build", "open_surface"], ["resource:standard-object:Account", "open_canvas"]]) {
     const emitted = [], result = await navigate(toolEvents(toolCall(id, name)), text => emitted.push(text));
