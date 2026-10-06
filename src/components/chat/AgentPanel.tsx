@@ -74,7 +74,7 @@ function scopeForPath(pathname: string): Scope {
 export function AgentPanel({ waitForLayout, layoutKey, releaseSurfaceGate, exploreCapabilities }: {
   waitForLayout: (signal: AbortSignal) => Promise<void>;
   layoutKey: string;
-  releaseSurfaceGate: () => boolean;
+  releaseSurfaceGate: (keepTodayOffscreen?: boolean) => boolean;
   exploreCapabilities: (plugin: SurfaceId) => void;
 }) {
   const pathname = usePathname();
@@ -318,7 +318,7 @@ export function AgentPanel({ waitForLayout, layoutKey, releaseSurfaceGate, explo
     conversationStore.advancePresentation(pending.revision, "complete");
     // An explicit reader interruption ends the scroll-first handoff too. The
     // destination must remain reachable even if Today stays in view.
-    releaseSurfaceGate();
+    releaseSurfaceGate(false);
   }
 
   const resumeWork = useCallback((work: ReturningWork) => {

@@ -94,7 +94,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const [surfaceVisible, setSurfaceVisible] = useState(surfaceOpen);
   const waitingForTodayScroll = useRef(false);
   const openedByToggle = useRef(false);
-  const todayScrollFallback = useRef<{ log: HTMLElement; padding: string; anchor: string; observer: ResizeObserver } | null>(null);
+  const todayScrollFallback = useRef<{ log: HTMLElement; today: HTMLElement; padding: string; anchor: string; observer: ResizeObserver; pin: boolean } | null>(null);
   const clearTodayScrollFallback = useCallback(() => {
     const fallback = todayScrollFallback.current;
     if (!fallback) return;
@@ -120,17 +120,34 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
     const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
     const card = today?.getBoundingClientRect(), viewport = log?.getBoundingClientRect();
-    if (scrollFirstView && !openedByToggle.current && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
+    if (scrollFirstView && !openedByToggle.current && log && today && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
       waitingForTodayScroll.current = true;
+      // Reserve enough range for the narrow chat before its panel animates.
+      // Otherwise the new entry can hit the scroll clamp as Today grows, and
+      // the briefing comes back into view after it was scrolled away.
+      const observer = new ResizeObserver(() => {
+        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
+        if (overlap > 0) log.scrollTop += overlap;
+      });
+      todayScrollFallback.current = { log, today, padding: log.style.paddingBottom, anchor: log.style.overflowAnchor, observer, pin: false };
+      log.style.overflowAnchor = "none";
+      log.style.paddingBottom = `${log.clientHeight}px`;
       return;
     }
     openedByToggle.current = false;
     const frame = requestAnimationFrame(() => setSurfaceVisible(true));
     return () => cancelAnimationFrame(frame);
   }, [surfaceOpen, surfaceVisible, scrollFirstView, isFrontDoor, clearTodayScrollFallback]);
-  const releaseSurfaceGate = useCallback(() => {
+  const releaseSurfaceGate = useCallback((keepTodayOffscreen = true) => {
     if (!waitingForTodayScroll.current) return false;
     waitingForTodayScroll.current = false;
+    const fallback = todayScrollFallback.current;
+    if (fallback) fallback.pin = keepTodayOffscreen;
+    if (keepTodayOffscreen && fallback) {
+      const overlap = fallback.today.getBoundingClientRect().bottom - fallback.log.getBoundingClientRect().top + 1;
+      if (overlap > 0) fallback.log.scrollTop += overlap;
+      fallback.observer.observe(fallback.today);
+    }
     setSurfaceVisible(true);
     return true;
   }, []);
@@ -139,24 +156,16 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     let frame = 0;
     const timer = window.setTimeout(() => {
       if (!waitingForTodayScroll.current) return;
-      const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
-      const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
-      if (!log || !today) { releaseSurfaceGate(); return; }
-      // A visit may be delayed or unavailable. Add enough scroll range to move
-      // the existing briefing away even without a new transcript entry.
-      const observer = new ResizeObserver(() => {
-        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
-        if (overlap > 0) log.scrollTop += overlap;
-      });
-      todayScrollFallback.current = { log, padding: log.style.paddingBottom, anchor: log.style.overflowAnchor, observer };
-      log.style.paddingBottom = `${log.clientHeight}px`;
-      log.style.overflowAnchor = "none";
+      const fallback = todayScrollFallback.current;
+      if (!fallback) { releaseSurfaceGate(); return; }
+      const { log, today } = fallback;
+      // A visit may be delayed or unavailable. Use the reserved scroll range to
+      // move the existing briefing away even without a new transcript entry.
       const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       const scroll = () => {
         if (!waitingForTodayScroll.current) return;
         const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
         if (overlap <= 0) {
-          observer.observe(today);
           releaseSurfaceGate();
           return;
         }
@@ -164,7 +173,6 @@ function ShellContent({ children }: { children: React.ReactNode }) {
         log.scrollTop += reduced ? overlap : Math.min(overlap, 80);
         if (log.scrollTop === before) {
           // An unexpected scroll clamp must not leave the workbench inert.
-          observer.observe(today);
           releaseSurfaceGate();
           return;
         }
@@ -175,6 +183,15 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     return () => { window.clearTimeout(timer); cancelAnimationFrame(frame); };
   }, [surfaceOpen, surfaceVisible, isFrontDoor, scrollFirstView, releaseSurfaceGate]);
   useEffect(() => () => clearTodayScrollFallback(), [clearTodayScrollFallback]);
+  useLayoutEffect(() => {
+    // Reduced motion applies the narrow chat width in one commit. Correct its
+    // new scroll position before that commit paints; ResizeObserver covers the
+    // subsequent frames of the normal-width transition.
+    const fallback = todayScrollFallback.current;
+    if (!surfaceVisible || !fallback?.pin) return;
+    const overlap = fallback.today.getBoundingClientRect().bottom - fallback.log.getBoundingClientRect().top + 1;
+    if (overlap > 0) fallback.log.scrollTop += overlap;
+  }, [surfaceVisible]);
   const shownSurfaceOpen = surfaceOpen && surfaceVisible;
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
