@@ -4,6 +4,7 @@ import { appendFile, mkdir, readFile, readdir, rm, writeFile } from "node:fs/pro
 import { resolve, join } from "node:path";
 import { REQUIRED_CHECKS, runVerificationStages } from "./release-contract.mjs";
 import { verificationPlan } from "./verification-plan.mjs";
+import { DATABASE_TEST_FILES, pureTestFiles } from "./verification-suites.mjs";
 import { freePort, startProduction, waitForServer } from "./production-process.mjs";
 import configuration from "../src/lib/server/database-target.js";
 
@@ -69,7 +70,7 @@ try {
     { id: "locked-install", work: () => run("npm", ["ci", "--include=dev", "--no-audit"]) },
     { id: "dependency-audit", work: () => node(["scripts/audit-dependencies.mjs"]) },
     { id: "pure-tests", work: async () => {
-      const suites = (await readdir("scripts")).filter(name => name.endsWith(".test.mjs") && !["database.test.mjs", "agent-database.test.mjs", "model-database.test.mjs"].includes(name)).sort();
+      const suites = pureTestFiles(await readdir("scripts"));
       const server = ["agent.test.mjs", "operations.test.mjs", "model-provider.test.mjs", "model-context.test.mjs", "model-worker.test.mjs", "worker-loop.test.mjs"];
       await node(["--test", "--test-concurrency=1", ...suites.filter(name => !server.includes(name)).map(name => `scripts/${name}`)]);
       await node(["--conditions=react-server", "--test", "--test-concurrency=1", ...suites.filter(name => server.includes(name)).map(name => `scripts/${name}`)]);
@@ -78,8 +79,8 @@ try {
     { id: "typecheck", work: async () => { await node(["node_modules/next/dist/bin/next", "typegen"]); await node(["node_modules/typescript/bin/tsc", "--noEmit"]); } },
     { id: "production-build", work: () => run("npm", ["run", "build"]) },
     { id: "database-migrations", work: async () => { await node(["scripts/database.mjs", "migrate"], 130000); await node(["scripts/database.mjs", "status"], 25000); } },
-    { id: "database-tests", work: () => node(["--conditions=react-server", "--test", "scripts/database.test.mjs"]) },
-    { id: "agent-database-tests", work: () => node(["--conditions=react-server", "--test", "--test-concurrency=1", "scripts/agent-database.test.mjs", "scripts/model-database.test.mjs"]) },
+    { id: "database-tests", work: () => node(["--conditions=react-server", "--test", "--test-concurrency=1", ...DATABASE_TEST_FILES.application.map(name => `scripts/${name}`)]) },
+    { id: "agent-database-tests", work: () => node(["--conditions=react-server", "--test", "--test-concurrency=1", ...DATABASE_TEST_FILES.agent.map(name => `scripts/${name}`)]) },
     { id: "runtime-smoke", work: async () => {
       server = startProduction(port, env, join(output, "production-server.log"));
       await waitForServer(origin, server); await node(["scripts/runtime-smoke.mjs"]);

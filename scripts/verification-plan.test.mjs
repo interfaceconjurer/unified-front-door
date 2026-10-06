@@ -1,9 +1,24 @@
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import test from 'node:test';
 import { BROWSER_SUITES, browserSuites } from './browser/suites.mjs';
 import { BROWSER_SHARDS, PR_GROUPS, verificationPlan } from './verification-plan.mjs';
 import { REQUIRED_CHECKS, validateVerification } from './release-contract.mjs';
+import { DATABASE_TEST_FILES, pureTestFiles } from './verification-suites.mjs';
+
+test('SQL suites run only after migrations and database fixtures are serialized', () => {
+    const files = readdirSync(new URL('./', import.meta.url));
+    const database = Object.values(DATABASE_TEST_FILES).flat();
+    assert.equal(database.length, new Set(database).size);
+    for (const name of database) assert(files.includes(name), `Missing SQL suite ${name}`);
+    assert(!pureTestFiles(files).some(name => database.includes(name)));
+    const source = readFileSync(new URL('./verify-release.mjs', import.meta.url), 'utf8');
+    assert(source.indexOf('id: "database-migrations"') < source.indexOf('id: "database-tests"'));
+    assert(source.includes('"--test-concurrency=1", ...DATABASE_TEST_FILES.application'));
+    const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+    assert(packageJson.scripts['test:database'].includes('--test-concurrency=1'));
+    for (const name of DATABASE_TEST_FILES.application) assert(packageJson.scripts['test:database'].includes(`scripts/${name}`));
+});
 
 test('PR jobs retain every release check and run every registered browser suite exactly once', () => {
     // Check the actual workflow matrix too, so dropping a job cannot silently

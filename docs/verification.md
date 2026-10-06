@@ -35,8 +35,13 @@ npm run test:agent-database
 ```
 
 It exercises actual SQL commands, transactions, revisions, ownership, import,
-concurrency, and timeout recovery using fresh test namespaces. It cleans up those
-namespaces. Run migrations against that same intended target before testing;
+concurrency, timeout recovery, and expired namespace retention using fresh test
+namespaces. The retention cases check the 720-hour boundary, concurrent renewal,
+worker leases, saved chats/projects, dispatch slots, global budget preservation,
+blocked-page cursors and interrupted progress. It cleans up those namespaces.
+The application and retention SQL suites run sequentially after migration so
+their fixtures cannot affect each other. Run migrations against that same
+intended target before testing;
 setting the test URL does not migrate it automatically. Local Postgres results are
 supplemental; the phase also requires this behavior verified against isolated Neon.
 Standalone database test entry points replace the inherited runtime direct URL
@@ -97,7 +102,8 @@ under `.release/http-production` and `.release/http-development`, or the specifi
 The shared gate in `scripts/verify-release.mjs` runs a locked `npm ci`, the
 dependency audit (blocking moderate, high, and critical advisories), all pure
 suites, lint, type generation/checking, web/worker
-production build, migration/status checks, both database suites, positive and
+production build, migration/status checks, the application, retention, agent and
+model database suites, positive and
 negative runtime smoke, browser regression/fault checks, two live-database browser
 journeys, worker crash/restart recovery, and the performance protocol. Tests that
 need server-only module conditions run separately from browser/SSR tests.

@@ -23,7 +23,7 @@
     "test:cli": "node --test scripts/private-session-file.test.mjs",
     "demo:seed": "node --env-file-if-exists=.env.local scripts/demo-session.mjs seed",
     "demo:reset": "node --env-file-if-exists=.env.local scripts/demo-session.mjs reset",
-    "test:database": "node --env-file-if-exists=.env.local --conditions=react-server --test scripts/database.test.mjs",
+    "test:database": "node --env-file-if-exists=.env.local --conditions=react-server --test --test-concurrency=1 scripts/database.test.mjs scripts/expired-namespace-retention.test.mjs",
     "build:worker": "tsc -p tsconfig.worker.json",
     "worker": "node --env-file-if-exists=.env.local --conditions=react-server scripts/start.mjs worker",
     "test:agent": "node --conditions=react-server --test scripts/agent.test.mjs scripts/navigation-intent.test.mjs",
