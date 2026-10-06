@@ -104,10 +104,10 @@ timestamp precision. `--limit` accepts 1–100 eligible namespaces per page.
 
 If `hasMore` is true, take that page's `nextCursor`, dry-run the next page with
 `--after 'CURSOR'`, and apply with that cursor and the reviewed target. The
-command rechecks and reselects candidates at execution time; use `--namespace
-UUID` when applying one exact reviewed ID. Continue until `hasMore` is false.
-Advancing the cursor also
-gets past a page full of temporarily blocked namespaces. A specific namespace
+command rechecks and reselects candidates at execution time; use
+`--namespace UUID` when applying one exact reviewed ID. Continue until
+`hasMore` is false. Advancing the cursor also gets past a page full of
+temporarily blocked namespaces. A specific namespace
 can be inspected with `--namespace UUID`; it cannot be combined with `--after`.
 Skipped namespaces remain for a later daily run.
 

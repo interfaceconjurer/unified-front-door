@@ -537,6 +537,13 @@ Missing or expired cookies create a fresh namespace. This is demo ownership,
 without a cross-device account or a way to recover a namespace after its cookie
 is lost; production identity and org grants remain a later integration boundary.
 
+A namespace becomes eligible for deletion 30 days after its latest session
+expires. The operator cleanup then removes its saved chats, projects and drafts
+with the namespace; an active worker lease defers deletion. A daily operator
+runbook is in [Database and operations](operations.md#expired-demo-namespace-retention).
+Hosted cleanup is not scheduled by this repository, so the policy takes effect
+there only after an operator activates and verifies that job.
+
 On login, choose **Clear data** beside the intended profile, review its named
 confirmation, and confirm to restore its original demo state. **Cancel** is the
 default. This clears that profile's saved chats, assessments, projects (including
