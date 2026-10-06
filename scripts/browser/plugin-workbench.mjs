@@ -224,7 +224,7 @@ try {
       assert.deepEqual(await views(page).getByRole('tab').allInnerTexts(), beforeViews, 'Exploring does not open a workbench view');
       if (plugin !== 'ALM') { await page.keyboard.press('Escape'); await dialog.waitFor({ state: 'detached' }); }
     }
-    await dialog.getByRole('option').filter({ has: page.locator('[data-result-label]', { hasText: 'ALM overview' }) }).getByRole('button').click();
+    await dialog.getByRole('option').filter({ has: page.locator('[data-result-label]', { hasText: 'ALM overview' }) }).click();
     await dialog.waitFor({ state: 'detached' }); await settle(page);
     await view(page, 'ALM overview').waitFor();
     assert.equal(await header(page).getAttribute('data-plugin'), 'ALM');

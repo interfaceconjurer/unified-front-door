@@ -35,6 +35,7 @@ type Navigation = {
   openProjectCreationForChanges: (sources: TransferSource[]) => void;
   openCanvas: (surface: SurfaceId, input: CanvasSpecInput) => void;
   openCanvasInProject: (surface: SurfaceId, input: CanvasSpecInput) => void;
+  openCanvasAcrossProjects: (surface: SurfaceId, input: CanvasSpecInput) => void;
   selectCanvas: (surface: SurfaceId, id: string) => void;
   /** Workbench views span plugins: canonical canvas ids or `overview:<plugin>`. */
   selectView: (viewId: string) => void;
@@ -166,6 +167,23 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     if (workspace.target.projectId !== null || captured.projectId === null) return;
     controller.navigate(projectEntryDestination({ version: 1, owner, surface: canonicalCanvasSurface(surface, input), target: captured, canvas: input }, workspace.target.orgId));
   };
+  const openCanvasAcrossProjects = (surface: SurfaceId, input: CanvasSpecInput) => {
+    // Navigator app rows and palette plan rows explicitly enter their owner.
+    // Home still inspects project canvases globally; current-project rows keep
+    // their exact worktree and conversation.
+    const captured = targetForCanvas(surface, input);
+    if (captured.projectId === null || workspace.target.projectId === null || workspace.target.projectId === captured.projectId) {
+      openCanvas(surface, input); return;
+    }
+    const project = workspace.projects.find(item => item.id === captured.projectId);
+    if (!project) { setProblem("This canvas’s project is unavailable."); return; }
+    const rememberedTree = selection.getSnapshot().worktreeByProject[project.id];
+    const worktree = project.worktrees.find(tree => tree.id === rememberedTree) ?? primaryWorktree(project);
+    const target: WorkspaceTarget = { projectId: project.id, worktreeId: worktree?.id ?? null, orgId: workspace.target.orgId };
+    const canonicalSurface = canonicalCanvasSurface(surface, input);
+    const savedTarget = getSurfaceCanvasStore(owner, target).getSnapshot()[canonicalSurface].targets?.[canvasId(input.kind, input.params)];
+    controller.navigate(canvasDestination(owner, canonicalSurface, input, savedTarget ?? captured, target));
+  };
   const openImprovementProject = (project: PlanDestination) => {
     // Explicit project entry (including the onboarding “Open project” action).
     const previous = selection.destinationFor(owner, project.id, null);
@@ -245,7 +263,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
         ...(workspace.target.projectId ? { projectId: workspace.target.projectId, ...(workspace.target.worktreeId ? { worktreeId: workspace.target.worktreeId } : {}) } : {}) },
     }),
     hrefForSurface: (surface) => destinationHref(surface === null ? globalHome : currentDestination(surface)),
-    openCanvas, openCanvasInProject, openImprovementProject, openProjectCreation, openProjectCreationForChanges, selectProject, capabilityScope,
+    openCanvas, openCanvasInProject, openCanvasAcrossProjects, openImprovementProject, openProjectCreation, openProjectCreationForChanges, selectProject, capabilityScope,
     selectView: (viewId) => {
       const plugin = overviewPlugin(viewId);
       if (plugin) { controller.navigate({ version: 1, owner, surface: plugin, target: workspace.target }); return; }
@@ -298,6 +316,7 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     openProjectCreationForChanges: (...args) => currentActions.current.openProjectCreationForChanges(...args),
     openCanvas: (...args) => currentActions.current.openCanvas(...args),
     openCanvasInProject: (...args) => currentActions.current.openCanvasInProject(...args),
+    openCanvasAcrossProjects: (...args) => currentActions.current.openCanvasAcrossProjects(...args),
     selectCanvas: (...args) => currentActions.current.selectCanvas(...args),
     selectView: (...args) => currentActions.current.selectView(...args),
     closeView: (...args) => currentActions.current.closeView(...args),

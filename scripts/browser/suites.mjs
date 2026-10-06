@@ -3,7 +3,7 @@ export const BROWSER_SUITES = Object.freeze([
     'expansion-profiles', 'modal-working', 'profile-reset', 'org-sign-in', 'session-recovery', 'profile-start', 'assessment-startup', 'org-assessment-scope', 'org-resources', 'org-setup', 'unified-search', 'global-home', 'workspace-tabs', 'today-departure',
     'starter-canvases', 'assessment-canvas', 'assessment-project-transition', 'project-creation', 'project-create-end-to-end', 'agent-navigation',
     'project-panel', 'project-explorer', 'workspace-changes', 'object-field-changes', 'project-surface-scope', 'alm-overview', 'work-item-changes', 'permissions', 'alm-app-migration', 'attention-scenarios', 'work-project-entry', 'project-preview', 'canvas-motion', 'workbench-switching', 'chat-layout',
-    'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps', 'idle-suspension', 'theme-switch', 'agent-harness-prototype', 'plugin-workbench',
+    'interactions', 'agent-regressions', 'session-chat', 'chat-latency', 'streaming', 'budgets', 'faults', 'timestamps', 'idle-suspension', 'theme-switch', 'agent-harness-prototype', 'plugin-workbench', 'cross-project-accessibility',
 ]);
 
 export function browserSuites(shard) {

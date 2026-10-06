@@ -51,7 +51,7 @@ try {
       await dialog.getByRole('tab', { name: 'Resources', exact: true }).click();
       await dialog.getByLabel('Resource type', { exact: true }).selectOption('standard-object');
       await dialog.getByRole('combobox', { name: 'Search resources…', exact: true }).fill('Account');
-      await dialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).getByRole('button').click();
+      await dialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).click();
       await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
       const canvasUrl = page.url();
       await page.locator('#workspace-panel-toggle').click();

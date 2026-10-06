@@ -116,7 +116,7 @@ export function CommandPalette({ initialTab = "capabilities", initialPlugin = nu
   onClose: (action?: () => void) => void;
   onExited: () => void;
 }) {
-  const { navigateSurface, selectProject, selectOrg, openResource, openProjectCreation, openCanvas, capabilityScope } = useNavigation();
+  const { navigateSurface, selectProject, selectOrg, openResource, openProjectCreation, openCanvas, openCanvasAcrossProjects, capabilityScope } = useNavigation();
   const { profile } = useDemoProfile();
   const plugins = usePlugins();
   const [stage, setStage] = useState<AlmStage | "all">("all");
@@ -271,7 +271,7 @@ export function CommandPalette({ initialTab = "capabilities", initialPlugin = nu
           // the mixed All tab. The project row above still switches workspace.
           rows.push({ id: `plan:${project.id}`, label: `View ${project.name} plan`, description: "ALM · Project plan",
             Icon: LayersIcon, isCurrent: false, indent: true,
-            select: () => openCanvas("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } }),
+            select: () => openCanvasAcrossProjects("alm", { kind: "improvement-project", title: project.name, params: { projectId: project.id } }),
           });
         }
         return rows.map((row, index, ordered) =>
@@ -321,6 +321,7 @@ export function CommandPalette({ initialTab = "capabilities", initialPlugin = nu
     currentCanvas,
     openResource,
     openCanvas,
+    openCanvasAcrossProjects,
     capabilityScope,
     resourceOrg,
   ]);
@@ -439,6 +440,7 @@ export function CommandPalette({ initialTab = "capabilities", initialPlugin = nu
             aria-label={TAB_PLACEHOLDER[tab]}
             value={query}
             role={showGuidedEmpty ? "searchbox" : "combobox"}
+            aria-autocomplete={showGuidedEmpty ? undefined : "list"}
             aria-expanded={showGuidedEmpty ? undefined : true}
             aria-controls={showGuidedEmpty ? undefined : "command-palette-results"}
             aria-activedescendant={items[safeActive] ? `cmd-${tab}-${items[safeActive].id}` : undefined}
@@ -504,23 +506,29 @@ export function CommandPalette({ initialTab = "capabilities", initialPlugin = nu
         </>}
 
         {/* Reset scrolling with the results so the first selection is visible. */}
-        {!showGuidedEmpty && <ul ref={resultsRef} key={`${tab}:${capabilityPlugin}:${query}:${resourceOrgId}:${resourceType}`} className={styles.results} id="command-palette-results" role="listbox" aria-label={TAB_LABEL[tab]}>
+        {!showGuidedEmpty && <ul ref={resultsRef} key={`${tab}:${capabilityPlugin}:${query}:${resourceOrgId}:${resourceType}`} className={styles.results} id="command-palette-results" role="listbox" aria-label={TAB_LABEL[tab]} onKeyDown={onKeyDown}>
           {items.length === 0 && (
-            <li className={styles.empty}>
+            <li role="presentation" className={styles.empty}>
               {tab === "plugins" && !query.trim() ? pluginFilter === "available" ? "No other plugins are available for your workspace." : "No plugins are installed. Install one from Available." : tab === "resources" ? !resourceOrgId ? "Choose an org above to explore its objects, flows, permissions, and more." : query.trim() ? `No resources match “${query}” with these filters.` : "No resources of this type are available in this demo org." : tab === "capabilities" && capabilityPlugin !== "all" && !plugins.isInstalled(capabilityPlugin) ? `${PLUGINS[capabilityPlugin].name} is not installed. Open Plugins to install it.` : `No ${tab} match “${query}”.`}
             </li>
           )}
           {items.map((item, index) => {
             const isActive = index === safeActive;
             return (
-              <li key={item.id} role="option" id={`cmd-${tab}-${item.id}`} aria-selected={isActive}
+              <li key={item.id} role="presentation"
                 className={item.orgKind ? orgStyles[item.orgKind] : undefined}>
                 <button
                   type="button"
+                  role="option"
+                  id={`cmd-${tab}-${item.id}`}
+                  aria-selected={isActive}
+                  tabIndex={-1}
                   className={`${styles.result} ${isActive ? styles.resultActive : ""} ${
                     item.indent ? styles.resultIndent : ""
                   } ${item.lastChild ? styles.resultLastChild : ""}`}
                   onMouseMove={() => setActive(index)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onFocus={() => setActive(index)}
                   onClick={() => item.plugin ? showPlugin(item.plugin) : onClose(item.select)}
                 >
                   <span

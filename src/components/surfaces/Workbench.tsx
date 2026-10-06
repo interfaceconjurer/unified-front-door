@@ -9,7 +9,8 @@ import { CanvasLayout } from "@/components/canvas/CanvasLayout";
 import { surfaceAppById } from "@/components/front-door/app-catalog";
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { PLUGINS, viewCapability } from "@/lib/plugins/catalog";
-import { canvasTarget, type CanvasSpecInput } from "@/lib/surface-canvas/model";
+import { canvasId, canvasTarget, type CanvasSpecInput } from "@/lib/surface-canvas/model";
+import { destinationCanvasTarget } from "@/lib/navigation/model";
 import { CanvasContent } from "./canvas-registry";
 import { SurfaceProjection } from "./SurfaceProjection";
 import { useWorkbench, type WorkbenchView } from "./surface-canvas-context";
@@ -112,9 +113,13 @@ function ViewBody({ view }: { view: WorkbenchView }) {
 
 /** Every view names its plugin, its capability and the context it works in. */
 function ViewIdentity({ view }: { view: WorkbenchView }) {
-  const { target, projects, orgs } = useWorkspace();
+  const { target, destination, projects, orgs } = useWorkspace();
   const input = view.canvas.kind === "overview" ? undefined : view.canvas as CanvasSpecInput;
-  const scope = input ? canvasTarget(input, target) : target;
+  const active = destination.kind === "available" && destination.destination.surface === view.plugin
+    && input && destination.destination.canvas
+    && canvasId(destination.destination.canvas.kind, destination.destination.canvas.params) === view.id
+    ? destination.destination : null;
+  const scope = active ? destinationCanvasTarget(active) : input ? canvasTarget(input, target) : target;
   const project = projects.find(item => item.id === scope.projectId);
   const worktree = project?.worktrees.find(item => item.id === scope.worktreeId);
   const org = orgs.find(item => item.id === scope.orgId);

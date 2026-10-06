@@ -58,7 +58,7 @@ try {
   await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('combobox').fill('object manager');
-  await dialog.getByRole('option').filter({ hasText: 'Object Manager' }).getByRole('button').click();
+  await dialog.getByRole('option').filter({ hasText: 'Object Manager' }).click();
   area = page.getByRole('article', { name: 'Object Manager', exact: true });
   await area.waitFor();
   await area.getByLabel('Setup org', { exact: true }).selectOption('prod');

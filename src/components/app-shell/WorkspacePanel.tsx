@@ -11,7 +11,6 @@ import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { StatusDot } from "@/components/workspace/StatusDot";
 import { useNavigation } from "@/components/navigation/NavigationProvider";
 import { useWorkspace, type WorkspacePanelFilter } from "@/components/workspace/workspace-context";
-import { useSurfaceCanvasActions } from "@/components/surfaces/surface-canvas-context";
 import type { DeployedApp, Project } from "@/lib/workspace/model";
 import {
   allAppRows,
@@ -104,9 +103,8 @@ function AppRow({
  * Projects filter above.
  */
 export function WorkspacePanel({ onClose }: { onClose: () => void }) {
-  const { selectProject, openProjectCreation } = useNavigation();
+  const { selectProject, openProjectCreation, openCanvasAcrossProjects } = useNavigation();
   const { profile } = useDemoProfile();
-  const { openCanvas } = useSurfaceCanvasActions();
   const { projects, activeProject, activeWorktree, hasProjects, target,
     panelFilter: filter, setPanelFilter: setFilter, projectPanelRequest } =
     useWorkspace();
@@ -154,7 +152,7 @@ export function WorkspacePanel({ onClose }: { onClose: () => void }) {
 
   // Deployed app operations live in ALM.
   function openApp(project: Project, app: DeployedApp) {
-    openCanvas("alm", {
+    openCanvasAcrossProjects("alm", {
       kind: "app",
       title: app.label,
       params: { projectId: project.id, appId: app.id },

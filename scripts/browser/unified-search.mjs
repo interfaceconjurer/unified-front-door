@@ -63,7 +63,7 @@ try {
     const parent = text.findIndex(row => row.startsWith('Trailblazer CRM'));
     assert(parent >= 0 && text[parent + 1].includes('feature/lead-routing'), 'Projects keeps matching worktrees attached');
     assert(text.some(row => row.includes('View Trailblazer CRM plan')), 'Project plan remains searchable in Projects');
-    await dialog.locator('[id="cmd-projects-plan:trailblazer-crm"]').getByRole('button').click();
+    await dialog.locator('[id="cmd-projects-plan:trailblazer-crm"]').click();
     await dialog.waitFor({ state: 'detached' });
     await page.getByRole('heading', { name: 'Trailblazer CRM', exact: true }).waitFor();
     assert.equal(destination(page).canvas.kind, 'improvement-project');
@@ -72,13 +72,13 @@ try {
 
     dialog = await open(page);
     await tab(dialog, 'Projects', 'lead routing');
-    await rows(dialog).filter({ hasText: 'feature/lead-routing' }).first().getByRole('button').click();
+    await rows(dialog).filter({ hasText: 'feature/lead-routing' }).first().click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.worktreeId === 'lead-routing');
     assert.equal(destination(page).target.projectId, 'trailblazer-crm');
     dialog = await open(page);
     await tab(dialog, 'Orgs', 'Production');
-    await rows(dialog).filter({ hasText: 'Production' }).first().getByRole('button').click();
+    await rows(dialog).filter({ hasText: 'Production' }).first().click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.orgId === 'prod');
     assert.equal(destination(page).target.worktreeId, 'lead-routing');
@@ -121,7 +121,7 @@ try {
     await tab(dialog, 'Projects', project.name);
     const plan = dialog.locator('[id="cmd-projects-plan:palette-plan"]');
     assert(await plan.getByText('ALM · Project plan', { exact: true }).isVisible());
-    await plan.getByRole('button').click(); await dialog.waitFor({ state: 'detached' });
+    await plan.click(); await dialog.waitFor({ state: 'detached' });
     await page.getByLabel(`Status for ${finding.title}`, { exact: true }).waitFor();
     assert.deepEqual(destination(page).target, target);
     assert.equal(destination(page).canvas.params.projectId, project.id);
@@ -129,7 +129,7 @@ try {
     await page.waitForURL(url => url.pathname === '/');
     dialog = await open(page);
     await tab(dialog, 'Projects', project.name);
-    await dialog.locator('[id="cmd-projects-plan:palette-plan"]').getByRole('button').click();
+    await dialog.locator('[id="cmd-projects-plan:palette-plan"]').click();
     await dialog.waitFor({ state: 'detached' });
     await page.getByLabel(`Status for ${finding.title}`, { exact: true }).waitFor();
     assert.equal(destination(page).target.projectId, null);
@@ -147,7 +147,7 @@ try {
   await tab(dialog, 'Resources');
   await dialog.getByText('Browse metadata from a connected org', { exact: true }).waitFor();
   await tab(dialog, 'Orgs', 'UAT');
-  await rows(dialog).filter({ hasText: 'UAT Sandbox' }).first().getByRole('button').click();
+  await rows(dialog).filter({ hasText: 'UAT Sandbox' }).first().click();
   await dialog.waitFor({ state: 'detached' });
   await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.orgId === 'uat');
   dialog = await open(page);
