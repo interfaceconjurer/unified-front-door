@@ -12,6 +12,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { startersForProfile, type StarterId } from "@/lib/agent/starters";
 import { canAccessSurface } from "@/lib/demo-profiles";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import type { TodaySnapshot } from "./today-snapshot";
 import { surfaceApps } from "./app-catalog";
 import { ReturningHome } from "./ReturningHome";
@@ -25,11 +26,12 @@ const STARTER_ICONS: Record<StarterId, IconComponent> = {
 };
 
 /** An interactive briefing embedded in the conversation, with no inner scroll. */
-export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
+export function FrontDoor({ snapshot, active, onStart, onOpenWork, onExploreCapabilities }: {
   snapshot: TodaySnapshot;
   active: boolean;
   onStart: (starter: StarterId) => void;
   onOpenWork: (work: ReturningWork) => void;
+  onExploreCapabilities?: (plugin: SurfaceId) => void;
 }) {
   const { profile } = snapshot;
   const id = useId();
@@ -76,7 +78,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
               });
             }
           }}>
-          {dayZero ? <DayZeroHome snapshot={readOnly ? snapshot.assessment : undefined} profile={snapshot.profile} /> : returning ? <ReturningHome active={!readOnly} snapshot={snapshot} onOpenWork={onOpenWork} /> : <>
+          {dayZero ? <DayZeroHome snapshot={readOnly ? snapshot.assessment : undefined} profile={snapshot.profile} onExploreCapabilities={onExploreCapabilities} /> : returning ? <ReturningHome active={!readOnly} snapshot={snapshot} onOpenWork={onOpenWork} onExploreCapabilities={onExploreCapabilities} /> : <>
           <header className={styles.hero}>
             <p className={styles.welcome} {...todayRow(0)}>
               {profile?.experience === "new" ? "Welcome" : "Welcome back"}, {profile?.firstName}
@@ -87,7 +89,7 @@ export function FrontDoor({ snapshot, active, onStart, onOpenWork }: {
             </p>
           </header>
 
-          <SurfaceNav revealOrder={3} readOnly={readOnly} profile={profile} />
+          <SurfaceNav revealOrder={3} readOnly={readOnly} profile={profile} onExploreCapabilities={onExploreCapabilities} />
 
           <section className={styles.starters} aria-labelledby={`${id}-starters`}>
             <div className={styles.sectionHeading} {...todayRow(5)}>

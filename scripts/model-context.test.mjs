@@ -73,6 +73,16 @@ test("v3 offers scoped navigation only for the current explicit request; old his
   const captured = modelExecution(current, assessment, "Please open Account object", history, settings);
   assert.ok(captured.prompt.navigation.some(option => option.id === "resource:standard-object:Account"));
   assert.ok(captured.prompt.navigation.every(option => JSON.stringify(option.destination.target) === JSON.stringify(current.target)));
+  const project = modelExecution(current, assessment, "I want to start a project", history, settings);
+  assert.deepEqual(project.prompt.navigation.map(option => option.id), ["capability:alm:project"]);
+  assert.equal(project.prompt.requiredNavigation, true);
+  assert.deepEqual(project.prompt.navigation[0].destination.target, current.target);
+  assert.equal(project.prompt.navigation[0].destination.canvas.kind, "capability");
+  assert.equal(project.prompt.navigation[0].destination.canvas.params.capability, "project");
+  assert.deepEqual(JSON.parse(serializeModelRequest(project.prompt, settings.policy)).tool_choice,
+    { type: "tool", name: "open_canvas", disable_parallel_tool_use: true });
+  const limited = { ...current, profile: modules.load("lib/demo-profiles").demoProfileById("kf") };
+  assert.equal(modelExecution(limited, assessment, "Start an SFDX project", [], settings).prompt.navigation, undefined);
   assert.equal(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-explainer-v1" } }).prompt.navigation, undefined);
   assert.ok(modelExecution(current, assessment, "Explain", [], { ...settings, policy: { ...settings.policy, promptVersion: "workspace-navigator-v2" } }).prompt.navigation.length);
 });

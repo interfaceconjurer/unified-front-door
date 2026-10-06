@@ -141,6 +141,12 @@
   transform: translateX(0);
 }
 
+/* While Today departs, keep the staged view outside both pointer and
+   visibility checks until the wide chat has finished scrolling. */
+.surfacePane[data-awaiting-scroll="true"] {
+  visibility: hidden;
+}
+
 .surfaceInner {
   flex: 1 1 auto;
   min-width: 0;

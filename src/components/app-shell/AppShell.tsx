@@ -1,19 +1,20 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { NavigationProvider, useNavigation } from "@/components/navigation/NavigationProvider";
 import { AgentPanel } from "@/components/chat/AgentPanel";
-import { surfaceAppForPath } from "@/components/front-door/app-catalog";
-import { SurfaceCanvasHost } from "@/components/surfaces/SurfaceCanvasHost";
+import { Workbench } from "@/components/surfaces/Workbench";
 import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
-import { SurfaceCanvasProvider } from "@/components/surfaces/surface-canvas-context";
-import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { SurfaceCanvasProvider, useWorkbench } from "@/components/surfaces/surface-canvas-context";
+import { workbenchViews } from "@/lib/surface-canvas/persistence";
+import { useWorkspace, useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { normalizeDestinationHref } from "@/lib/navigation/model";
 import { signInDestination } from "@/lib/navigation/sign-in";
-import { applicationClient, getActiveSelectionStore } from "@/lib/application/client";
+import { applicationClient, getActiveCanvasStore, getActiveSelectionStore } from "@/lib/application/client";
 import { connectedOrgForProfile } from "@/lib/workspace/orgs";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import { waitForWorkspaceMotion } from "@/lib/motion";
 import { CommandPalette, type CommandPaletteTab } from "./CommandPalette";
 import { StatusBar } from "./StatusBar";
@@ -58,7 +59,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 function ShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { navigateSurface } = useNavigation();
+  const { selectView } = useNavigation();
+  const workbench = useWorkbench();
+  const { destination } = useWorkspace();
   const { profile } = useDemoProfile();
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
@@ -81,27 +84,132 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", finishResizeTransitions);
     return () => window.removeEventListener("resize", finishResizeTransitions);
   }, []);
-  // Which surface (if any) this route belongs to — drives whether the route
-  // content is wrapped in its per-surface canvas/tab host. The front door and
-  // any non-surface route render their content bare.
-  const surface = surfaceAppForPath(pathname);
+  // The workbench panel is open by explicit choice or by navigating to a view.
+  // Today starts with it closed; plugin routes reveal it unless it was hidden.
   const selectionStore = getActiveSelectionStore(profile?.id);
   const selection = useSyncExternalStore(selectionStore.subscribe, selectionStore.getSnapshot, selectionStore.getServerSnapshot);
-  const surfaceOpen = !isFrontDoor && (selection.surfacePanelOpen ?? true);
+  const surfaceOpen = selection.surfacePanelOpen ?? !isFrontDoor;
+  const scrollFirstView = destination.kind === "available" && !!destination.destination.surface
+    && (!destination.destination.canvas || destination.destination.canvas.kind === "capability");
+  const [surfaceVisible, setSurfaceVisible] = useState(surfaceOpen);
+  const waitingForTodayScroll = useRef(false);
+  const openedByToggle = useRef(false);
+  const todayScrollFallback = useRef<{ log: HTMLElement; today: HTMLElement; padding: string; anchor: string; observer: ResizeObserver; pin: boolean } | null>(null);
+  const clearTodayScrollFallback = useCallback(() => {
+    const fallback = todayScrollFallback.current;
+    if (!fallback) return;
+    fallback.observer.disconnect();
+    fallback.log.style.paddingBottom = fallback.padding;
+    fallback.log.style.overflowAnchor = fallback.anchor;
+    todayScrollFallback.current = null;
+  }, []);
+  if (!surfaceOpen && surfaceVisible) setSurfaceVisible(false);
+  useLayoutEffect(() => {
+    if (!surfaceOpen) {
+      waitingForTodayScroll.current = false;
+      openedByToggle.current = false;
+      clearTodayScrollFallback();
+      return;
+    }
+    if (surfaceVisible || waitingForTodayScroll.current) return;
+    // Navigation can open the persisted panel before the destination route
+    // arrives. Wait for that route before deciding whether Today must scroll.
+    if (isFrontDoor && !openedByToggle.current) return;
+    // A capability or overview launched over Today holds the wide chat until
+    // its new transcript entry has scrolled the briefing out of sight.
+    const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
+    const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
+    const card = today?.getBoundingClientRect(), viewport = log?.getBoundingClientRect();
+    if (scrollFirstView && !openedByToggle.current && log && today && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
+      waitingForTodayScroll.current = true;
+      // Reserve enough range for the narrow chat before its panel animates.
+      // Otherwise the new entry can hit the scroll clamp as Today grows, and
+      // the briefing comes back into view after it was scrolled away.
+      const observer = new ResizeObserver(() => {
+        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
+        if (overlap > 0) log.scrollTop += overlap;
+      });
+      todayScrollFallback.current = { log, today, padding: log.style.paddingBottom, anchor: log.style.overflowAnchor, observer, pin: false };
+      log.style.overflowAnchor = "none";
+      log.style.paddingBottom = `${log.clientHeight}px`;
+      return;
+    }
+    openedByToggle.current = false;
+    const frame = requestAnimationFrame(() => setSurfaceVisible(true));
+    return () => cancelAnimationFrame(frame);
+  }, [surfaceOpen, surfaceVisible, scrollFirstView, isFrontDoor, clearTodayScrollFallback]);
+  const releaseSurfaceGate = useCallback((keepTodayOffscreen = true) => {
+    if (!waitingForTodayScroll.current) return false;
+    waitingForTodayScroll.current = false;
+    const fallback = todayScrollFallback.current;
+    if (fallback) fallback.pin = keepTodayOffscreen;
+    if (keepTodayOffscreen && fallback) {
+      const overlap = fallback.today.getBoundingClientRect().bottom - fallback.log.getBoundingClientRect().top + 1;
+      if (overlap > 0) fallback.log.scrollTop += overlap;
+      fallback.observer.observe(fallback.today);
+    }
+    setSurfaceVisible(true);
+    return true;
+  }, []);
+  useEffect(() => {
+    if (!surfaceOpen || surfaceVisible || !waitingForTodayScroll.current) return;
+    let frame = 0;
+    const timer = window.setTimeout(() => {
+      if (!waitingForTodayScroll.current) return;
+      const fallback = todayScrollFallback.current;
+      if (!fallback) { releaseSurfaceGate(); return; }
+      const { log, today } = fallback;
+      // A visit may be delayed or unavailable. Use the reserved scroll range to
+      // move the existing briefing away even without a new transcript entry.
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const scroll = () => {
+        if (!waitingForTodayScroll.current) return;
+        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
+        if (overlap <= 0) {
+          releaseSurfaceGate();
+          return;
+        }
+        const before = log.scrollTop;
+        log.scrollTop += reduced ? overlap : Math.min(overlap, 80);
+        if (log.scrollTop === before) {
+          // An unexpected scroll clamp must not leave the workbench inert.
+          releaseSurfaceGate();
+          return;
+        }
+        frame = requestAnimationFrame(scroll);
+      };
+      scroll();
+    }, 600);
+    return () => { window.clearTimeout(timer); cancelAnimationFrame(frame); };
+  }, [surfaceOpen, surfaceVisible, isFrontDoor, scrollFirstView, releaseSurfaceGate]);
+  useEffect(() => () => clearTodayScrollFallback(), [clearTodayScrollFallback]);
+  useLayoutEffect(() => {
+    // Reduced motion applies the narrow chat width in one commit. Correct its
+    // new scroll position before that commit paints; ResizeObserver covers the
+    // subsequent frames of the normal-width transition.
+    const fallback = todayScrollFallback.current;
+    if (!surfaceVisible || !fallback?.pin) return;
+    const overlap = fallback.today.getBoundingClientRect().bottom - fallback.log.getBoundingClientRect().top + 1;
+    if (overlap > 0) fallback.log.scrollTop += overlap;
+  }, [surfaceVisible]);
+  const shownSurfaceOpen = surfaceOpen && surfaceVisible;
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
+  const [palettePlugin, setPalettePlugin] = useState<SurfaceId | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const paletteClosing = useRef(false);
   const paletteAction = useRef<(() => void) | undefined>(undefined);
-  const openPalette = useCallback((tab: CommandPaletteTab) => {
+  const openPalette = useCallback((tab: CommandPaletteTab, plugin: SurfaceId | null = null) => {
     if (!paletteTab) {
       setPaletteTab(tab);
     }
+    setPalettePlugin(plugin);
     // Reopening during dismissal reverses the dissolve and cancels its action.
     paletteClosing.current = false;
     paletteAction.current = undefined;
     setPaletteOpen(true);
   }, [paletteTab]);
+  const exploreCapabilities = useCallback((plugin: SurfaceId) => openPalette("capabilities", plugin), [openPalette]);
   const closePalette = useCallback((action?: () => void) => {
     if (paletteClosing.current) return;
     paletteClosing.current = true;
@@ -114,6 +222,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     paletteClosing.current = false;
     paletteAction.current = undefined;
     setPaletteTab(null);
+    setPalettePlugin(null);
     action?.();
   }, []);
   const { panelOpen, togglePanel } = useWorkspacePanel();
@@ -126,15 +235,25 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   }, [panelOpen, togglePanel]);
 
   const toggleSurfacePanel = useCallback(() => {
-    if (!surface) {
-      navigateSurface("build");
+    if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
+      document.getElementById("workbench-toggle")?.focus();
+    }
+    // Reopening from Today returns to the last active view, if any remain.
+    if (!surfaceOpen) {
+      openedByToggle.current = true;
+      setSurfaceVisible(true);
+    } else {
+      openedByToggle.current = false;
+      setSurfaceVisible(false);
+    }
+    if (!surfaceOpen && !workbench.activeId && workbench.views.length) {
+      const store = getActiveCanvasStore(profile?.id, getActiveSelectionStore(profile?.id).getSnapshot().target);
+      const last = workbenchViews(store.getSnapshot()).active;
+      selectView(workbench.views.some(view => view.id === last) ? last! : workbench.views.at(-1)!.id);
       return;
     }
-    if (surfaceOpen && surfacePaneRef.current?.contains(document.activeElement)) {
-      document.getElementById("surface-panel-toggle")?.focus();
-    }
     selectionStore.setSurfacePanelOpen(!surfaceOpen);
-  }, [selectionStore, navigateSurface, surface, surfaceOpen]);
+  }, [selectionStore, surfaceOpen, workbench, selectView, profile?.id]);
 
   // ⌘⇧P opens the palette; ⌘B and ⌘⇧B toggle the left and right panels.
   useEffect(() => {
@@ -146,7 +265,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       if (event.shiftKey && key === "p") {
         event.preventDefault();
         if (paletteOpen) closePalette();
-        else openPalette("all");
+        else openPalette("capabilities");
       } else if (key === "b") {
         event.preventDefault();
         if (event.shiftKey) toggleSurfacePanel();
@@ -162,7 +281,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   return (
       <div className={styles.shell} ref={shellRef}>
         <TopBar
-          onOpenPalette={() => openPalette("all")}
+          onOpenPalette={() => openPalette("capabilities")}
           onOpenProjects={() => openPalette("projects")}
           panelOpen={panelOpen}
           onTogglePanel={toggleWorkspacePanel}
@@ -181,37 +300,36 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${surfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !surfaceOpen} data-workspace-motion>
+              <div className={`${styles.chatColumn} ${shownSurfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !shownSurfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>
-                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} />
+                  <AgentPanel waitForLayout={waitForLayout} layoutKey={`${pathname}:${surfaceOpen}:${panelOpen}`} releaseSurfaceGate={releaseSurfaceGate} exploreCapabilities={exploreCapabilities} />
                 </div>
               </div>
               {/* The surface is an overlay pinned at its final 60% width: adding
                   .surfaceVisible slides it in from the right (and the front door
                   parks it off-screen) so its content never reflows as it enters. */}
               <main
-                id="surface-panel"
+                id="workbench"
+                aria-label="Workbench"
                 data-workspace-motion
+                data-awaiting-scroll={surfaceOpen && !shownSurfaceOpen}
                 ref={surfacePaneRef}
-                className={`${styles.surfacePane} ${surfaceOpen ? styles.surfaceVisible : ""}`}
-                aria-hidden={!surfaceOpen}
-                inert={!surfaceOpen}
+                className={`${styles.surfacePane} ${shownSurfaceOpen ? styles.surfaceVisible : ""}`}
+                aria-hidden={!shownSurfaceOpen}
+                inert={!shownSurfaceOpen}
               >
-                {surface ? (
-                  <div className={styles.surfaceInner}>
-                    <SurfaceCanvasHost key={surface.id} surfaceId={surface.id}>{children}</SurfaceCanvasHost>
-                  </div>
-                ) : (
-                  <div className={styles.surfaceInner}>{children}</div>
-                )}
+                <div className={styles.surfaceInner}>
+                  <Workbench onChooseCapability={() => openPalette("capabilities")} />
+                  {children}
+                </div>
               </main>
             </div>
           </div>
         </div>
         <StatusBar onOpenProjects={() => openPalette("projects")} onOpenOrgs={() => openPalette("orgs")} />
-        {paletteTab && <CommandPalette initialTab={paletteTab} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
+        {paletteTab && <CommandPalette key={`${paletteTab}:${palettePlugin ?? "all"}`} initialTab={paletteTab} initialPlugin={palettePlugin} open={paletteOpen} onClose={closePalette} onExited={finishPaletteClose} />}
       </div>
 
   );

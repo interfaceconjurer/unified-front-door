@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openTodayOverview, workbenchTab } from './workbench-helpers.mjs';
 import { install, session } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -98,8 +99,8 @@ try {
       await page.reload();
       await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
       if (id === 'kf') {
-        await page.getByRole('group', { name: 'Today', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
-        await page.getByRole('tab', { name: 'Build & Setup', exact: true }).waitFor();
+        await openTodayOverview(page, 'Build & Setup');
+        await workbenchTab(page, 'Build & Setup overview').waitFor();
         await page.locator('#workspace-panel-toggle').click();
         const previousView = destination(page);
         await page.getByRole('button', { name: `User menu for ${profile.name}`, exact: true }).click();
@@ -107,11 +108,11 @@ try {
         await page.getByRole('button', { name: 'Switch org, current org: UAT Sandbox', exact: true }).waitFor();
         await page.getByRole('group', { name: 'Today', exact: true }).waitFor();
         assert.equal(await page.locator('#workspace-panel-toggle').getAttribute('aria-pressed'), 'false');
-        assert.equal(await page.locator('#surface-panel-toggle').getAttribute('aria-pressed'), 'false');
+        assert.equal(await page.locator('#workbench-toggle').getAttribute('aria-pressed'), 'false');
         await page.getByRole('button', { name: 'User menu for Jordan Wright', exact: true }).click();
         await page.getByRole('button', { name: /Switch to Karen Flores/ }).click();
         await page.getByRole('button', { name: 'Switch org, current org: SIT Sandbox', exact: true }).waitFor();
-        await page.getByRole('tab', { name: 'Build & Setup', exact: true }).waitFor();
+        await workbenchTab(page, 'Build & Setup overview').waitFor();
         assert.deepEqual(destination(page), previousView);
         assert.equal(await page.locator('#workspace-panel-toggle').getAttribute('aria-pressed'), 'true');
       }

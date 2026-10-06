@@ -49,20 +49,6 @@
   border-block-end-color: var(--slds-g-color-accent-1, #0176d3);
 }
 
-/* Matching hairline dividers frame the pinned surface icon and name, keeping
-   the surface identity distinct from the launched canvases that follow it. */
-.tabWrapSurface {
-  anchor-name: --surface-switcher;
-  position: sticky;
-  inset-inline-start: 0;
-  z-index: 1;
-  background: var(--workspace-background-chat);
-  box-shadow: -0.5rem 0 var(--workspace-background-chat);
-  margin-inline-end: var(--slds-g-spacing-1, 0.25rem);
-  padding-inline-end: var(--slds-g-spacing-1, 0.25rem);
-  border-inline: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-}
-
 /* No background plate — a tab is just its label (or the overview home glyph),
    distinguished only by weight/color and, when active, the shared underline. */
 .tab {
@@ -87,37 +73,14 @@
   color: var(--slds-g-color-on-surface-2, #2e2e2e);
 }
 
-.surfaceTrigger {
-  display: inline-flex;
-  align-self: center;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 1.75rem;
-  height: 2rem;
-  padding: 0;
-  border: 0;
-  border-inline-start: 1px solid var(--slds-g-color-border-1, #c9c9c9);
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--slds-g-color-on-surface-1, #5c5c5c);
-  cursor: pointer;
-}
-.surfaceTrigger:hover,
-.surfaceTrigger[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 12%, transparent);
-}
-.surfaceChevron { flex-shrink: 0; transform: rotate(90deg); }
-
-/* The surface glyph on the pinned tab — fixed size so it never shrinks as the
-   label truncates, and slightly muted so the surface name carries the weight. */
+/* The plugin glyph on each view tab — fixed size so it never shrinks as the
+   title truncates, and slightly muted so the capability title carries the weight. */
 .surfaceTabIcon {
   flex: 0 0 auto;
   color: var(--slds-g-color-on-surface-1, #5c5c5c);
 }
 
-/* When the pinned surface tab is the active one, its glyph joins the label at
-   the strong on-surface ink rather than staying muted. */
+/* The active view's glyph joins its label at the strong on-surface ink. */
 .tabActive .surfaceTabIcon {
   color: inherit;
 }
@@ -127,8 +90,7 @@
   color: var(--slds-g-color-on-surface-3, #03234d);
 }
 
-.tab:focus-visible,
-.surfaceTrigger:focus-visible {
+.tab:focus-visible {
   outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
   outline-offset: -2px;
 }
@@ -186,3 +148,47 @@
   outline: 2px solid var(--slds-g-color-accent-1, #0176d3);
   outline-offset: -2px;
 }
+
+/* Each view names its plugin, capability and working context above its body. */
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin-block-end: var(--slds-g-spacing-4, 1rem);
+  padding-block-end: var(--slds-g-spacing-3, 0.75rem);
+  border-block-end: 1px solid var(--workspace-heading-border);
+  font-size: var(--slds-g-font-scale-1, 0.8125rem);
+  color: var(--slds-g-color-on-surface-1, #5c5c5c);
+}
+.identityPlugin { display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 600; }
+.identitySeparator { color: var(--slds-g-color-border-1, #c9c9c9); }
+.identityCapability { font-weight: 600; color: var(--slds-g-color-on-surface-3, #03234d); }
+.identityContext {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--slds-g-spacing-2, 0.5rem);
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+.identityContext li {
+  display: inline-flex;
+  gap: 0.35rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--slds-g-radius-border-1, 0.25rem);
+  background: color-mix(in srgb, var(--slds-g-color-accent-2, #0176d3) 8%, transparent);
+  color: var(--slds-g-color-on-surface-2, #2e2e2e);
+}
+.identityContext li span { color: var(--slds-g-color-on-surface-1, #5c5c5c); }
+
+.empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--slds-g-spacing-3, 0.75rem);
+  max-width: 32rem;
+  margin-block: var(--slds-g-spacing-8, 3rem);
+}
+.empty h2 { margin: 0; font-size: var(--slds-g-font-scale-4, 1.25rem); }
+.empty p { margin: 0; color: var(--slds-g-color-on-surface-1, #5c5c5c); }
+.empty button { display: inline-flex; align-items: center; gap: 0.4rem; }

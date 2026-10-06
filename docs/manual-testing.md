@@ -298,18 +298,28 @@ opening the same resource globally and within a project keeps their scopes disti
   reload, surface switching, and close. Global Home retains its aggregate view.
   Automated: `scripts/browser/project-surface-scope.mjs`, `global-home.mjs`.
 
-- With another canvas open, click the pinned surface tab's name: it should open
-  the surface overview without a dropdown and preserve scope and drafts. Tab from
-  the overview tab to the separate chevron; Enter opens the surface menu.
-  Clicking the chevron while another canvas is selected must leave it selected.
-  The dropdown should mark the current surface and offer the profile's accessible
-  surfaces. Switch across
-  Build & Setup, Code, Govern & Observe, and ALM; return to confirm the last canvas
-  and drafts remain. Repeat from global Home and a project/worktree with an org
-  selected: switching surfaces must preserve that scope. Choose the current
-  surface to reach its overview. Escape, Tab, and outside clicks dismiss without
-  navigating; Up/Down and Home/End move within the menu. Check a narrow viewport.
-  Automated: `scripts/browser/surface-switcher.mjs`.
+- Open the Build & Setup, Code, and Govern & Observe overviews. Each should
+  show its starter cards immediately, with no Start something new disclosure.
+  Open one card on each page and return to its overview; the cards should still
+  be visible and the canvas should retain its org/workspace context. Check dark
+  desktop and narrow light layouts. ALM keeps its already visible planning cards.
+  Automated: `scripts/browser/workbench-switching.mjs`, `alm-overview.mjs`.
+
+- Open the palette (⌘⇧P): it starts on Capabilities, and tabs read Capabilities, Projects, Sessions, Orgs,
+  Resources, Plugins, and Arrow/Home/End move between them. In Capabilities,
+  filter by plugin and ALM stage and select a capability. Its preview should stay fully visible to the right of the results, including the Open action; its “From <plugin>”
+  link opens that plugin in Plugins. At narrow widths the preview should stack below the list and scroll independently. In Plugins, check publisher, version and
+  contributions, then Uninstall and Install a plugin: its capabilities leave and
+  return in Capabilities, and saved drafts are kept. Open capabilities from two
+  plugins: both appear as views in the one workbench, titled by capability, each
+  naming its plugin, capability, org and project. Switch and close views in any
+  order (Arrow/Home/End, Delete); reopening a closed capability restores its
+  draft. The top-bar Workbench icon (⌘⇧B) is pressed while the panel is open and
+  hides/restores the views; with no views it offers “Choose a capability”. From
+  Today, each Explore capabilities action opens the corresponding plugin filter
+  in Capabilities without leaving Today. Choose that plugin's overview result
+  to open its workbench view. Repeat from a project/worktree and at a narrow width.
+  Automated: `scripts/browser/plugin-workbench.mjs`, `scripts/browser/workbench-switching.mjs`.
 
 - On a wide screen, close both panels: transcript and composer center with a
   1200px width cap. Open either panel: both left-align in the remaining chat area.

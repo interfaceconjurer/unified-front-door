@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview, openTodayOverview } from './workbench-helpers.mjs';
 import { install } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -35,7 +36,7 @@ try {
     const composer = page.getByRole('textbox', { name: 'Message the agent', exact: true });
     await composer.fill('Keep this draft while navigation waits');
     hold = true; const readsBefore = reads;
-    await page.getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'Build & Setup', exact: true }).click();
+    await openTodayOverview(page, 'Build & Setup');
     await activity.getByText('Updating conversation…', { exact: true }).waitFor();
     const indicator = await activity.evaluate(node => {
       const heading = node.parentElement.querySelector('h1').getBoundingClientRect();
@@ -78,10 +79,7 @@ try {
 
     if (motion === 'reduce') {
       failOnce = true;
-      await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
-      const dialog = page.getByRole('dialog');
-      await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-      await dialog.getByRole('option').filter({ has: page.getByText('Code', { exact: true }) }).getByRole('button').click();
+      await openOverview(page, 'Code');
       await activity.getByText('Reconnecting…', { exact: true }).waitFor();
       await page.getByText('Ready in code', { exact: true }).waitFor();
       await page.waitForFunction(() => document.querySelector('[aria-label="Agent"] header [role="status"]')?.textContent === '');

@@ -107,7 +107,8 @@ try {
   await scoped.page.getByRole('button', { name: 'Search workspace', exact: true }).click();
   dialog = scoped.page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-  await choose(dialog, 'Trailblazer CRM');
+  await dialog.getByRole('button', { name: 'Trailblazer CRM main', exact: true }).click();
+  await dialog.waitFor({ state: 'detached' });
   const header = scoped.page.locator('header[data-project-scoped]');
   let project = header.getByRole('button', { name: /Switch project, current project: Trailblazer CRM, branch: main/ });
   await project.waitFor();
@@ -118,7 +119,8 @@ try {
   await choose(dialog, 'feature/lead-routing');
   await header.getByRole('button', { name: /current project: Trailblazer CRM, branch: feature\/lead-routing/ }).waitFor();
   await header.getByRole('button', { name: /Switch project/ }).click(); dialog = scoped.page.getByRole('dialog');
-  await choose(dialog, 'Acme Storefront');
+  await dialog.getByRole('button', { name: 'Acme Storefront main', exact: true }).click();
+  await dialog.waitFor({ state: 'detached' });
   await header.getByRole('button', { name: /current project: Acme Storefront/ }).waitFor();
   await scoped.page.goBack();
   await header.getByRole('button', { name: /current project: Trailblazer CRM, branch: feature\/lead-routing/ }).waitFor();
@@ -151,9 +153,14 @@ try {
   await scoped.page.waitForURL(url => url.pathname === '/');
   await header.getByRole('button', { name: 'Search workspace', exact: true }).click();
   dialog = scoped.page.getByRole('dialog');
-  await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-  await choose(dialog, 'Build & Setup');
+  await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).click();
+  await choose(dialog, 'Build & Setup overview');
   await scoped.page.waitForURL(url => url.pathname === '/build');
+  await scoped.page.getByRole('tab', { name: 'Build & Setup overview', exact: true }).waitFor();
+  assert(await scoped.page.evaluate(() => {
+    const log = document.querySelector('[role="log"]'), today = log?.querySelector('[data-kind="today"]');
+    return !!log && !!today && today.getBoundingClientRect().bottom <= log.getBoundingClientRect().top + 1;
+  }), 'A delayed visit still scrolls Today out before opening the overview');
   assert.deepEqual(currentDestination().target, { projectId: null, worktreeId: null, orgId: 'uat' });
   assert.equal(currentDestination().canvas, undefined, 'Home opens its own surface overview instead of inheriting the project canvas');
   assert.equal(await scoped.page.getByRole('tab', { name: 'Customer Tier · UAT Sandbox', exact: true }).count(), 0);

@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openTodayOverview, workbenchTab } from './workbench-helpers.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
@@ -40,7 +41,7 @@ try {
       await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
       await page.waitForFunction(() => document.querySelector('fieldset[aria-label="Today"]')?.getAnimations({ subtree: true })
         .every(animation => animation.effect?.getTiming().iterations === Infinity || animation.playState === 'finished'));
-      await today.getByRole('link', { name: 'ALM', exact: true }).click();
+      await openTodayOverview(page, 'ALM');
     } else await page.goto(href('alm'));
     await checkOverview(page);
     assert.equal(fixture.state.snapshot.assessment.projects.length, 0);
@@ -58,7 +59,7 @@ try {
       assert.equal(destination(page).canvas.kind, 'capability');
       assert.equal(destination(page).canvas.params.capability, capability);
       assert.equal(await composer.inputValue(), 'Keep my planning notes.');
-      await page.getByRole('tab', { name: 'ALM', exact: true }).click();
+      await workbenchTab(page, 'ALM overview').click();
       await checkOverview(page);
     }
     assert(fixture.commands.every(command => command.kind === 'visit'), 'Browsing ALM does not start assessments, create projects, or submit agent work');

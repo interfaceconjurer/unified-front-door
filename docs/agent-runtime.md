@@ -28,7 +28,10 @@ conversation, building on completed history and asking focused questions about
 the goal, audience, success criteria, or constraints only when useful context is
 missing. Discussing code, releases, or permissions does not itself navigate. The
 server only captures navigation tools when the current request explicitly asks
-to open or view a destination. The bounded intent detector leaves ambiguous
+to open or view a destination or directly starts a named capability. “I want to
+start a project” selects the ALM project-creation capability; matching catalog
+launch names are limited to their one captured destination and require its
+`open_canvas` handoff. Opening the view does not create a project. The bounded intent detector leaves ambiguous
 follow-ups, deferred navigation, quoted examples, and content requests in chat.
 The demo policy likewise requires an explicit surface request instead of routing
 from topic keywords. No second client-side planner is introduced.

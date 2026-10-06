@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, test } from "node:test";
 import { testModules } from "./test-modules.mjs";
 const modules = testModules(); after(modules.cleanup);
-const { hasExplicitNavigationIntent, requestedSurface } = modules.load("lib/agent/navigation-intent");
+const { hasExplicitNavigationIntent, requestedCapabilityId, requestedSurface } = modules.load("lib/agent/navigation-intent");
 const { recommendSurface, demoReply } = modules.load("lib/agent/demo");
 const { demoProfileById } = modules.load("lib/demo-profiles");
 
@@ -27,6 +27,20 @@ test("planning, instructional text, quotations and negative requests do not offe
     "Show me code for a React app", "Show me the steps to deploy", "Show me the plan", "Show me a deployment plan",
     "Open Account, but not now", "Open Account after we finish planning"]) {
     assert.equal(hasExplicitNavigationIntent(text), false, text);
+  }
+});
+
+test("direct capability starts resolve cataloged views without turning planning topics into navigation", () => {
+  for (const text of ["I want to start a project", "Let's start a project.", "Create a project", "Create a new project",
+    "I want to start a project for onboarding", "I want to start a project to improve lead routing"]) {
+    assert.equal(requestedCapabilityId(text), "capability:alm:project", text);
+    assert.equal(hasExplicitNavigationIntent(text), true, text);
+  }
+  assert.equal(requestedCapabilityId("I want to build an automation"), "capability:build:automation");
+  assert.equal(requestedCapabilityId("Start an SFDX project"), "capability:code:sfdx-project");
+  for (const text of ["Help me plan a project", "Build a React app", "I want to start a project, but stay here",
+    "Don't start a project", "Start a project after we finish planning", '"Start a project"']) {
+    assert.equal(requestedCapabilityId(text), null, text);
   }
 });
 

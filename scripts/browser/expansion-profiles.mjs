@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
+import { openOverview, openTodayOverview, workbenchTab } from './workbench-helpers.mjs';
 const modules = testModules(), { projectsForProfile } = modules.load('lib/workspace/demo-workspace');
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] }, cleanups = [];
@@ -16,7 +17,7 @@ try {
     const destination = { version: 1, owner: profileId, surface: null, target: { projectId: null, worktreeId: null, orgId: 'uat' } };
     await page.goto(origin + '/?destination=' + encodeURIComponent(JSON.stringify(destination)));
     const today = page.getByRole('group', { name: 'Today', exact: true }); await today.waitFor();
-    for (const [id, name] of Object.entries(surfaces)) assert.equal(await today.getByRole('link', { name, exact: true }).count(), expected.includes(id) ? 1 : 0, `${profileId}: Today ${name}`);
+    for (const [id, name] of Object.entries(surfaces)) assert.equal(await today.getByRole('button', { name, exact: true }).count(), expected.includes(id) ? 1 : 0, `${profileId}: Today ${name}`);
     if (profileId === 'kf') {
       await today.getByRole('button', { name: 'Review Lead routing → UAT', exact: true }).waitFor();
       assert.equal(await today.getByRole('button', { name: 'Review Integration user access', exact: true }).count(), 0);
@@ -25,13 +26,18 @@ try {
     await page.screenshot({ path: outputPath(`${label}-expansion-${profileId}.png`) });
     await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-    assert.equal(await dialog.getByRole('option').count(), expected.length + 1, 'Home plus allowed surfaces');
-    for (const [id, name] of Object.entries(surfaces)) assert.equal(await dialog.getByRole('option').filter({ hasText: name }).count(), expected.includes(id) ? 1 : 0);
+    await dialog.getByRole('tab', { name: 'Plugins', exact: true }).click();
+    assert.equal(await dialog.getByRole('option').count(), expected.length, 'Only accessible plugins are installed');
+    for (const [id, name] of Object.entries(surfaces)) assert.equal(await dialog.getByRole('option').locator('[data-result-label]').filter({ hasText: new RegExp(`^${name}$`) }).count(), expected.includes(id) ? 1 : 0);
+    await dialog.getByRole('button', { name: 'Available', exact: true }).click();
+    assert.equal(await dialog.getByRole('option').count(), 0, 'Inaccessible plugins are not offered for installation');
+    await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).click();
+    const pluginLabels = await dialog.getByRole('option').evaluateAll(nodes => [...new Set(nodes.map(node => node.querySelector('[class*="surfaceLabel"]')?.textContent))]);
+    assert.deepEqual(pluginLabels, Object.entries(surfaces).filter(([id]) => expected.includes(id)).map(([, name]) => name).sort((a, b) => ['Build & Setup', 'Code', 'Govern & Observe', 'ALM'].indexOf(a) - ['Build & Setup', 'Code', 'Govern & Observe', 'ALM'].indexOf(b)), 'Capabilities follow plugin access');
     await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
     const samples = projectsForProfile(profileId);
     assert.equal(samples.length, { sp: 0, kf: 2, jw: 4, am: 6 }[profileId]);
-    assert.equal(await dialog.getByRole('option').count(), samples.reduce((count, project) => count + 1 + project.worktrees.filter(tree => !tree.isPrimary).length, 0));
+    assert.equal(await dialog.getByRole('option').count(), samples.reduce((count, project) => count + 2 + project.worktrees.filter(tree => !tree.isPrimary).length, 0), 'Projects includes each project and its plan action');
     for (const project of samples) await dialog.getByRole('option').filter({ hasText: project.name }).first().waitFor();
     if (profileId === 'kf') assert(!/feature\/|hotfix\/|main/.test(await dialog.getByRole('listbox').innerText()), 'Builder projects have no branch entries');
     await dialog.getByRole('tab', { name: 'Resources', exact: true }).click();
@@ -39,22 +45,16 @@ try {
     await search.fill('OpportunityTriggerHandler');
     await page.waitForFunction(count => document.querySelectorAll('dialog [role=option]').length === count, profileId === 'am' ? 1 : 0);
     await page.keyboard.press('Escape');
-    await today.getByRole('link', { name: 'Build & Setup', exact: true }).click();
-    await page.getByRole('tab', { name: 'Build & Setup', exact: true }).waitFor();
-    await page.getByRole('button', { name: 'Switch surface', exact: true }).click();
-    const menu = page.getByRole('menu', { name: 'Switch surface', exact: true });
-    assert.equal(await menu.getByRole('menuitemradio').count(), expected.length);
-    await page.keyboard.press('Escape');
+    await openTodayOverview(page, 'Build & Setup');
+    await workbenchTab(page, 'Build & Setup overview').waitFor();
     if (profileId === 'kf') {
       await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
       await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-      await dialog.getByRole('option').filter({ hasText: 'Trailblazer CRM' }).click();
+      await dialog.getByRole('option').filter({ hasText: 'Trailblazer CRM' }).first().click();
       await page.waitForURL(url => JSON.parse(url.searchParams.get('destination')).target.projectId === 'trailblazer-crm');
       assert.equal(JSON.parse(new URL(page.url()).searchParams.get('destination')).target.worktreeId, null);
-      await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
-      await dialog.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-      await dialog.getByRole('option').filter({ hasText: 'Build & Setup' }).click();
-      await page.getByRole('tab', { name: 'Build & Setup', exact: true }).click();
+      await openOverview(page, 'Build & Setup');
+      await workbenchTab(page, 'Build & Setup overview').click();
       await page.getByRole('tabpanel').getByRole('button', { name: 'Resume Lead routing assistant', exact: true }).click();
       const canvas = page.getByRole('tabpanel');
       await canvas.getByRole('heading', { name: 'Lead routing assistant', exact: true }).waitFor();
@@ -72,11 +72,11 @@ try {
     }
     if (profileId !== 'am') {
       await page.goto(origin + '/code');
-      await page.getByText('This surface is unavailable for your demo profile.', { exact: true }).first().waitFor();
+      await page.getByText('This plugin is unavailable for your demo profile.', { exact: true }).first().waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Back to your code.', exact: true }).count(), 0);
     }
     assert(fixture.commands.every(command => command.kind !== 'submit'), 'Browsing scenarios never invokes a model');
-    out.checks.push(`${profileId}: Today, sample work, navigator, resources, surface switcher and direct routes match expansion access`);
+    out.checks.push(`${profileId}: Today, sample work, navigator, resources, plugins, capabilities and direct routes match expansion access`);
     await context.close();
   }
   assert.deepEqual(out.errors, []);

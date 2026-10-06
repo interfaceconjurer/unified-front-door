@@ -65,13 +65,13 @@ try {
         const dest = spec => origin + '/build?destination=' + encodeURIComponent(JSON.stringify({ version: 1, owner: 'am', surface: 'build', target, canvas: spec }));
         await p.goto(dest(active.canvas));
         await p.getByRole('textbox', { name: 'Name', exact: true }).waitFor();
-        assert.equal(await p.getByRole('tablist', { name: 'Build & Setup canvases', exact: true }).getByRole('tab').count(), total + 1);
+        assert.equal(await p.getByRole('tablist', { name: 'Open views', exact: true }).getByRole('tab').count(), total);
         assert.equal(await p.getByRole('textbox', { name: 'Name', exact: true }).inputValue(), `Preserved ${total - 1}`);
         if (total === 20) {
             const next = { ...canvas, title: 'New blocked view', params: { ...canvas.params, section: 'over-budget' } };
             await p.goto(dest(next));
-            await p.getByRole('tablist', { name: 'Build & Setup canvases', exact: true }).waitFor();
-            assert.equal(await p.getByRole('tablist', { name: 'Build & Setup canvases', exact: true }).getByRole('tab').count(), 21);
+            await p.getByRole('tablist', { name: 'Open views', exact: true }).waitFor();
+            assert.equal(await p.getByRole('tablist', { name: 'Open views', exact: true }).getByRole('tab').count(), 20);
             assert.equal(await p.getByRole('tab', { name: 'New blocked view', exact: true }).count(), 0);
             await p.getByRole('tab', { name: 'Existing 18', exact: true }).click();
             await p.waitForFunction(() => new URL(location.href).searchParams.get('destination')?.includes('budget-18'));
@@ -86,7 +86,7 @@ try {
             await other.getByRole('textbox', { name: 'Name', exact: true }).waitFor();
             const replacement = { kind: 'capability', title: 'Replacement', params: { scope: 'unbound', surface: 'build', capability: 'data-model' } };
             await other.evaluate(({ key, closed, replacement, replacementId, target }) => { const raw = JSON.parse(localStorage.getItem(key)); const data = raw.__ufd === 1 ? raw.data : raw; data.build.canvases = data.build.canvases.filter(v => v.id !== closed); data.build.canvases.push({ ...replacement, id: replacementId }); data.build.targets = { ...data.build.targets, [closed]: target }; data.build.activeCanvasId = replacementId; localStorage.setItem(key, JSON.stringify({ __ufd: 1, data })); }, { key: `ufd.canvas-preferences.v3.${session.namespaceId}.${session.profileId}.${session.workspaceEpoch}.${JSON.stringify(['unbound-session', null])}`, closed: active.id, replacement, replacementId: idFor(replacement), target });
-            await p.waitForFunction(() => document.querySelectorAll('[role=tablist][aria-label="Build & Setup canvases"] [role=tab]').length === 22);
+            await p.waitForFunction(() => document.querySelectorAll('[role=tablist][aria-label="Open views"] [role=tab]').length === 21);
             assert.equal(await p.getByRole('textbox', { name: 'Name', exact: true }).inputValue(), 'Preserved 19');
             await p.getByRole('textbox', { name: 'Name', exact: true }).fill('Closed in another tab but still editable');
             assert.equal(await p.getByRole('textbox', { name: 'Name', exact: true }).inputValue(), 'Closed in another tab but still editable');
@@ -94,7 +94,7 @@ try {
         }
         else {
             await p.getByRole('button', { name: 'Close Existing 20', exact: true }).click();
-            await p.waitForFunction(() => document.querySelectorAll('[role=tablist][aria-label="Build & Setup canvases"] [role=tab]').length === 21);
+            await p.waitForFunction(() => document.querySelectorAll('[role=tablist][aria-label="Open views"] [role=tab]').length === 20);
             out.checks.push('Legacy21openviews retained/readable; closing extra view returns to20 without deleting other tabs');
         }
         await c.close();

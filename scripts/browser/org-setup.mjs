@@ -2,13 +2,14 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview } from './workbench-helpers.mjs';
 import { installAssessment } from './assessment-fixtures.mjs';
 
 const browser = await chromium.launch(), label = process.argv[2] ?? 'candidate';
 const out = { label, checks: [], errors: [] };
 const target = { projectId: null, worktreeId: null, orgId: 'uat' };
 const selected = page => JSON.parse(new URL(page.url()).searchParams.get('destination')).target;
-const overview = page => page.getByRole('tab', { name: 'Build & Setup', exact: true }).click();
+const overview = page => openOverview(page, 'Build & Setup');
 async function setup(profileId, workspace = target, colorScheme = 'dark', width = 1600) {
   const context = await browser.newContext({ httpCredentials, colorScheme, reducedMotion: 'reduce', viewport: { width, height: 1000 } });
   const fixture = await installAssessment(context, { profileId });
@@ -67,7 +68,7 @@ try {
   await page.waitForFunction(() => JSON.parse(new URL(location.href).searchParams.get('destination')).canvas.params.orgId === 'uat');
   assert.equal(await area.getByLabel('Setup org', { exact: true }).inputValue(), 'uat');
   assert(!fixture.stats.commands.some(command => command.kind === 'canvas.save'));
-  out.checks.push('Feature status and review, All search discovery, separate captured org tabs, no draft writes');
+  out.checks.push('Feature status and review, Resources discovery, separate captured org tabs, no draft writes');
   await context.close(); fixture.cleanup();
 
   const project = { projectId: 'trailblazer-crm', worktreeId: 'lead-routing', orgId: 'uat' };

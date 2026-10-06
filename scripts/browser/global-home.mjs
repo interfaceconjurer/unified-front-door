@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { origin, outputPath, httpCredentials } from './config.mjs';
+import { openOverview, openTodayOverview } from './workbench-helpers.mjs';
 import { install, session, assessment } from './fixtures.mjs';
 import { testModules } from '../test-modules.mjs';
 
@@ -217,9 +218,9 @@ try {
     assert.equal(await page.evaluate(() => window.__contextMotion.length), beforeOrg, 'Platform Studio returns to Today within global context without blurring chat');
     assert.deepEqual(destination(page).target, { projectId: null, worktreeId: null, orgId: 'uat' });
     assert.equal(await globalComposer.inputValue(), 'Keep this global draft across orgs');
-    assert.equal(await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore surfaces', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore capabilities', exact: true }).count(), 1);
     assert.equal(todayCount(), 2, 'Returning from a surface appends exactly one Today');
-    assert.equal(await page.locator('#surface-panel').getAttribute('inert'), '', 'Home closes the surface');
+    assert.equal(await page.locator('#workbench').getAttribute('inert'), '', 'Home closes the workbench');
     assert.equal(await historicalToday.locator('button:enabled, a[href]').count(), 0);
     const geometry = await readOnlyToday.evaluate(node => {
       const rows = root => [...root.querySelectorAll('[data-today-row]')].map(row => ({ order: row.dataset.todayRow, width: row.offsetWidth, height: row.offsetHeight }));
@@ -312,10 +313,7 @@ try {
 
     // Keep a project builder draft, then browse cross-project operations in
     // global ALM and confirm project scope isolates tabs on return.
-    await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
-    const surfaces = page.getByRole('dialog');
-    await surfaces.getByRole('tab', { name: 'Surfaces', exact: true }).click();
-    await surfaces.getByRole('option').filter({ has: page.getByText('Build & Setup', { exact: true }) }).getByRole('button').click();
+    await openOverview(page, 'Build & Setup');
     await page.getByRole('tab', { name: 'Lead routing assistant', exact: true }).click();
     assert.equal(destination(page).target.projectId, 'trailblazer-crm');
     assert.equal(await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).count(), 0);
@@ -325,7 +323,7 @@ try {
     await page.getByRole('group', { name: 'Today', exact: true }).getByRole('heading', { name: 'Your work, across projects.', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
     const beforeAlm = await page.evaluate(() => window.__contextMotion.length);
-    await page.getByRole('group', { name: 'Today', exact: true }).getByRole('navigation', { name: 'Explore surfaces', exact: true }).getByRole('link', { name: 'ALM', exact: true }).click();
+    await openTodayOverview(page, 'ALM');
     await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).waitFor();
     await page.getByRole('tab', { name: 'Lead routing → UAT', exact: true }).waitFor();
     await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition') && document.querySelector('[aria-label="Agent"]')?.dataset.motion === 'idle');

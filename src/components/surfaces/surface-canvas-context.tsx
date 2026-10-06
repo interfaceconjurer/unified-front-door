@@ -2,9 +2,13 @@
 
 import { useWorkspace } from "@/components/workspace/workspace-context";
 import { useNavigationActions } from "@/components/navigation/NavigationProvider";
-import { createContext, useContext, useMemo, useSyncExternalStore, useCallback } from "react";
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
 import type { SurfaceId } from "@/lib/workspace/model";
 import { canvasId, canvasVisibleInWorkspace, OVERVIEW_CANVAS, type CanvasSpec } from "@/lib/surface-canvas/model";
+import { overviewPlugin, overviewViewId, workbenchViews } from "@/lib/surface-canvas/persistence";
+import { SURFACE_IDS } from "@/lib/workspace/surfaces";
+import { overviewName } from "@/lib/plugins/catalog";
+import { usePlugins } from "@/components/plugins/use-plugins";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { getActiveCanvasStore } from "@/lib/application/client";
 import { destinationCanvasTarget } from "@/lib/navigation/model";
@@ -36,25 +40,38 @@ function useOwner() {
 export function useSurfaceCanvasActions() {
   const { store, updateDraft } = useOwner();
   const { openCanvas, selectCanvas } = useNavigationActions();
-  return useMemo(() => ({ persistence: store, openCanvas, closeCanvas: store.closeCanvas, setActiveCanvas: selectCanvas, updateDraft }), [store, openCanvas, selectCanvas, updateDraft]);
+  return useMemo(() => ({ persistence: store, openCanvas, closeCanvas: store.closeCanvas, closeView: store.closeView, setActiveCanvas: selectCanvas, updateDraft }), [store, openCanvas, selectCanvas, updateDraft]);
 }
-/** Only the requested surface changes this subscription's data snapshot. */
-export function useSurfaceCanvases(surfaceId: SurfaceId) {
+export type WorkbenchView = { id: string; plugin: SurfaceId; canvas: CanvasSpec };
+/** Every opened view across plugins, in workbench order, limited to the current
+ *  workspace scope. The URL's destination is always present and active; a plugin
+ *  route without a canvas opens that plugin's overview view. */
+export function useWorkbench() {
   const { store, decision } = useOwner();
   const { target } = useWorkspace();
-  const get = useCallback(() => store.getSnapshot()[surfaceId], [store, surfaceId]);
-  const server = useCallback(() => store.getServerSnapshot()[surfaceId], [store, surfaceId]);
-  const slice = useSyncExternalStore(store.subscribe, get, server);
-  const actions = useSurfaceCanvasActions();
+  const { installed } = usePlugins();
+  const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getServerSnapshot);
   return useMemo(() => {
     const destination = decision.kind === "available" ? decision.destination : null;
+    const order = workbenchViews(state);
     const input = destination?.canvas;
-    const selectedId = input ? canvasId(input.kind, input.params) : "overview";
-    const missing = destination?.surface === surfaceId && input && store.canViewCanvas(surfaceId, input) && !slice.canvases.some(item => item.id === selectedId)
-      ? [{ ...input, id: selectedId, draft: slice.closedDrafts?.[selectedId] } as CanvasSpec] : [];
-    const open = slice.canvases.map(canvas => canvas.kind !== "overview" && !canvas.draft && slice.closedDrafts?.[canvas.id] ? { ...canvas, draft: slice.closedDrafts[canvas.id] } : canvas);
-    const canvases = [OVERVIEW_CANVAS, ...open, ...missing].filter(canvas => canvasVisibleInWorkspace(canvas, target, slice.targets?.[canvas.id]));
-    return { ...actions, recovery: slice.recovery, canvases,
-      activeCanvasId: decision.kind === "absent" ? slice.activeCanvasId : destination?.surface === surfaceId ? selectedId : "overview" };
-  }, [actions, slice, decision, surfaceId, store, target]);
+    const selected = destination?.surface ? input ? canvasId(input.kind, input.params) : overviewViewId(destination.surface) : null;
+    const ids = selected && !order.views.includes(selected) && (!input || store.canViewCanvas(destination!.surface!, input)) ? [...order.views, selected] : order.views;
+    const views: WorkbenchView[] = [];
+    for (const id of ids) {
+      const plugin = overviewPlugin(id);
+      if (plugin) { if (installed.includes(plugin)) views.push({ id, plugin, canvas: { ...OVERVIEW_CANVAS, title: overviewName(plugin) } }); continue; }
+      const owner = SURFACE_IDS.find(surface => state[surface].canvases.some(canvas => canvas.id === id)) ?? (id === selected && destination?.surface ? destination.surface : null);
+      if (!owner) continue;
+      const slice = state[owner];
+      const open = slice.canvases.find(canvas => canvas.id === id);
+      const canvas = open ? (open.kind !== "overview" && !open.draft && slice.closedDrafts?.[id] ? { ...open, draft: slice.closedDrafts[id] } : open)
+        : { ...input!, id, draft: slice.closedDrafts?.[id] } as CanvasSpec;
+      if (!installed.includes(owner) || !canvasVisibleInWorkspace(canvas, target, slice.targets?.[id])) continue;
+      views.push({ id, plugin: owner, canvas });
+    }
+    const active = decision.kind === "absent" ? order.active : selected;
+    return { views, activeId: views.some(view => view.id === active) ? active : null,
+      recovery: SURFACE_IDS.flatMap(surface => state[surface].recovery ?? []) };
+  }, [state, decision, store, target, installed]);
 }

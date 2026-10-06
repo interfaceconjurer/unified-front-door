@@ -5,14 +5,16 @@ import { useId } from "react";
 import { RecentWorkList } from "@/components/workspace/RecentWorkList";
 import type { ReturningWork } from "@/lib/workspace/returning-work";
 import { SURFACES } from "@/lib/workspace/surfaces";
+import type { SurfaceId } from "@/lib/workspace/surfaces";
 import type { TodaySnapshot } from "./today-snapshot";
 import { SurfaceNav } from "./SurfaceNav";
 import { todayRow } from "./today-reveal";
 import styles from "./ReturningHome.module.css";
 
-export function ReturningHome({ snapshot, onOpenWork, active }: {
+export function ReturningHome({ snapshot, onOpenWork, active, onExploreCapabilities }: {
   snapshot: TodaySnapshot; active: boolean;
   onOpenWork: (work: ReturningWork) => void;
+  onExploreCapabilities?: (plugin: SurfaceId) => void;
 }) {
   const id = useId();
   const { profile, recent, working } = snapshot;
@@ -41,7 +43,7 @@ export function ReturningHome({ snapshot, onOpenWork, active }: {
         </button>)}
       </div> : <p className={styles.empty} data-today-container {...todayRow(5)}>Nothing needs your attention here.</p>}
     </section>
-    <SurfaceNav revealOrder={surfacesOrder} readOnly={!active} profile={profile} />
+    <SurfaceNav revealOrder={surfacesOrder} readOnly={!active} profile={profile} onExploreCapabilities={onExploreCapabilities} />
     <section aria-labelledby={`${id}-recent`}>
       <div className={styles.sectionHeading} {...todayRow(surfacesOrder + 2)}>
         <h2 id={`${id}-recent`}>Recent work <span className={styles.count}>{recent.length}</span></h2>

@@ -7,7 +7,7 @@ import type { Conversation } from "../chat/conversation";
 import type { OwnedSession } from "./session";
 import { ModelProviderError, serializeModelRequest, type ModelPrompt, type ModelSettings } from "./model-provider";
 import { navigationOptions } from "../agent/navigation";
-import { hasExplicitNavigationIntent } from "../agent/navigation-intent";
+import { hasExplicitNavigationIntent, requestedCapabilityId } from "../agent/navigation-intent";
 import { permissionUsers } from "../org-resources/permissions";
 import { projectTemplate } from "../projects/templates";
 
@@ -22,8 +22,13 @@ type History = { messageId: number; runId: string; role: "user" | "assistant"; c
 /** A pure snapshot projection. History arrives only after owned completed-run
  * filtering; neither UI Today blobs nor pending/failed placeholders are sent. */
 export function modelExecution(context: CapturedContext, assessment: AssessmentState, text: string, history: History[], settings: ModelSettings): ModelExecution {
-  const navigation = settings.policy.promptVersion === "workspace-navigator-v2"
-    || settings.policy.promptVersion === "workspace-planner-v3" && hasExplicitNavigationIntent(text) ? navigationOptions(context) : undefined;
+  const capabilityId = settings.policy.promptVersion === "workspace-planner-v3" ? requestedCapabilityId(text) : null;
+  const canNavigate = settings.policy.promptVersion === "workspace-navigator-v2"
+    || settings.policy.promptVersion === "workspace-planner-v3" && (capabilityId !== null || hasExplicitNavigationIntent(text));
+  const available = canNavigate ? navigationOptions(context) : [];
+  const navigation = capabilityId ? available.filter(option => option.id === capabilityId)
+    : available;
+  const requiredNavigation = !!capabilityId && navigation.length === 1;
   const completed = assessment.runs.find(run => run.id === (context.improvement ? context.improvement.runId : assessmentForOrg(assessment, context.target.orgId).currentRunId) && run.completedAt);
   // Project work items define their source evidence independently of the
   // connected org. A deployment target does
@@ -48,7 +53,7 @@ export function modelExecution(context: CapturedContext, assessment: AssessmentS
         baselineAccess: ["Read", "Create", "Edit"], users: permissionUsers(context.permissions.fields), revision: context.permissions.revision,
         state: "Tracked workspace assignments; the connected org has not been changed" } } : {}),
       assessment: completed ? { id: completed.id, completedAt: completed.completedAt, source: completed.source } : null, findings: included };
-    const prompt: ModelPrompt = { ...(navigation ? { navigation } : {}), messages: [...prior.map(({ role, content }) => ({ role, content })),
+    const prompt: ModelPrompt = { ...(navigation.length ? { navigation } : {}), ...(requiredNavigation ? { requiredNavigation: true } : {}), messages: [...prior.map(({ role, content }) => ({ role, content })),
       { role: "user", content: JSON.stringify({ evidence, request: text }) }] };
     try { serializeModelRequest(prompt, settings.policy); return structuredClone({ kind: "model", version: 1, settings, prompt, provenance }); }
     catch (error) {
