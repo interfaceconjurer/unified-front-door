@@ -67,7 +67,7 @@ try {
   const node = (args, timeout) => run(process.execPath, args, timeout);
   const stages = [
     { id: "locked-install", work: () => run("npm", ["ci", "--include=dev", "--no-audit"]) },
-    { id: "dependency-audit", work: () => run("npm", ["audit", "--include=dev", "--audit-level=moderate"]) },
+    { id: "dependency-audit", work: () => node(["scripts/audit-dependencies.mjs"]) },
     { id: "pure-tests", work: async () => {
       const suites = (await readdir("scripts")).filter(name => name.endsWith(".test.mjs") && !["database.test.mjs", "agent-database.test.mjs", "model-database.test.mjs"].includes(name)).sort();
       const server = ["agent.test.mjs", "operations.test.mjs", "model-provider.test.mjs", "model-context.test.mjs", "model-worker.test.mjs", "worker-loop.test.mjs"];

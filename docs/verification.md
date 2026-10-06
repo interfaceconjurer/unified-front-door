@@ -94,13 +94,21 @@ under `.release/http-production` and `.release/http-development`, or the specifi
 
 ### Complete release gate
 
-The shared gate in `scripts/verify-release.mjs` runs a locked `npm ci`, the full
+The shared gate in `scripts/verify-release.mjs` runs a locked `npm ci`, the
 dependency audit (blocking moderate, high, and critical advisories), all pure
 suites, lint, type generation/checking, web/worker
 production build, migration/status checks, both database suites, positive and
 negative runtime smoke, browser regression/fault checks, two live-database browser
 journeys, worker crash/restart recovery, and the performance protocol. Tests that
 need server-only module conditions run separately from browser/SSR tests.
+
+The audit checks production dependencies separately, then checks all development
+dependencies. `scripts/audit-dependencies.mjs` temporarily accepts only
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+in `braces@3.0.3` through the locked, development-only Next.js ESLint chain.
+There is no patched `braces` release yet. Any other advisory, changed dependency
+path, or production exposure fails the gate. Remove this exception when a patched
+version becomes available.
 
 Pull requests run these same stage implementations in seven parallel jobs:
 code checks, database/browser persistence plus worker recovery, four browser
