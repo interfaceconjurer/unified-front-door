@@ -68,7 +68,7 @@ export function ReturningSurface({ surfaceId, children }: {
       <div className={styles.sectionHeading}><h2 id="surface-work-heading">{copy.workHeading}</h2>
         <span>{attention ? `${attention} needs your attention` : `${work.length} recent ${work.length === 1 ? "item" : "items"}`}</span>
       </div>
-      {work.length ? <RecentWorkList items={work} /> : <p className={styles.empty}>Your work with this plugin will appear here. Start something new below.</p>}
+      {work.length ? <RecentWorkList items={work} /> : <p className={styles.empty}>Your work with this plugin will appear here.</p>}
     </section>}
 
     {surfaceId === "govern" && <section aria-labelledby="environments-heading">
@@ -108,9 +108,6 @@ export function ReturningSurface({ surfaceId, children }: {
       </li>)}</ul>
     </section>}
 
-    {surfaceId !== "alm" && <details className={styles.newWork}>
-      <summary>Start something new <span>Browse tools & starters</span></summary>
-      <div className={styles.launcher}><SurfaceLauncher surfaceId={surfaceId} /></div>
-    </details>}
+    {surfaceId !== "alm" && <SurfaceLauncher surfaceId={surfaceId} />}
   </div>;
 }

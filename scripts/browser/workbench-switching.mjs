@@ -125,6 +125,43 @@ try {
   await page.screenshot({ path: outputPath(`${label}-workbench-switching-mobile-light.png`) });
   out.checks.push('Restricted profile sees only accessible plugins; the workbench fits a narrow light-theme viewport');
   await context.close();
+
+  // All plugin overviews expose their starter cards directly. ALM has its own
+  // overview check; the other three share ReturningSurface and SurfaceLauncher.
+  const starters = [
+    { surface: 'build', plugin: 'Build & Setup', heading: 'Start configuring', action: 'Model your data', capability: 'data-model' },
+    { surface: 'code', plugin: 'Code', heading: 'Start building', action: 'Write Apex', capability: 'apex' },
+    { surface: 'govern', plugin: 'Govern & Observe', heading: 'Start exploring', action: 'Review security', capability: 'security' },
+  ];
+  for (const [layout, viewport, colorScheme] of [
+    ['desktop', { width: 1440, height: 1000 }, 'dark'],
+    ['narrow', { width: 390, height: 844 }, 'light'],
+  ]) {
+    const context = await browser.newContext({ httpCredentials, reducedMotion: 'reduce', colorScheme, viewport });
+    const fixture = await installAssessment(context, { profileId: 'am' }); cleanups.push(fixture.cleanup);
+    const page = await context.newPage(); page.on('pageerror', error => out.errors.push(error.message));
+    for (const { surface, plugin, heading, action, capability } of starters) {
+      const target = { projectId: null, worktreeId: null, orgId: 'uat' };
+      await page.goto(origin + `/${surface}?destination=` + encodeURIComponent(JSON.stringify({ version: 1, owner: 'am', surface, target })));
+      const overview = page.getByRole('tabpanel');
+      const launcher = overview.getByRole('region', { name: heading, exact: true });
+      const card = launcher.getByRole('button', { name: new RegExp(`^${action}`) });
+      await card.waitFor();
+      await card.scrollIntoViewIfNeeded();
+      assert(await card.isVisible(), `${plugin} starter card is visible on entry`);
+      assert.equal(await launcher.evaluate(node => !!node.closest('details')), false, `${plugin} starter cards are not inside a disclosure`);
+      assert.equal(await overview.getByText('Start something new', { exact: true }).count(), 0, `${plugin} has no Start something new control`);
+      if (surface === 'build') await page.screenshot({ path: outputPath(`${label}-visible-starters-${layout}.png`) });
+      await card.click();
+      await page.waitForURL(url => JSON.parse(url.searchParams.get('destination') ?? '{}').canvas?.params?.capability === capability);
+      assert.deepEqual(destination(page).target, target);
+      assert.equal(destination(page).canvas.params.surface, surface);
+      await workbenchTab(page, `${plugin} overview`).click();
+      await launcher.waitFor();
+    }
+    out.checks.push(`${layout}: Build & Setup, Code and Govern & Observe show starter cards without disclosure; actions open scoped canvases and overviews restore`);
+    await context.close();
+  }
 } catch (error) { out.errors.push(error.stack); }
 finally {
   await browser.close(); cleanups.forEach(cleanup => cleanup());
