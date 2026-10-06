@@ -4,7 +4,7 @@ const require = createRequire(import.meta.url);
 const mode = process.argv[2];
 try {
   if (!["web", "dev", "worker"].includes(mode)) throw new Error("Invalid process mode");
-  if (process.versions.node !== "22.23.2") throw new Error("Use Node 22.23.2");
+  if (process.versions.node !== "22.23.3") throw new Error("Use Node 22.23.3");
   const env = { ...process.env, NODE_ENV: mode === "dev" ? "development" : "production" };
   const { validateRuntimeConfiguration } = require("../.worker/lib/server/configuration.js");
   validateRuntimeConfiguration(env);

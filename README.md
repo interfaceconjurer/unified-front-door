@@ -18,7 +18,7 @@ projects, and working with a persistent agent across Build & Setup and ALM.
 
 ## Run locally
 
-Use **Node 22.23.2** (see [.nvmrc](.nvmrc)). If `.env.local` does not exist,
+Use **Node 22.23.3** (see [.nvmrc](.nvmrc)). If `.env.local` does not exist,
 copy [.env.example](.env.example) to it. Keep it private (`chmod 600 .env.local`)
 and configure:
 

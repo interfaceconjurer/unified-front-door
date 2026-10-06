@@ -50,7 +50,7 @@ function run(command, args, timeoutMs = 600000) {
 try {
   if (groupIndex >= 0 && !group) throw new Error("--group requires a verification group");
   const plan = verificationPlan(group);
-  if (process.versions.node !== "22.23.2") throw new Error("Use the exact Node version in .nvmrc");
+  if (process.versions.node !== "22.23.3") throw new Error("Use the exact Node version in .nvmrc");
   if (!workingTree && (!revision || !/^[a-f0-9]{40}$/.test(revision))) throw new Error("Use --revision FULL_SHA or --working-tree");
   const head = git("rev-parse", "HEAD"), treeSha = git("rev-parse", "HEAD^{tree}");
   if (!workingTree && (head !== revision || git("status", "--porcelain", "--untracked-files=all"))) throw new Error("Release verification requires a clean checkout of the requested exact revision");

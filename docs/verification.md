@@ -8,7 +8,7 @@ The scheduler and browser inactivity suites run in the shared pure gate; durable
 queue checks extend the agent database suite. `idle-suspension` is registered in
 the shared browser registry used by PR shards and the full release gate.
 
-Use Node **22.23.2**, as declared in `.nvmrc` and `package.json`:
+Use Node **22.23.3**, as declared in `.nvmrc` and `package.json`:
 
 ```bash
 npm run test:persistence
@@ -42,8 +42,10 @@ blocked-page cursors and interrupted progress. It cleans up those namespaces.
 The application and retention SQL suites run sequentially after migration so
 their fixtures cannot affect each other. Run migrations against that same
 intended target before testing;
-setting the test URL does not migrate it automatically. Local Postgres results are
-supplemental; the phase also requires this behavior verified against isolated Neon.
+setting the test URL does not migrate it automatically. The earlier Phase 4
+lifecycle acceptance also has separate isolated Neon evidence. This PR's new
+retention SQL was verified on disposable PostgreSQL 17; hosted scheduler
+activation and Neon-specific retention execution have not been verified.
 Standalone database test entry points replace the inherited runtime direct URL
 with `DATABASE_TEST_URL_UNPOOLED`, or clear it when absent; they do not pair a
 test runtime URL with the main database's direct URL.

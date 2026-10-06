@@ -15,7 +15,7 @@ license-restricted to Salesforce-hosted apps).
 
 ## Getting started
 
-Use Node **22.23.2**, pinned in `.nvmrc` and `package.json`. Install the locked
+Use Node **22.23.3**, pinned in `.nvmrc` and `package.json`. Install the locked
 dependencies, then create `.env.local` from
 [.env.example](../.env.example) if you do not already have a local file. Preserve any
 existing configuration and fill in the database and Basic Auth values in the

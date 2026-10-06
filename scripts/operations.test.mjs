@@ -168,7 +168,7 @@ test("every failed verification stage prevents completion and release evidence",
 });
 test("release attestation requires every gate and matches exact source/lock/revision with fresh Node22 proof", () => {
   const expected = { revision: "a".repeat(40), treeSha: "b".repeat(40), lockSha256: "c".repeat(64), sourceSha256: "d".repeat(64) };
-  const proof = { version: 1, ...expected, nodeVersion: "22.23.2", buildId: "actual-build", completedAt: new Date().toISOString(), verified: true, releasable: true, checks: [...REQUIRED_CHECKS] };
+  const proof = { version: 1, ...expected, nodeVersion: "22.23.3", buildId: "actual-build", completedAt: new Date().toISOString(), verified: true, releasable: true, checks: [...REQUIRED_CHECKS] };
   assert.equal(validateVerification(proof, expected), proof);
   for (const patch of [{ checks: REQUIRED_CHECKS.slice(1) }, { verified: false }, { releasable: false }, { revision: "f".repeat(40) }, { nodeVersion: "22.99.0" }, { completedAt: "2020-01-01T00:00:00Z" }, { sourceSha256: null }]) assert.throws(() => validateVerification({ ...proof, ...patch }, expected));
 });

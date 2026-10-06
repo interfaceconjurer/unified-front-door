@@ -9,7 +9,7 @@ import { workerActivity } from "./worker-activity.mjs";
 const args = process.argv.slice(2), dev = args.includes("--dev");
 function option(name, fallback) { const index = args.indexOf(name); return index < 0 ? fallback : args[index + 1]; }
 const port = Number(option("--port", process.env.PORT ?? "3000")), hostname = option("--hostname", "0.0.0.0");
-if (process.versions.node !== "22.23.2" || !Number.isInteger(port) || port < 1 || port > 65535 || !hostname) throw new Error("Use Node 22.23.2 and a valid HTTP listener configuration.");
+if (process.versions.node !== "22.23.3" || !Number.isInteger(port) || port < 1 || port > 65535 || !hostname) throw new Error("Use Node 22.23.3 and a valid HTTP listener configuration.");
 const server = createServer({ headersTimeout: 10000, requestTimeout: 15000, keepAliveTimeout: 5000, connectionsCheckingInterval: 1000,
   // Next installs its own HMR upgrade listener after the first handled request.
   // Node must reject unauthenticated upgrades before *any* listener sees them.

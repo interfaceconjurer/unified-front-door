@@ -8,7 +8,7 @@ export function validateVerification(value, expected) {
   if (!value || value.version !== 1 || value.verified !== true || value.releasable !== true
     || !sha.test(value.revision) || !sha.test(value.treeSha)
     || !hash.test(value.lockSha256) || !hash.test(value.sourceSha256)
-    || value.nodeVersion !== "22.23.2" || typeof value.buildId !== "string" || !value.buildId.trim()
+    || value.nodeVersion !== "22.23.3" || typeof value.buildId !== "string" || !value.buildId.trim()
     || !Number.isFinite(Date.parse(value.completedAt)) || Date.parse(value.completedAt) > Date.now() + 60000
     || Date.now() - Date.parse(value.completedAt) > 86400000
     || JSON.stringify(value.checks) !== JSON.stringify(REQUIRED_CHECKS)) throw new Error("Complete current release verification is required.");
