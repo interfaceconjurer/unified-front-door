@@ -154,13 +154,14 @@ export function AgentPanel({ waitForLayout, layoutKey, releaseSurfaceGate, explo
   const storedThread = sessions[sessionKey]?.messages ?? EMPTY_THREAD;
   // Keep old briefings in storage; project chats now show only their work history.
   const thread = useMemo(() => target.projectId ? storedThread.filter(message => message.role !== "today") : storedThread, [storedThread, target.projectId]);
+  const onRestorePosition = useCallback((scrollTop: number) => {
+    const last = thread.at(-1);
+    if (last?.role === "agent" && last.runId) followingReply.current = { key: `${sessionKey}:${last.runId}`, following: false, pausedAt: scrollTop };
+  }, [thread, sessionKey]);
   const { end: selectedEnd, showPage: selectHistoryPage } = useTranscriptPosition({
     identity: `${application.session?.namespaceId}.${profile?.id}.${application.session?.workspaceEpoch}`,
     threadKey: sessionKey, messages: thread, containerRef: transcriptRef, transitioning: !!presentation,
-    onRestore: (scrollTop) => {
-      const last = thread.at(-1);
-      if (last?.role === "agent" && last.runId) followingReply.current = { key: `${sessionKey}:${last.runId}`, following: false, pausedAt: scrollTop };
-    },
+    onRestore: onRestorePosition, waitForLayout,
   });
   const endIndex = selectedEnd == null ? thread.length : Math.max(1, thread.findIndex(message => message.id === selectedEnd) + 1);
   const startIndex = Math.max(0, endIndex - 40);

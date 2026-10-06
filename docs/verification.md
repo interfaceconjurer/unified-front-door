@@ -226,7 +226,7 @@ browser registry. Restored behaviors have these checks:
 | Capabilities-default navigator with no All tab; six category searches, ranked matches, preserved ALM project-plan access in Projects with intact worktree trees and global/workspace scope, resource org/type filters, clear search and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs`, `navigation.test.mjs` |
 | Build & Setup org browsers: objects, permissions and features; explicit org, captured tabs, global/project scope, browsing without draft writes, all profiles and narrow/light layout | `org-setup.mjs`, `org-resources.mjs` | `org-resources.test.mjs` |
 | Account field additions with label/API name/type, duplicate validation and removal; modified object file in global changes, hidden at zero, editor/reload/org isolation, project creation with atomic transfers retaining org and removing global originals; no transfer-summary or draft-copy panels on creation; preventing overwrite | `object-field-changes.mjs` | `object-fields.test.mjs` and `change-transfer.test.mjs` (command boundary, object diffs, scope isolation, batch preflight and receipt recovery); `database.test.mjs` (merged validation, copying, atomic transfers/creation, stale edits and replay) |
-| Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |
+| Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership; returning to a project retains the exact saved chat reading anchor while the workbench narrows the chat | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |
 | Deployed apps open in ALM; legacy URLs and drafts survive | `alm-app-migration.mjs` | `alm-app-migration.test.mjs` |
 | All profiles share a general ALM overview with project, work, pipeline, validation and release tools visible on entry/reload; starter navigation preserves connection and composer without submitting, Today retains assessment guidance, saved project plans and scoped releases/apps remain available | `alm-overview.mjs`, `project-surface-scope.mjs`, `alm-app-migration.mjs`, `project-creation.mjs` | Shared browser registry checks |
 | Saved project work items other than the focused permissions workflow open their own editable Build & Setup change canvas; plan/evidence, independent saved edits, return to ALM, reload/close/reopen, current connection and global/project scope are retained; unavailable work items cannot open or save changes | `work-item-changes.mjs` | `navigation.test.mjs`, `application.test.mjs`, `database.test.mjs` (ownership, persistence, retry and source/status retention) |
@@ -612,6 +612,8 @@ Focused browser checks passed in `agent-navigation`, `today-departure`,
 file views remain reachable from Today; `org-resources` also checks that a
 delayed visit still moves Today offscreen before the overview opens. The agent,
 model, and navigation unit suites, TypeScript, lint, worker build, and diff
-checks passed. After the CI browser failures were repaired, both affected
-registered shards (`1/4` and `2/4`) passed locally end to end. The browser agent
+checks passed. After the CI browser failures were repaired, registered shards
+`1/4`, `2/4`, and `4/4` passed locally end to end; `global-home` verified the saved
+reading anchor through project reentry in both motion modes. CI passed shard
+`3/4` on the preceding commit. The browser agent
 provider is mocked; a live Anthropic reply was not exercised.

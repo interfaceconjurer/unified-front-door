@@ -2,6 +2,7 @@
 
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import type { Message } from "@/lib/chat/conversation";
+import { nextFrame } from "@/lib/motion";
 
 type Position = { anchor: number; offset: number; end: number | null };
 function readPositions(key: string): Record<string, Position> {
@@ -16,10 +17,11 @@ function readPositions(key: string): Record<string, Position> {
 }
 
 /** Per-tab reading position is presentation state, scoped to the workspace epoch. */
-export function useTranscriptPosition({ identity, threadKey, messages, containerRef, transitioning, onRestore }: {
+export function useTranscriptPosition({ identity, threadKey, messages, containerRef, transitioning, onRestore, waitForLayout }: {
   identity: string; threadKey: string; messages: Message[];
   containerRef: RefObject<HTMLDivElement | null>; transitioning: boolean;
   onRestore: (scrollTop: number) => void;
+  waitForLayout: (signal: AbortSignal) => Promise<void>;
 }) {
   const storageKey = `ufd.chat-position.v1.${identity}`;
   const [initial] = useState(() => readPositions(storageKey));
@@ -41,10 +43,28 @@ export function useTranscriptPosition({ identity, threadKey, messages, container
     const entry = saved || container.querySelector<HTMLElement>(`[data-message-id="${latest?.id}"]`);
     if (!entry) return;
     const inset = parseFloat(getComputedStyle(container).scrollPaddingBlockStart) || 0;
-    container.scrollTop += entry.getBoundingClientRect().top - container.getBoundingClientRect().top - (saved ? position.offset : inset);
+    const offset = saved ? position.offset : inset;
+    const align = () => { container.scrollTop += entry.getBoundingClientRect().top - container.getBoundingClientRect().top - offset; };
+    align();
     restored.current = threadKey;
     if (saved) onRestore(container.scrollTop);
-  }, [containerRef, messages, threadKey, onRestore]);
+    if (!saved) return;
+    // Restoring the message once is insufficient when a returning workbench
+    // narrows the chat on the next frame. Pin the saved anchor through motion.
+    const controller = new AbortController();
+    let frame = 0;
+    const pin = () => {
+      if (controller.signal.aborted || !saved.isConnected) return;
+      align();
+      frame = requestAnimationFrame(pin);
+    };
+    pin();
+    void (async () => {
+      await nextFrame(controller.signal);
+      await waitForLayout(controller.signal);
+    })().catch(() => {}).finally(() => cancelAnimationFrame(frame));
+    return () => { controller.abort(); cancelAnimationFrame(frame); };
+  }, [containerRef, messages, threadKey, onRestore, waitForLayout]);
 
   const remember = useEffectEvent(() => {
     const container = containerRef.current;
