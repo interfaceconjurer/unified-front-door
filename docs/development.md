@@ -39,6 +39,10 @@ npm run worker
 Rebuild and restart the worker after changing its source. `npm run build` compiles
 both the production web app and worker. The web app accepts and observes durable
 jobs; the worker advances them. Jobs remain pending while the worker is stopped.
+For a worktree preview on another port, set that worktree's `.env.local`
+`APP_ORIGIN` to its actual web origin before starting both processes. The worker
+listens there for wake hints; a different port can leave new chat runs pending
+until its periodic recovery scan.
 
 The migration command loads `.env.local` when present; Next loads it for the app.
 The browser's Basic Auth username defaults to `guest` (`BASIC_AUTH_USER` overrides

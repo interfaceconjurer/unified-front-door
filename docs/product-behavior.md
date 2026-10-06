@@ -168,6 +168,10 @@ contributes an overview capability with its former overview content; a bare
 plugin route (`/build`, `/code`, `/govern`, `/alm`) opens that overview view.
 Other views (resources, work, files, previews, apps, project plans, work-item
 changes and assessments) belong to the plugin they already routed through.
+Every plugin overview shows its starter cards directly. Build & Setup, Code,
+and Govern & Observe no longer hide them behind Start something new; selecting
+a card opens its existing scoped canvas. ALM continues to show its planning
+cards directly.
 
 The workbench is the right panel. It lists only the views opened in the current
 workspace, across plugins, titled by their capability. Each view shows its
@@ -208,35 +212,27 @@ sample preview do not expose the action.
 
 ## Navigator search
 
-The top-bar search and ⌘⇧P / Ctrl+Shift+P open **All**, searching accessible
-project records, resources, sessions, connected orgs, capabilities and installed
-plugins in that order. Tabs are All, Capabilities, Projects, Sessions, Orgs,
-Resources, Plugins. Capabilities filters by ALM stage; its details link back to
-the source plugin. Plugins lists Installed or Available packages with their
-details, contributed capabilities, and Install/Uninstall.
+The top-bar search and ⌘⇧P / Ctrl+Shift+P open **Capabilities**. Tabs are
+Capabilities, Projects, Sessions, Orgs, Resources, Plugins. Capabilities filters by plugin and ALM stage. Selecting a capability shows its full preview to the right of the results, with a link to its source plugin. Plugins uses the same preview area for package details, contributed capabilities, and Install/Uninstall. At narrow widths, the preview stacks below the results and scrolls independently.
 Within each category, exact names and API names rank ahead of prefixes, partial
-names, and descriptive matches. All initially highlights the first result.
+names, and descriptive matches. A search initially highlights the first result.
 In the Projects tab, project/worktree groups remain connected. Result
 types and project/org context distinguish similarly named destinations.
 
-Project results in **All** show **ALM**, not a Current badge, and open the project
-record as an ALM canvas. Created projects open their saved brief or assessment
+The **Projects** tab keeps explicit project/worktree entry and adds a separate
+project-plan result that opens the record as an ALM canvas. Created projects open their saved brief or assessment
 plan; seeded projects show a sample project summary. Global browsing stays global,
 and opening the current project's record preserves its selected worktree and org.
-Within a project, these file results are limited to that project. The **Projects**
-tab remains the global selector for explicitly entering another project/worktree.
+The project row remains the selector for entering another project/worktree.
 
-Resource search defaults to the selected org. All shows the resource org in a
-compact pill; clicking it opens Orgs and clears the query to show the available
-connections, without navigating. Resources retains its org filter, which changes
-the search inventory without navigating; the All pill reflects that inventory.
-When no org is selected, the other categories remain searchable and the pill
-prompts the user to choose an org. The catalog remains demo metadata.
-Category tabs keep the query and narrow results; resource-type filtering applies
-only within Resources, not All. The search field's clear button removes the query,
+Resource search defaults to the selected org. Its org filter changes the search
+inventory without navigating. When no org is selected, Resources prompts the user
+to choose one; the other tabs remain searchable. The catalog remains demo metadata.
+Tabs keep the query and narrow results; resource-type filtering applies within
+Resources. The search field's clear button removes the query,
 keeps the current tab and resource filters, and returns focus to the input.
 
-Surface/resource and All project-file selections preserve the current workspace.
+Capability, resource, and project-plan selections preserve the current workspace.
 Project/worktree selections in Projects and session selections explicitly enter
 that context; org results change the selected org. Dedicated project and org
 selectors still open their respective category tabs.
@@ -307,6 +303,10 @@ in its tab. Projects keep their worktrees nested and connected, with the current
 worktree highlighted in place when opening or switching tabs. One Down press
 selects another destination. Search filters normally and resets the highlight to
 the first match; clearing it returns the highlight to the current destination.
+The Capabilities tab has a plugin filter alongside its ALM stage filter. Today's
+**Explore capabilities** actions open this tab with the chosen plugin selected;
+they leave Today and the workbench in place until a capability or overview is
+chosen. The overview remains a selectable result within that plugin's list.
 Opening and closing use the front-door chat's 500ms fade and 24px blur. A selection
 takes effect after dismissal completes, and reopening during dismissal reverses
 the transition and cancels the pending selection. Reduced motion skips the dissolve.

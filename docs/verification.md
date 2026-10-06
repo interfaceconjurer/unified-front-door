@@ -219,11 +219,11 @@ browser registry. Restored behaviors have these checks:
 | Sam's selected opportunity cards remain visible and stationary while Shape a project saves its draft; acknowledged ALM handoff retains normal Start a project title/icon, secondary assessment context, Back to Today and draft resumption, including reduced motion and narrow layout | `assessment-project-transition.mjs` | `project-creation.test.mjs` (acknowledged drafts and source retention) |
 | Project templates, saved intent, brief-to-project creation on all profiles without the assessment promotion panel, visible creation action, explicit scoped planning action with retained composer draft, sidebar/reload/reopen; Start project leaves the current project/worktree for global ALM with its org retained, Back preserves the original context and new draft, and successful creation enters the new project; delayed navigation, retry recovery and assessment creation | `project-panel.mjs`, `project-creation.mjs`, `project-create-end-to-end.mjs`; `project-create-database.mjs` in the database browser gate | `project-creation.test.mjs`, `database.test.mjs` (atomic creation, ownership, duplicate retries), `model-context.test.mjs` |
 | Clear data shows pending progress inside its disabled confirmation button with a stable label and no extra modal text; deletes brief-created projects without assessment runs, including after sign-in/reload; other profiles/namespaces and projects created after an acknowledged reset survive retry | `profile-reset.mjs`; `project-create-database.mjs` in the database browser gate | `database.test.mjs` (direct workspace ownership, scoped reset, rollback, receipt replay and all-profile reset) |
-| Planning stays in chat; explicit agent navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (no-tool planning and saved-catalog validation) |
+| Planning stays in chat; direct named capability launches, including “I want to start a project,” open the captured capability after the reply without creating data; explicit surface/resource navigation preserves scope and ignores stale handoffs | `agent-navigation.mjs` (Today capability and prior handoffs) | `navigation-intent.test.mjs`, model context/provider/worker tests (single required capability tool, no-tool planning and saved-catalog validation) |
 | Project links reveal the sidebar parent without changing scope; persistent Start project footer on all profiles; Sessions only lists chats | `project-panel.mjs` | Navigation tests |
 | Project/worktree explorer drill-down and double-click, folders/search, keyboard file opening in scoped surfaces, return focus, saved `.project` context and work items, downloads, reload, deletion, narrow layout and no file writes | `project-explorer.mjs` | `project-explorer.test.mjs` (profile/branch isolation, inherited base files, portable context, identity, availability and mutation rejection); `model-context.test.mjs` (agent intent/evidence) |
 | Header changes beside the project selector, viewport-centered search/shortcut without overlap at 390–1920px: added `.project` files and line counts, file opening/reload, global unassigned drafts with the indicator hidden at zero and visible after editing, project-only scope, global-only tracking CTA, creation-first tracking and existing-project transfers removing global changes while rejecting existing targets, keyboard dismissal and narrow/light/dark layout | `workspace-changes.mjs` | `workspace-changes.test.mjs` (line diffs, current exports, empty drafts, profile/project/branch isolation, sample comparisons and restored source) |
-| Default All navigator search, projects/resources/sessions/orgs/capabilities/plugins ordering with ranked matches within each category, ALM project-file results with preserved global/workspace scope, explicit Projects-tab entry with intact worktree trees, org pill/category filters, clear search and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs`, `navigation.test.mjs` |
+| Capabilities-default navigator with no All tab; six category searches, ranked matches, preserved ALM project-plan access in Projects with intact worktree trees and global/workspace scope, resource org/type filters, clear search and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs`, `navigation.test.mjs` |
 | Build & Setup org browsers: objects, permissions and features; explicit org, captured tabs, global/project scope, browsing without draft writes, all profiles and narrow/light layout | `org-setup.mjs`, `org-resources.mjs` | `org-resources.test.mjs` |
 | Account field additions with label/API name/type, duplicate validation and removal; modified object file in global changes, hidden at zero, editor/reload/org isolation, project creation with atomic transfers retaining org and removing global originals; no transfer-summary or draft-copy panels on creation; preventing overwrite | `object-field-changes.mjs` | `object-fields.test.mjs` and `change-transfer.test.mjs` (command boundary, object diffs, scope isolation, batch preflight and receipt recovery); `database.test.mjs` (merged validation, copying, atomic transfers/creation, stale edits and replay) |
 | Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |
@@ -235,14 +235,14 @@ browser registry. Restored behaviors have these checks:
 | Attention cards reach the correct work and retain historical Today | `attention-scenarios.mjs` | Domain and conversation tests |
 | Work canvases distinguish type, project, worktree and branch; explicit global entry retains the connected org, current canvas, separate captured target, draft and history | `work-project-entry.mjs` | Navigation tests |
 | Global file browsing preserves chat/org and file ownership; only explicit project actions enter a project | `global-home.mjs`, `attention-scenarios.mjs` | Navigation and agent database tests |
-| Today keeps its active appearance until it scrolls offscreen, including interrupted scrolling and reduced motion; history retains faint container fills/outlines, layout and disabled controls in light and dark themes | `today-departure.mjs`, `global-home.mjs` | — |
+| Today keeps its active appearance until it scrolls offscreen, including interrupted scrolling and reduced motion; the chat stays full width until the outgoing Today scroll finishes, and the card stays out of view while the workbench opens; history retains faint container fills/outlines, layout and disabled controls in light and dark themes | `today-departure.mjs`, `global-home.mjs` | — |
 | Home reuses trailing Today after project activity, including the first return carrying a different org; explicit org selections stay logged and intervening global content earns one new card | `global-home.mjs` | `conversation.test.mjs`, `agent-database.test.mjs` |
-| Today surface links do not replay their reveal on focus changes; surface entry and global surface-to-Today preserve sharp chat, while project/worktree/global context changes retain the dissolve | `today-departure.mjs`, `global-home.mjs` | — |
+| Today capability triggers do not replay their reveal on focus changes; each opens its plugin filter in Capabilities without navigation, while choosing an overview preserves sharp chat and project/worktree/global context changes retain the dissolve | `plugin-workbench.mjs`, `today-departure.mjs`, `global-home.mjs` | — |
 | Instant same-plugin view selection and closing, rapid keyboard/focus and retained drafts; switching to another plugin’s view keeps the whole-view transition and reduced motion; legacy per-surface tabs restore in plugin order | `canvas-motion.mjs` | Navigation tests, `plugins.test.mjs` |
-| Plugin overviews open as closable workbench views (replacing the pinned surface tab and switcher); first physical click switches plugins during motion, including Sam’s assessment-to-project flow; Arrow/Home/End with one tab stop across plugins; profile access, scoped canvas restoration and narrow layout | `workbench-switching.mjs` | `plugins.test.mjs`, navigation tests |
+| Plugin overviews open as closable workbench views (replacing the pinned surface tab and switcher); first physical click switches plugins during motion, including Sam’s assessment-to-project flow; Arrow/Home/End with one tab stop across plugins; Build & Setup, Code, and Govern & Observe starter cards are visible without disclosure and open scoped canvases in desktop/narrow layouts; profile access and scoped canvas restoration | `workbench-switching.mjs` | `plugins.test.mjs`, navigation tests |
 | Project/worktree-contained work lists and tabs; project-wide app ownership; global navigation | `project-surface-scope.mjs`, `global-home.mjs` | Navigation tests |
 | Chat activity beside Agent, spinner/reduced motion, narrow layout and request recovery | `chat-latency.mjs` | Client reliability tests |
-| Plugin → capability → workbench: palette tabs All, Capabilities, Projects, Sessions, Orgs, Resources, Plugins with keyboard support; plugin details, simulated per-profile install/uninstall bounded by access; capability stage filters and links to their plugin; one pressed/unpressed Workbench toggle (⌘⇧B) with an empty state prompting a capability; views from several plugins in one workbench titled by capability with plugin, capability and org/project context; switch/close in any order keeping drafts; hide/reload restore; Today plugin links; legacy per-surface tabs, drafts and links | `plugin-workbench.mjs` | `plugins.test.mjs` |
+| Plugin → capability → workbench: palette defaults to Capabilities and lists Capabilities, Projects, Sessions, Orgs, Resources, Plugins with keyboard support; plugin and stage filters, a fully visible right-side preview of the selected capability or plugin (stacked and independently scrollable on narrow screens), simulated per-profile install/uninstall bounded by access; one pressed/unpressed Workbench toggle (⌘⇧B) with an empty state prompting a capability; views from several plugins in one workbench titled by capability with plugin, capability and org/project context; switch/close in any order keeping drafts; hide/reload restore; Today plugin filters and explicit overview selection; legacy per-surface tabs, drafts and links | `plugin-workbench.mjs` | `plugins.test.mjs` |
 | Chat/composer alignment, immediate live resize across breakpoints, panel motion, reply presentation and reveal timing | `chat-layout.mjs` | Conversation tests |
 | Lazy canvas loading/chunk retry, canvas render failure/recovery with buffered edits and a usable Changes header, navigation escape, transcript failure isolation and preserved composer node/text/selection | `faults.mjs` (render fault targets the canvas draft projection without breaking header string operations) | — |
 
@@ -263,6 +263,12 @@ expectations while retaining project isolation checks. Its follow-up checks cove
 both assessment and brief-created project rows, dedicated-canvas navigation,
 reload, global/project scope and a narrow table layout. No tests were deleted by
 this change.
+
+Visible plugin starters follow-up (October 2, 2026): Build & Setup, Code, and
+Govern & Observe now show their existing launcher cards directly, matching ALM.
+The shared disclosure is removed; card destinations and org/workspace scope are
+retained. The registered `workbench-switching` suite checks each overview and
+starter action in dark desktop and narrow light layouts.
 
 Focused validation passed: five browser suites (`alm-overview`,
 `project-surface-scope`, `alm-app-migration`, `project-creation`, and
@@ -581,3 +587,27 @@ PR shards and the full release gate. It exercises the static design study at
 
 See the [design study guide](design/agent-harness-prototype.md) for entry links,
 simulation boundaries, and the baseline/content-diff retention record.
+
+### Current branch content review (October 6, 2026)
+
+Fetched `origin/main` at `69a0e635a6fad34ecc84df89f597aca421589c49`
+before reviewing this branch's final content diff. The branch deletes
+`surface-switcher.mjs` as part of the plugin workbench migration; its behavior
+is adapted into the registered `workbench-switching.mjs` and
+`plugin-workbench.mjs` suites. No other test file is deleted. The new Today,
+agent navigation, and palette checks are registered through the existing
+`today-departure.mjs`, `agent-navigation.mjs`, and `unified-search.mjs` entries in
+`scripts/browser/suites.mjs`.
+
+| Affected behavior | Retention and replacement checks |
+| --- | --- |
+| Surface overview, switching, focus, and saved tabs | Adapted into the plugin workbench and its overview views; `workbench-switching`, `plugin-workbench`, `canvas-motion`, and `workspace-tabs` cover the former switcher behavior. |
+| Capability canvases, drafts, and project/org scope | Retained in workbench views; `plugin-workbench`, `project-creation`, `project-surface-scope`, `org-resources`, and navigation tests cover restoration, ownership, and captured destinations. |
+| Agent navigation and Today panel opening | Adapted to direct capability launch and scroll-first panel opening; `agent-navigation` and `today-departure` cover handoff, stale navigation, ordinary chat, and normal/reduced motion. |
+| Palette search and keyboard access | The All tab is removed at the user's request. Six category searches, plugin and stage filters, project-plan access, resource filters, and modal focus are retained in `unified-search`, `interactions`, and `plugin-workbench`. Today's Explore actions select the matching plugin filter; the selected item now has a right-side desktop preview or stacked narrow preview in `plugin-workbench`. |
+
+Focused browser checks passed in `agent-navigation`, `today-departure`,
+`plugin-workbench`, `unified-search`, `interactions`, and
+`workbench-switching`. The agent, model, and navigation unit suites, TypeScript,
+lint, worker build, and diff checks passed. The browser agent provider is
+mocked; a live Anthropic reply was not exercised.
