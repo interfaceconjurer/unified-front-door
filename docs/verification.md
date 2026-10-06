@@ -235,7 +235,7 @@ browser registry. Restored behaviors have these checks:
 | Attention cards reach the correct work and retain historical Today | `attention-scenarios.mjs` | Domain and conversation tests |
 | Work canvases distinguish type, project, worktree and branch; explicit global entry retains the connected org, current canvas, separate captured target, draft and history | `work-project-entry.mjs` | Navigation tests |
 | Global file browsing preserves chat/org and file ownership; only explicit project actions enter a project | `global-home.mjs`, `attention-scenarios.mjs` | Navigation and agent database tests |
-| Today keeps its active appearance until it scrolls offscreen, including interrupted scrolling and reduced motion; the chat stays full width until the outgoing Today scroll finishes, and the card stays out of view while the workbench opens; history retains faint container fills/outlines, layout and disabled controls in light and dark themes | `today-departure.mjs`, `global-home.mjs` | — |
+| Today keeps its active appearance until it scrolls offscreen, including interrupted scrolling, reduced motion, and a delayed visit with no new transcript entry; the chat stays full width until the outgoing Today scroll finishes, and the card stays out of view while the workbench opens; history retains faint container fills/outlines, layout and disabled controls in light and dark themes | `today-departure.mjs`, `global-home.mjs`, `org-resources.mjs` | — |
 | Home reuses trailing Today after project activity, including the first return carrying a different org; explicit org selections stay logged and intervening global content earns one new card | `global-home.mjs` | `conversation.test.mjs`, `agent-database.test.mjs` |
 | Today capability triggers do not replay their reveal on focus changes; each opens its plugin filter in Capabilities without navigation, while choosing an overview preserves sharp chat and project/worktree/global context changes retain the dissolve | `plugin-workbench.mjs`, `today-departure.mjs`, `global-home.mjs` | — |
 | Instant same-plugin view selection and closing, rapid keyboard/focus and retained drafts; switching to another plugin’s view keeps the whole-view transition and reduced motion; legacy per-surface tabs restore in plugin order | `canvas-motion.mjs` | Navigation tests, `plugins.test.mjs` |
@@ -607,7 +607,11 @@ agent navigation, and palette checks are registered through the existing
 | Palette search and keyboard access | The All tab is removed at the user's request. Six category searches, plugin and stage filters, project-plan access, resource filters, and modal focus are retained in `unified-search`, `interactions`, and `plugin-workbench`. Today's Explore actions select the matching plugin filter; the selected item now has a right-side desktop preview or stacked narrow preview in `plugin-workbench`. |
 
 Focused browser checks passed in `agent-navigation`, `today-departure`,
-`plugin-workbench`, `unified-search`, `interactions`, and
-`workbench-switching`. The agent, model, and navigation unit suites, TypeScript,
-lint, worker build, and diff checks passed. The browser agent provider is
-mocked; a live Anthropic reply was not exercised.
+`plugin-workbench`, `unified-search`, `interactions`, `workbench-switching`,
+`org-resources`, and `project-explorer`. The latter two check that resource and
+file views remain reachable from Today; `org-resources` also checks that a
+delayed visit still moves Today offscreen before the overview opens. The agent,
+model, and navigation unit suites, TypeScript, lint, worker build, and diff
+checks passed. After the CI browser failures were repaired, both affected
+registered shards (`1/4` and `2/4`) passed locally end to end. The browser agent
+provider is mocked; a live Anthropic reply was not exercised.

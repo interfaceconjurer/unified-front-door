@@ -9,7 +9,7 @@ import { ProfileMenu } from "@/components/profile/ProfileMenu";
 import { useDemoProfile } from "@/components/profile/ProfileProvider";
 import { SurfaceCanvasProvider, useWorkbench } from "@/components/surfaces/surface-canvas-context";
 import { workbenchViews } from "@/lib/surface-canvas/persistence";
-import { useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
+import { useWorkspace, useWorkspacePanel, WorkspaceProvider } from "@/components/workspace/workspace-context";
 import { normalizeDestinationHref } from "@/lib/navigation/model";
 import { signInDestination } from "@/lib/navigation/sign-in";
 import { applicationClient, getActiveCanvasStore, getActiveSelectionStore } from "@/lib/application/client";
@@ -61,6 +61,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { selectView } = useNavigation();
   const workbench = useWorkbench();
+  const { destination } = useWorkspace();
   const { profile } = useDemoProfile();
   const isLogin = pathname === "/login";
   // The same agent fills the front door and narrows to make room for a surface.
@@ -88,36 +89,92 @@ function ShellContent({ children }: { children: React.ReactNode }) {
   const selectionStore = getActiveSelectionStore(profile?.id);
   const selection = useSyncExternalStore(selectionStore.subscribe, selectionStore.getSnapshot, selectionStore.getServerSnapshot);
   const surfaceOpen = selection.surfacePanelOpen ?? !isFrontDoor;
+  const scrollFirstView = destination.kind === "available" && !!destination.destination.surface
+    && (!destination.destination.canvas || destination.destination.canvas.kind === "capability");
   const [surfaceVisible, setSurfaceVisible] = useState(surfaceOpen);
   const waitingForTodayScroll = useRef(false);
   const openedByToggle = useRef(false);
+  const todayScrollFallback = useRef<{ log: HTMLElement; padding: string; anchor: string; observer: ResizeObserver } | null>(null);
+  const clearTodayScrollFallback = useCallback(() => {
+    const fallback = todayScrollFallback.current;
+    if (!fallback) return;
+    fallback.observer.disconnect();
+    fallback.log.style.paddingBottom = fallback.padding;
+    fallback.log.style.overflowAnchor = fallback.anchor;
+    todayScrollFallback.current = null;
+  }, []);
   if (!surfaceOpen && surfaceVisible) setSurfaceVisible(false);
   useLayoutEffect(() => {
     if (!surfaceOpen) {
       waitingForTodayScroll.current = false;
       openedByToggle.current = false;
+      clearTodayScrollFallback();
       return;
     }
     if (surfaceVisible || waitingForTodayScroll.current) return;
-    // A navigation launched over Today holds the wide chat until its new
-    // transcript entry has scrolled the briefing out of sight.
+    // Navigation can open the persisted panel before the destination route
+    // arrives. Wait for that route before deciding whether Today must scroll.
+    if (isFrontDoor && !openedByToggle.current) return;
+    // A capability or overview launched over Today holds the wide chat until
+    // its new transcript entry has scrolled the briefing out of sight.
     const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
     const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
     const card = today?.getBoundingClientRect(), viewport = log?.getBoundingClientRect();
-    if (!openedByToggle.current && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
+    if (scrollFirstView && !openedByToggle.current && card && viewport && card.bottom > viewport.top && card.top < viewport.bottom) {
       waitingForTodayScroll.current = true;
       return;
     }
     openedByToggle.current = false;
     const frame = requestAnimationFrame(() => setSurfaceVisible(true));
     return () => cancelAnimationFrame(frame);
-  }, [surfaceOpen, surfaceVisible]);
+  }, [surfaceOpen, surfaceVisible, scrollFirstView, isFrontDoor, clearTodayScrollFallback]);
   const releaseSurfaceGate = useCallback(() => {
     if (!waitingForTodayScroll.current) return false;
     waitingForTodayScroll.current = false;
     setSurfaceVisible(true);
     return true;
   }, []);
+  useEffect(() => {
+    if (!surfaceOpen || surfaceVisible || !waitingForTodayScroll.current) return;
+    let frame = 0;
+    const timer = window.setTimeout(() => {
+      if (!waitingForTodayScroll.current) return;
+      const log = shellRef.current?.querySelector<HTMLElement>('[role="log"]');
+      const today = log?.querySelector<HTMLElement>('[data-kind="today"]');
+      if (!log || !today) { releaseSurfaceGate(); return; }
+      // A visit may be delayed or unavailable. Add enough scroll range to move
+      // the existing briefing away even without a new transcript entry.
+      const observer = new ResizeObserver(() => {
+        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
+        if (overlap > 0) log.scrollTop += overlap;
+      });
+      todayScrollFallback.current = { log, padding: log.style.paddingBottom, anchor: log.style.overflowAnchor, observer };
+      log.style.paddingBottom = `${log.clientHeight}px`;
+      log.style.overflowAnchor = "none";
+      const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const scroll = () => {
+        if (!waitingForTodayScroll.current) return;
+        const overlap = today.getBoundingClientRect().bottom - log.getBoundingClientRect().top + 1;
+        if (overlap <= 0) {
+          observer.observe(today);
+          releaseSurfaceGate();
+          return;
+        }
+        const before = log.scrollTop;
+        log.scrollTop += reduced ? overlap : Math.min(overlap, 80);
+        if (log.scrollTop === before) {
+          // An unexpected scroll clamp must not leave the workbench inert.
+          observer.observe(today);
+          releaseSurfaceGate();
+          return;
+        }
+        frame = requestAnimationFrame(scroll);
+      };
+      scroll();
+    }, 600);
+    return () => { window.clearTimeout(timer); cancelAnimationFrame(frame); };
+  }, [surfaceOpen, surfaceVisible, isFrontDoor, scrollFirstView, releaseSurfaceGate]);
+  useEffect(() => () => clearTodayScrollFallback(), [clearTodayScrollFallback]);
   const shownSurfaceOpen = surfaceOpen && surfaceVisible;
   const surfacePaneRef = useRef<HTMLElement>(null);
   const [paletteTab, setPaletteTab] = useState<CommandPaletteTab | null>(null);
