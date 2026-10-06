@@ -73,6 +73,54 @@ The application owns tables in the `public` schema. Runtime, readiness, and
 migration transactions pin `search_path` to `public`; connection-string routing
 or schema overrides are rejected. Custom per-connection schemas are unsupported.
 
+### Expired demo namespace retention
+
+A demo namespace becomes eligible for deletion **720 elapsed hours after its
+latest session expiry**. Revoking a token does not shorten that period. Cleanup
+removes its saved chats, projects, drafts, sessions and other owned records in
+one transaction per namespace. A live worker lease or a concurrent session
+change defers that namespace; an old `pending` or `running` status without a
+live lease does not keep it forever. Exact run dispatch slots and per-namespace
+model budget rows are removed, while application-wide budget reservations stay.
+
+The operator command uses the direct database URL and verifies that it selects
+the same host, port and database as `DATABASE_URL`. Apply the numbered migration
+first and check `npm run db:status`. Run a dry run every day against the intended
+target, inspect its `targetKey`, candidate IDs, latest expiry and record counts,
+then apply to the same target and cursor after reviewing the dry run:
+
+```bash
+npm run db:prune-expired -- --dry-run --limit 25
+npm run db:prune-expired -- --apply --expect-target 'HOST:PORT/DATABASE' --limit 25
+```
+
+Replace the example target with the exact `targetKey` in the dry-run summary.
+Dry run is the default; `--apply` requires `--expect-target`. Each output line
+is JSON. A `demo.retention.namespace` line reports one checked namespace; in
+apply mode, `outcome: "deleted"` confirms that namespace's transaction committed.
+The final `demo.retention` line reports totals, `hasMore` and `nextCursor`.
+`ageDaysApprox` is for operator display; eligibility uses PostgreSQL's full
+timestamp precision. `--limit` accepts 1–100 eligible namespaces per page.
+
+If `hasMore` is true, take that page's `nextCursor`, dry-run the next page with
+`--after 'CURSOR'`, and apply with that cursor and the reviewed target. The
+command rechecks and reselects candidates at execution time; use `--namespace
+UUID` when applying one exact reviewed ID. Continue until `hasMore` is false.
+Advancing the cursor also
+gets past a page full of temporarily blocked namespaces. A specific namespace
+can be inspected with `--namespace UUID`; it cannot be combined with `--after`.
+Skipped namespaces remain for a later daily run.
+
+If the command exits without a final summary, treat the outcome as uncertain:
+record any preceding committed `deleted` lines, inspect the target, and run a
+new dry run before retrying. Repeated cleanup is safe for already removed
+namespaces. Confirm the target's backup and recovery point before enabling
+hosted deletion. This repository provides the operator command and runbook,
+but does not configure a hosted schedule. Until an authorized operator enables
+and verifies a protected daily scheduler, hosted deletion is inactive. With a
+daily cadence, an eligible namespace is normally removed on the next run after
+its 720-hour grace period.
+
 ### Readiness and diagnostics
 
 Worker idle/wake configuration and the audit of traffic that prevents database
