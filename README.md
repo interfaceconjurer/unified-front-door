@@ -68,6 +68,8 @@ for startup details and optional Anthropic configuration.
 | [Agent runtime](docs/agent-runtime.md) | Conversations, workers, retries, optional Anthropic reasoning |
 | [Database and operations](docs/operations.md) | Configuration, migrations, deployment, rollback, capacity limits |
 | [Verification](docs/verification.md) | Test suites, browser checks, complete release gate |
+| [Current architecture audit](docs/modernization-audit-2026-10-06.md) | October 2026 findings, strengths, dependency snapshot, evidence limits |
+| [Modernization plan](docs/modernization-plan-2026-10-06.md) | Current PR acceptance and measured future decisions |
 | [Implementation history](docs/implementation-history.md) | Phase summaries and links to original evidence |
 
 The [architecture plan](docs/architecture-plan.md) records the implementation
