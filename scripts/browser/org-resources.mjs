@@ -29,7 +29,7 @@ async function search(dialog, query, type = 'all', org) {
   await dialog.getByLabel('Resource type', { exact: true }).selectOption(type);
   await dialog.getByRole('combobox', { name: 'Search resources…', exact: true }).fill(query);
 }
-async function choose(dialog, text) { await dialog.getByRole('listbox').getByRole('option').filter({ hasText: text }).getByRole('button').click(); await dialog.waitFor({ state: 'detached' }); }
+async function choose(dialog, text) { await dialog.getByRole('listbox').getByRole('option').filter({ hasText: text }).click(); await dialog.waitFor({ state: 'detached' }); }
 const article = (page, name) => page.getByRole('article', { name: `${name} resource`, exact: true });
 try {
   const { context, page, stats } = await setup();
@@ -107,7 +107,7 @@ try {
   await scoped.page.getByRole('button', { name: 'Search workspace', exact: true }).click();
   dialog = scoped.page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Trailblazer CRM main', exact: true }).click();
+  await dialog.getByRole('option', { name: 'Trailblazer CRM main', exact: true }).click();
   await dialog.waitFor({ state: 'detached' });
   const header = scoped.page.locator('header[data-project-scoped]');
   let project = header.getByRole('button', { name: /Switch project, current project: Trailblazer CRM, branch: main/ });
@@ -119,7 +119,7 @@ try {
   await choose(dialog, 'feature/lead-routing');
   await header.getByRole('button', { name: /current project: Trailblazer CRM, branch: feature\/lead-routing/ }).waitFor();
   await header.getByRole('button', { name: /Switch project/ }).click(); dialog = scoped.page.getByRole('dialog');
-  await dialog.getByRole('button', { name: 'Acme Storefront main', exact: true }).click();
+  await dialog.getByRole('option', { name: 'Acme Storefront main', exact: true }).click();
   await dialog.waitFor({ state: 'detached' });
   await header.getByRole('button', { name: /current project: Acme Storefront/ }).waitFor();
   await scoped.page.goBack();

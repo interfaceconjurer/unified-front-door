@@ -28,7 +28,7 @@ async function selectProject(page, name) {
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
   const option = name === 'Trailblazer CRM' ? dialog.getByRole('option').filter({ has: page.getByText(name, { exact: true }) }) : dialog.getByRole('option').filter({ hasText: name });
-  await option.getByRole('button').click();
+  await option.click();
   await dialog.waitFor({ state: 'detached' });
 }
 const destination = page => JSON.parse(new URL(page.url()).searchParams.get('destination'));
@@ -43,6 +43,9 @@ async function checkContextMotion(page, motion, before) {
     const frames = await page.evaluate(count => window.__contextMotion.slice(count), before);
     assert(frames.some(frame => frame.name === 'workspace-blur-out' && frame.pseudo?.includes('agent-conversation') && frame.filters.includes('blur(24px)')), 'Outgoing conversation must blur out');
     assert(frames.some(frame => frame.name === 'workspace-blur-in' && frame.pseudo?.includes('agent-conversation')), 'Incoming conversation must dissolve in');
+    // A second navigation should begin after this document transition settles.
+    // React can skip a new transition while the previous one is still active.
+    await page.waitForFunction(() => !document.documentElement.matches(':active-view-transition'));
   } else assert.equal(await page.evaluate(() => window.__contextMotion.length), before, 'Reduced motion must skip the dissolve');
   assert(await page.getByRole('textbox', { name: 'Message the agent', exact: true }).evaluate(node => node === window.__originalComposer && getComputedStyle(node).filter === 'none'), 'The composer stays mounted and sharp');
 }
@@ -153,7 +156,7 @@ try {
     await orgDialog.getByLabel('Resource org', { exact: true }).selectOption('prod');
     await orgDialog.getByLabel('Resource type', { exact: true }).selectOption('standard-object');
     await orgDialog.getByRole('combobox', { name: 'Search resources…', exact: true }).fill('Account');
-    await orgDialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).getByRole('button').click();
+    await orgDialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).click();
     await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
     assert.equal(await homeButton.getAttribute('aria-current'), 'location', 'Home stays selected during global surface browsing');
     await page.getByText('Connected org · Production', { exact: true }).waitFor();
@@ -204,7 +207,7 @@ try {
     orgDialog = page.getByRole('dialog');
     await orgDialog.getByRole('tab', { name: 'Orgs', exact: true }).click();
     const beforeOrg = await page.evaluate(() => window.__contextMotion.length);
-    await orgDialog.getByRole('option').filter({ hasText: 'UAT Sandbox' }).getByRole('button').click();
+    await orgDialog.getByRole('option').filter({ hasText: 'UAT Sandbox' }).click();
     await page.waitForFunction(() => {
       const messages = [...document.querySelectorAll('[data-kind="context"]')];
       return messages.at(-1)?.textContent.startsWith('Connected org · UAT Sandbox');
@@ -252,7 +255,7 @@ try {
     await dialog.getByRole('tab', { name: 'Resources', exact: true }).click();
     await dialog.getByLabel('Resource type', { exact: true }).selectOption('standard-object');
     await dialog.getByRole('combobox', { name: 'Search resources…', exact: true }).fill('Account');
-    await dialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).getByRole('button').click();
+    await dialog.getByRole('option').filter({ hasText: 'Standard object · Account' }).click();
     await page.getByRole('article', { name: 'Account resource', exact: true }).waitFor();
     await page.getByText('Continue your work in build.', { exact: true }).waitFor();
     assert.equal(await page.getByRole('tab', { name: 'Acme Storefront', exact: true }).count(), 0, 'Other projects must be absent from project tabs');

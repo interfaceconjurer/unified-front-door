@@ -17,7 +17,7 @@ export async function openTodayOverview(page, plugin) {
   const dialog = await exploreToday(page, plugin);
   await dialog.getByRole('listbox').getByRole('option')
     .filter({ has: page.locator('[data-result-label]', { hasText: overviewName(plugin) }) })
-    .first().getByRole('button').click();
+    .first().click();
   await dialog.waitFor({ state: 'detached' });
 }
 /** Open a capability (or a plugin's overview) from the palette's Capabilities tab. */
@@ -26,7 +26,7 @@ export async function openCapability(page, name) {
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).click();
   await dialog.getByRole('combobox', { name: 'Search capabilities…', exact: true }).fill(name);
-  await dialog.getByRole('listbox').getByRole('option').filter({ has: page.locator('[data-result-label]', { hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) }).first().getByRole('button').click();
+  await dialog.getByRole('listbox').getByRole('option').filter({ has: page.locator('[data-result-label]', { hasText: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }) }).first().click();
   await dialog.waitFor({ state: 'detached' });
 }
 export const openOverview = (page, plugin) => openCapability(page, overviewName(plugin));

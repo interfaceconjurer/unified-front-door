@@ -23,6 +23,13 @@ for (const override of [{ BASIC_AUTH_PASSWORD: "" }, { BASIC_AUTH_PASSWORD: "   
   assert.equal(result.status, 1, "Invalid configuration prevents process startup");
   assert(!result.stdout.includes("Ready"));
 }
+for (const mode of ["web", "worker"]) {
+  const env = { ...process.env, APP_ORIGIN: "http://public.example.test" };
+  delete env.NODE_ENV;
+  const result = spawnSync(process.execPath, ["--conditions=react-server", "scripts/start.mjs", mode], { env, encoding: "utf8", timeout: 10000 });
+  assert.equal(result.status, 1, `${mode} startup rejects public HTTP even when NODE_ENV is unset`);
+  assert.match(result.stderr, /Application startup refused/);
+}
 const port = await freePort(), brokenOrigin = `http://127.0.0.1:${port}`;
 const server = startProduction(port, { ...process.env, APP_ORIGIN: brokenOrigin, DATABASE_URL: "postgres://test:test@127.0.0.1:1/missing", DATABASE_URL_UNPOOLED: "postgres://test:test@127.0.0.1:1/missing" }, join(process.env.BROWSER_TEST_OUTPUT ?? ".release", "unavailable-database.log"), true);
 try {

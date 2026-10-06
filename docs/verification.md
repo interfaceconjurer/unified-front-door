@@ -8,7 +8,7 @@ The scheduler and browser inactivity suites run in the shared pure gate; durable
 queue checks extend the agent database suite. `idle-suspension` is registered in
 the shared browser registry used by PR shards and the full release gate.
 
-Use Node **22.23.2**, as declared in `.nvmrc` and `package.json`:
+Use Node **22.23.3**, as declared in `.nvmrc` and `package.json`:
 
 ```bash
 npm run test:persistence
@@ -35,10 +35,17 @@ npm run test:agent-database
 ```
 
 It exercises actual SQL commands, transactions, revisions, ownership, import,
-concurrency, and timeout recovery using fresh test namespaces. It cleans up those
-namespaces. Run migrations against that same intended target before testing;
-setting the test URL does not migrate it automatically. Local Postgres results are
-supplemental; the phase also requires this behavior verified against isolated Neon.
+concurrency, timeout recovery, and expired namespace retention using fresh test
+namespaces. The retention cases check the 720-hour boundary, concurrent renewal,
+worker leases, saved chats/projects, dispatch slots, global budget preservation,
+blocked-page cursors and interrupted progress. It cleans up those namespaces.
+The application and retention SQL suites run sequentially after migration so
+their fixtures cannot affect each other. Run migrations against that same
+intended target before testing;
+setting the test URL does not migrate it automatically. The earlier Phase 4
+lifecycle acceptance also has separate isolated Neon evidence. This PR's new
+retention SQL was verified on disposable PostgreSQL 17; hosted scheduler
+activation and Neon-specific retention execution have not been verified.
 Standalone database test entry points replace the inherited runtime direct URL
 with `DATABASE_TEST_URL_UNPOOLED`, or clear it when absent; they do not pair a
 test runtime URL with the main database's direct URL.
@@ -97,7 +104,8 @@ under `.release/http-production` and `.release/http-development`, or the specifi
 The shared gate in `scripts/verify-release.mjs` runs a locked `npm ci`, the
 dependency audit (blocking moderate, high, and critical advisories), all pure
 suites, lint, type generation/checking, web/worker
-production build, migration/status checks, both database suites, positive and
+production build, migration/status checks, the application, retention, agent and
+model database suites, positive and
 negative runtime smoke, browser regression/fault checks, two live-database browser
 journeys, worker crash/restart recovery, and the performance protocol. Tests that
 need server-only module conditions run separately from browser/SSR tests.
@@ -232,6 +240,7 @@ browser registry. Restored behaviors have these checks:
 | Project/worktree explorer drill-down and double-click, folders/search, keyboard file opening in scoped surfaces, return focus, saved `.project` context and work items, downloads, reload, deletion, narrow layout and no file writes | `project-explorer.mjs` | `project-explorer.test.mjs` (profile/branch isolation, inherited base files, portable context, identity, availability and mutation rejection); `model-context.test.mjs` (agent intent/evidence) |
 | Header changes beside the project selector, viewport-centered search/shortcut without overlap at 390–1920px: added `.project` files and line counts, file opening/reload, global unassigned drafts with the indicator hidden at zero and visible after editing, project-only scope, global-only tracking CTA, creation-first tracking and existing-project transfers removing global changes while rejecting existing targets, keyboard dismissal and narrow/light/dark layout | `workspace-changes.mjs` | `workspace-changes.test.mjs` (line diffs, current exports, empty drafts, profile/project/branch isolation, sample comparisons and restored source) |
 | Capabilities-default navigator with no All tab; six category searches, ranked matches, preserved ALM project-plan access in Projects with intact worktree trees and global/workspace scope, resource org/type filters, clear search and restricted profiles | `unified-search.mjs`, `interactions.mjs`, `org-resources.mjs` | `palette-search.test.mjs`, `navigation.test.mjs` |
+| Cross-project app and project-plan entries preserve the remembered worktree/selected org while displaying the canvas's captured org and project; Back/reload retain the original draft and conversation, and Home inspection remains global. The palette combobox points to one interactive option per result, and Home exposes one main landmark. | `cross-project-accessibility.mjs` (also exercises affected palette and workbench behavior in `unified-search.mjs`, `interactions.mjs`, `plugin-workbench.mjs`) | `navigation.test.mjs`, `plugins.test.mjs` |
 | Build & Setup org browsers: objects, permissions and features; explicit org, captured tabs, global/project scope, browsing without draft writes, all profiles and narrow/light layout | `org-setup.mjs`, `org-resources.mjs` | `org-resources.test.mjs` |
 | Account field additions with label/API name/type, duplicate validation and removal; modified object file in global changes, hidden at zero, editor/reload/org isolation, project creation with atomic transfers retaining org and removing global originals; no transfer-summary or draft-copy panels on creation; preventing overwrite | `object-field-changes.mjs` | `object-fields.test.mjs` and `change-transfer.test.mjs` (command boundary, object diffs, scope isolation, batch preflight and receipt recovery); `database.test.mjs` (merged validation, copying, atomic transfers/creation, stale edits and replay) |
 | Independent Home/project/worktree tab sets and active tabs; reload/close isolation, legacy preference migration, explicit global inspection with shared draft ownership; returning to a project retains the exact saved chat reading anchor while the workbench narrows the chat | `workspace-tabs.mjs`, `global-home.mjs`, `project-surface-scope.mjs` | `navigation.test.mjs`, `client-reliability.test.mjs` |

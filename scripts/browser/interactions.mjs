@@ -56,7 +56,7 @@ try {
                 await dialog.getByRole('tab', { name: 'Capabilities', exact: true }).focus();
             }
             else if (kind === 'result') {
-                await dialog.getByRole('listbox').getByRole('option').first().getByRole('button').focus();
+                await dialog.getByRole('listbox').getByRole('option').first().focus();
             }
             else
                 await dialog.locator('input').focus();
@@ -98,7 +98,7 @@ try {
         out.checks.push(motion + ': backdrop dismiss restores trigger');
         await trigger.click();
         await dialog.waitFor();
-        await dialog.getByRole('button', { name: /^Code overview/ }).click();
+        await dialog.getByRole('option', { name: /^Code overview/ }).click();
         await dialog.waitFor({ state: 'detached' });
         await page.waitForURL('**/code?**');
         assert.deepEqual(JSON.parse(new URL(page.url()).searchParams.get('destination')).target, target, 'Surface selection preserves the workspace');

@@ -7,12 +7,20 @@ import { testModules } from "./test-modules.mjs";
 import { REQUIRED_CHECKS, runVerificationStages, validateVerification } from "./release-contract.mjs";
 import targets from "../src/lib/server/database-target.js";
 const modules = testModules(); after(modules.cleanup);
-const { basicAuth, validateRuntimeConfiguration } = modules.load("lib/server/configuration");
+const { applicationOrigin, basicAuth, validateRuntimeConfiguration } = modules.load("lib/server/configuration");
 const { checkDatabaseSchema, probeDatabaseSchema, migrationManifest } = modules.load("lib/server/readiness");
 const { runTransaction, transaction, databasePool } = modules.load("lib/db");
 const diagnostics = modules.load("lib/server/diagnostics");
 const { responseError } = modules.load("lib/server/http"), { ApplicationError } = modules.load("lib/application/contracts");
 const valid = { NODE_ENV: "production", BASIC_AUTH_PASSWORD: "test-password", APP_ORIGIN: "http://localhost:3000", DATABASE_URL: "postgres://test:fake@localhost:5432/app" };
+
+test("production origin requires HTTPS except literal loopback HTTP hosts", () => {
+  for (const origin of ["https://app.example.com", "https://app.example.com:8443", "http://localhost", "http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"])
+    assert.doesNotThrow(() => applicationOrigin({ ...valid, APP_ORIGIN: origin }), origin);
+  for (const origin of ["http://app.example.com", "http://192.168.1.2:3000", "http://localhost.evil.test", "http://localhost.", "http://127.1:3000", "http://0x7f000001:3000", "HTTP://localhost:3000"])
+    assert.throws(() => applicationOrigin({ ...valid, APP_ORIGIN: origin }), error => error.status === 503, origin);
+  assert.equal(applicationOrigin({ ...valid, NODE_ENV: "development", APP_ORIGIN: "http://app.example.com" }), "http://app.example.com");
+});
 
 test("development loopback aliases accept only the actual browser host and configured port; production keeps one exact origin", () => {
   const { assertSameOrigin } = modules.load("lib/server/http");
@@ -42,7 +50,7 @@ test("direct/runtime targets match host, port and database while allowing separa
   for (const query of ["host=other", "port=7777", "database=other", "dbname=other", "service=other", "user=other", "options=-c%20search_path=other", "search_path=other", "schema=other"]) assert.throws(() => targets.databaseTarget(valid.DATABASE_URL + "?" + query));
 });
 test("readiness rejects unknown, missing and altered migration history and probes required columns read-only", async () => {
-  const manifest = await migrationManifest(); assert.equal(manifest.length, 9);
+  const manifest = await migrationManifest(); assert.equal(manifest.length, 10);
   const calls = [], client = { query: async text => { calls.push(text); return { rows: text.includes("schema_migrations") ? manifest : [] }; } };
   await checkDatabaseSchema(client, manifest); assert.equal(calls[0], "SET TRANSACTION READ ONLY"); assert(calls.some(sql => sql.includes("effect_state") && sql.includes("LIMIT 0")));
   for (const rows of [manifest.slice(1), [...manifest, { name: "999_extra.sql", checksum: "x" }], manifest.map((row, i) => i ? row : { ...row, checksum: "changed" })]) await assert.rejects(checkDatabaseSchema({ query: async () => ({ rows }) }, manifest), /schema version/);
@@ -160,7 +168,7 @@ test("every failed verification stage prevents completion and release evidence",
 });
 test("release attestation requires every gate and matches exact source/lock/revision with fresh Node22 proof", () => {
   const expected = { revision: "a".repeat(40), treeSha: "b".repeat(40), lockSha256: "c".repeat(64), sourceSha256: "d".repeat(64) };
-  const proof = { version: 1, ...expected, nodeVersion: "22.23.2", buildId: "actual-build", completedAt: new Date().toISOString(), verified: true, releasable: true, checks: [...REQUIRED_CHECKS] };
+  const proof = { version: 1, ...expected, nodeVersion: "22.23.3", buildId: "actual-build", completedAt: new Date().toISOString(), verified: true, releasable: true, checks: [...REQUIRED_CHECKS] };
   assert.equal(validateVerification(proof, expected), proof);
   for (const patch of [{ checks: REQUIRED_CHECKS.slice(1) }, { verified: false }, { releasable: false }, { revision: "f".repeat(40) }, { nodeVersion: "22.99.0" }, { completedAt: "2020-01-01T00:00:00Z" }, { sourceSha256: null }]) assert.throws(() => validateVerification({ ...proof, ...patch }, expected));
 });

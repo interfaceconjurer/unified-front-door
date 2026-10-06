@@ -27,7 +27,7 @@ async function project(page, name) {
   await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('tab', { name: 'Projects', exact: true }).click();
-  await dialog.getByRole('option').filter({ has: page.getByText(name, { exact: true }) }).getByRole('button').click();
+  await dialog.getByRole('option').filter({ has: page.getByText(name, { exact: true }) }).click();
   await dialog.waitFor({ state: 'detached' });
 }
 try {

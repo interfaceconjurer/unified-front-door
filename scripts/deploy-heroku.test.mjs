@@ -14,7 +14,7 @@ function fixture() {
   const expected = { revision: "a".repeat(40), treeSha: "b".repeat(40), lockSha256: "c".repeat(64),
     sourceSha256: createHash("sha256").update(source).digest("hex") };
   const manifest = { version: 1, ...expected, verified: true, releasable: true,
-    nodeVersion: "22.23.2", completedAt: new Date().toISOString(), buildId: "local-build", checks: [...REQUIRED_CHECKS] };
+    nodeVersion: "22.23.3", completedAt: new Date().toISOString(), buildId: "local-build", checks: [...REQUIRED_CHECKS] };
   return { source, manifest, expected, app: "example", token: secret, username: "guest", password: secret, origin };
 }
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });

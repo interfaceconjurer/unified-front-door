@@ -300,7 +300,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               pushing it off the right edge. */}
           <div className={styles.workspaceMotion} data-workspace-motion>
             <div className={styles.split}>
-              <div className={`${styles.chatColumn} ${shownSurfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !shownSurfaceOpen} data-workspace-motion>
+              <div role={shownSurfaceOpen ? "region" : "main"} aria-label={shownSurfaceOpen ? "Agent conversation" : isFrontDoor ? "Home" : "Agent conversation"}
+                className={`${styles.chatColumn} ${shownSurfaceOpen ? "" : styles.chatColumnFull}`} data-chat-only={!panelOpen && !shownSurfaceOpen} data-workspace-motion>
                 {/* Keep the agent, its conversation state, and its composer mounted
                     across the home/surface boundary, including Today cards. */}
                 <div className={styles.chatInner}>

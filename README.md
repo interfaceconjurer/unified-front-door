@@ -18,7 +18,7 @@ projects, and working with a persistent agent across Build & Setup and ALM.
 
 ## Run locally
 
-Use **Node 22.23.2** (see [.nvmrc](.nvmrc)). If `.env.local` does not exist,
+Use **Node 22.23.3** (see [.nvmrc](.nvmrc)). If `.env.local` does not exist,
 copy [.env.example](.env.example) to it. Keep it private (`chmod 600 .env.local`)
 and configure:
 
@@ -66,8 +66,10 @@ for startup details and optional Anthropic configuration.
 | [Agentic harness design study](docs/design/agent-harness-prototype.md) | Interactive conversation, working set, workbench, and plugin model prototype |
 | [Product behavior](docs/product-behavior.md) | Demo walkthrough, navigation, saved data, sessions, recovery |
 | [Agent runtime](docs/agent-runtime.md) | Conversations, workers, retries, optional Anthropic reasoning |
-| [Database and operations](docs/operations.md) | Configuration, migrations, deployment, rollback, capacity limits |
+| [Database and operations](docs/operations.md) | Configuration, migrations, demo retention, deployment, rollback, capacity limits |
 | [Verification](docs/verification.md) | Test suites, browser checks, complete release gate |
+| [Current architecture audit](docs/modernization-audit-2026-10-06.md) | October 2026 findings, strengths, dependency snapshot, evidence limits |
+| [Modernization plan](docs/modernization-plan-2026-10-06.md) | Current PR acceptance and measured future decisions |
 | [Implementation history](docs/implementation-history.md) | Phase summaries and links to original evidence |
 
 The [architecture plan](docs/architecture-plan.md) records the implementation
