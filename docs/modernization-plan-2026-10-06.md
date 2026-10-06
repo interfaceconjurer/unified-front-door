@@ -54,7 +54,7 @@ Keep the existing product and its scoped, durable architecture. Repair concrete 
 
 ## Review loop record
 
-The first logical commit, `02666ca` (`fix: require HTTPS for public production origin`), superseded an unpushed earlier candidate. That candidate passed 16/16 focused operations tests, but the reviewer found that `scripts/start.mjs` validated configuration before setting the effective production mode, so startup could bypass the guard when `NODE_ENV` was absent. The initial slice approval was withdrawn. After the correction and added runtime checks, the reviewer independently confirmed that web and worker startup both exit before spawning with an unset parent `NODE_ENV`, and **reapproved A4**. Full runtime smoke subsequently passed; its first invocation failed because the chosen temporary output directory did not yet exist. The full PR review remains pending.
+The first logical commit, `02666ca` (`fix: require HTTPS for public production origin`), superseded an unpushed earlier candidate. That candidate passed 16/16 focused operations tests, but the reviewer found that `scripts/start.mjs` validated configuration before setting the effective production mode, so startup could bypass the guard when `NODE_ENV` was absent. The initial slice approval was withdrawn. After the correction and added runtime checks, the reviewer independently confirmed that web and worker startup both exit before spawning with an unset parent `NODE_ENV`, and **reapproved A4**. Full runtime smoke subsequently passed; its first invocation failed because the chosen temporary output directory did not yet exist. The final PR review outcome is recorded below.
 
 The reviewer approved A1–A3 on commit `97f4ded` after the new registered
 cross-project suite passed three checks. An existing Home motion suite then
@@ -75,15 +75,20 @@ Commit `33481fb` updates Node 22.23.3, React/React DOM 19.3.0, `pg` 8.23.1,
 and matching React/Node type packages. The reviewer approved its source and
 lockfile diff. Clean install, dependency audit, lint, typecheck, production
 build, 28 focused tests and 32 serial PostgreSQL tests passed on exact Node
-22.23.3. A7 and final A6 approval await the full exact-revision gate.
+22.23.3. The complete exact-revision gate later passed all 14 required stages
+at `348156551884a50a2154424b70f185d580eba49f`, including all 48 registered
+browser suites and browser performance. The independent reviewer gave **100%
+approval for A1–A7** at that revision, with no open findings. Hosted retention
+activation and P2/P3 decisions remain outside this PR scope.
 
 ## Current-main feature retention review
 
 `origin/main` was fetched again on October 6 and remains
 `666793ebd5375dd5bae0bf1bafd863d2430cf088`. The final content diff is
-43 files with **no deleted file or test**. The table records affected behavior
-against that fetched tree; the exact-version gate will verify the final source
-revision after the documentation commit.
+43 files with **no deleted file or test** at the reviewed implementation revision.
+The table records affected behavior against that fetched tree; the exact-version
+gate passed after the feature-retention documentation commit. This later
+documentation correction does not alter product code or checks.
 
 | Affected behavior | Disposition against current main | Verification |
 | --- | --- | --- |
@@ -92,7 +97,7 @@ revision after the documentation commit.
 | Palette keyboard, mouse, tabs and dialog close; Home layout and motion | Adapted listbox option semantics and exposed Home main landmark; result locators updated without removing checks. | `cross-project-accessibility.mjs`, `unified-search.mjs`, `interactions.mjs`, `global-home.mjs`, `chat-layout.mjs` and the full 48-suite pre-refresh run. |
 | Production web/worker startup, Basic Auth, local development | Retained with a public-origin HTTPS guard; loopback HTTP remains available for local work. | Operations tests and production runtime smoke, including unset parent `NODE_ENV`. |
 | Session, workspace, chat/project persistence and worker/model accounting | Retained while adding the user-selected 720-hour deletion eligibility; active leases and later sessions prevent cleanup, and global reservations survive. | Nine isolated retention SQL tests, 32 serial application/retention tests after the driver refresh, CLI smoke, existing database/agent suites in the final gate. |
-| Node/React/driver/toolchain and release checks | Retained with compatible pins and matching types; SQL suites now run after migrations in the shared gate. | Clean install, type/build/audit/focused checks on Node 22.23.3; full exact-revision gate pending. |
+| Node/React/driver/toolchain and release checks | Retained with compatible pins and matching types; SQL suites now run after migrations in the shared gate. | Clean install, type/build/audit/focused checks on Node 22.23.3; complete 14-stage exact-revision gate passed at `348156551884a50a2154424b70f185d580eba49f`. |
 
 No feature or test is intentionally removed. Remaining measured scaling and
 larger toolchain decisions are recorded above; they are not inferred feature

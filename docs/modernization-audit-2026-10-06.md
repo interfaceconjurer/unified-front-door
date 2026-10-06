@@ -37,8 +37,9 @@ production-origin fixes now have focused checks and a passing 48-suite browser
 run from before the dependency refresh. F6 was a confirmed absence and a new
 product policy, not an observed outage. The reviewed retention CLI, migration,
 and isolated PostgreSQL tests implement its 720-hour grace period; hosted
-scheduling is still an operator action. The final exact-version release gate
-remains the closing verification step.
+scheduling is still an operator action. The complete exact-revision release gate
+passed all 14 required stages at `348156551884a50a2154424b70f185d580eba49f`,
+including all 48 registered browser suites and isolated PostgreSQL 17 checks.
 
 ## Scaling risks and maintainability candidates
 
@@ -57,7 +58,7 @@ These are reasons to measure or make an explicit choice; they are not claims of 
 
 The lockfile at this review pins Next.js 16.3.8, React/React DOM 19.2.4, TypeScript 5.9.3, Playwright 1.63.0, PostgreSQL driver `pg` 8.23.0, SLDS 2.0.2, and ESLint 9.39.4. The app pins Node 22.23.2 in `.nvmrc` and `package.json`. [Next.js's September security release](https://nextjs.org/blog/september-2026-security-release) identifies 16.3.8 as the Active LTS patched line. The [React 19.3 release](https://react.dev/blog/2026/09/09/react-19-3), [Node 22.23.3 release](https://nodejs.org/en/blog/release/v22.23.3), and [TypeScript 6.0 notes](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html) show candidates newer than the locked versions. Playwright's [release notes](https://playwright.dev/docs/release-notes) describe the pinned 1.63 line. This is a dated comparison, not a claim that each dependency is on its latest published patch.
 
-`npm audit --omit=dev --json` reported zero production advisories on October 6. Full `npm audit --json` reported five high entries along one development-only ESLint chain rooted in `braces@3.0.3`; the gate's existing narrow exception is documented in [Verification](verification.md). A later registry check using an isolated writable npm cache confirmed Next 16.3.8 and Playwright 1.63.0 as current and identified compatible updates. Commit `33481fb` pins Node 22.23.3, React/React DOM 19.3.0, `pg` 8.23.1, and matching React/Node types; clean install, lint, types, build, audit and serial database tests passed on that candidate. TypeScript 7 conflicts with the installed TypeScript ESLint peer range, and the available SLDS jump changes a large stylesheet surface, so those need separate compatibility and visual review. The exact-version full gate is still pending.
+`npm audit --omit=dev --json` reported zero production advisories on October 6. Full `npm audit --json` reported five high entries along one development-only ESLint chain rooted in `braces@3.0.3`; the gate's existing narrow exception is documented in [Verification](verification.md). A later registry check using an isolated writable npm cache confirmed Next 16.3.8 and Playwright 1.63.0 as current and identified compatible updates. Commit `33481fb` pins Node 22.23.3, React/React DOM 19.3.0, `pg` 8.23.1, and matching React/Node types; clean install, lint, types, build, audit and serial database tests passed on that candidate. TypeScript 7 conflicts with the installed TypeScript ESLint peer range, and the available SLDS jump changes a large stylesheet surface, so those need separate compatibility and visual review. The complete exact-revision gate passed on the resulting implementation snapshot at `348156551884a50a2154424b70f185d580eba49f`.
 
 ## Evidence boundary
 
