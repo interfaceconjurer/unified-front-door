@@ -7,12 +7,20 @@ import { testModules } from "./test-modules.mjs";
 import { REQUIRED_CHECKS, runVerificationStages, validateVerification } from "./release-contract.mjs";
 import targets from "../src/lib/server/database-target.js";
 const modules = testModules(); after(modules.cleanup);
-const { basicAuth, validateRuntimeConfiguration } = modules.load("lib/server/configuration");
+const { applicationOrigin, basicAuth, validateRuntimeConfiguration } = modules.load("lib/server/configuration");
 const { checkDatabaseSchema, probeDatabaseSchema, migrationManifest } = modules.load("lib/server/readiness");
 const { runTransaction, transaction, databasePool } = modules.load("lib/db");
 const diagnostics = modules.load("lib/server/diagnostics");
 const { responseError } = modules.load("lib/server/http"), { ApplicationError } = modules.load("lib/application/contracts");
 const valid = { NODE_ENV: "production", BASIC_AUTH_PASSWORD: "test-password", APP_ORIGIN: "http://localhost:3000", DATABASE_URL: "postgres://test:fake@localhost:5432/app" };
+
+test("production origin requires HTTPS except literal loopback HTTP hosts", () => {
+  for (const origin of ["https://app.example.com", "https://app.example.com:8443", "http://localhost", "http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"])
+    assert.doesNotThrow(() => applicationOrigin({ ...valid, APP_ORIGIN: origin }), origin);
+  for (const origin of ["http://app.example.com", "http://192.168.1.2:3000", "http://localhost.evil.test", "http://localhost.", "http://127.1:3000", "http://0x7f000001:3000", "HTTP://localhost:3000"])
+    assert.throws(() => applicationOrigin({ ...valid, APP_ORIGIN: origin }), error => error.status === 503, origin);
+  assert.equal(applicationOrigin({ ...valid, NODE_ENV: "development", APP_ORIGIN: "http://app.example.com" }), "http://app.example.com");
+});
 
 test("development loopback aliases accept only the actual browser host and configured port; production keeps one exact origin", () => {
   const { assertSameOrigin } = modules.load("lib/server/http");

@@ -11,6 +11,11 @@ export function applicationOrigin(env: Record<string, string | undefined> = proc
   const value = env.APP_ORIGIN ?? (env.NODE_ENV === "production" ? "" : "http://localhost:3000");
   let parsed: URL; try { parsed = new URL(value); } catch { throw new ApplicationError("unavailable", "Set APP_ORIGIN to the application's public HTTP or HTTPS origin.", 503); }
   if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) throw new ApplicationError("unavailable", "APP_ORIGIN must be one HTTP or HTTPS origin without a path.", 503);
+  // URL parsing canonicalizes aliases such as 127.1 into 127.0.0.1. Only the
+  // literal loopback hosts may use HTTP in production; public origins use TLS.
+  if (env.NODE_ENV === "production" && parsed.protocol === "http:"
+    && !/^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::[0-9]+)?\/?$/.test(value))
+    throw new ApplicationError("unavailable", "Production APP_ORIGIN must use HTTPS or an exact loopback HTTP origin.", 503);
   return parsed.origin;
 }
 

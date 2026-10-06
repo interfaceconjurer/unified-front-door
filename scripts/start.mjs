@@ -5,10 +5,11 @@ const mode = process.argv[2];
 try {
   if (!["web", "dev", "worker"].includes(mode)) throw new Error("Invalid process mode");
   if (process.versions.node !== "22.23.2") throw new Error("Use Node 22.23.2");
+  const env = { ...process.env, NODE_ENV: mode === "dev" ? "development" : "production" };
   const { validateRuntimeConfiguration } = require("../.worker/lib/server/configuration.js");
-  validateRuntimeConfiguration();
+  validateRuntimeConfiguration(env);
   const args = mode === "worker" ? ["--conditions=react-server", ".worker/worker.js"] : ["scripts/web.mjs", ...(mode === "dev" ? ["--dev"] : []), ...process.argv.slice(3)];
-  const child = spawn(process.execPath, args, { stdio: "inherit", env: { ...process.env, ...(mode === "worker" ? {} : { NODE_ENV: mode === "dev" ? "development" : "production" }) } });
+  const child = spawn(process.execPath, args, { stdio: "inherit", env });
   let deadline;
   for (const signal of ["SIGTERM", "SIGINT"]) process.on(signal, () => {
     child.kill(signal);
